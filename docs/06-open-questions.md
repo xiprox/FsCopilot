@@ -64,7 +64,9 @@ graphics settings. Low risk — normalising is free insurance either way.
 ## Gate C — how far does it reach?
 
 ### Q05 · Does `WasmInstrument.html` route DOM input into the WASM module?
-**Status:** open · **Probe:** `probes/p01-wasm-shell.js` *(written, not run)*
+**Status:** CLOSED, negative · **Probes:** `p01`, `p06`, `p07` · **Answered by** "Same-tick injection loses too" in [build/log.md](build/log.md)
+
+It routes the events but not the targeting. Hover belongs to the sim.
 
 Three outcomes and what each means are in [03-scope](03-scope.md). The short version: this one
 question is the difference between fixing two aircraft and fixing five.

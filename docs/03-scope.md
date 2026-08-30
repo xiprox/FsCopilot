@@ -4,6 +4,13 @@
     Depends on: 01-problem, 02-approach
     Decides:    the surface taxonomy, and which questions gate which aircraft
 
+> **Amended by the build.** The WASM row is settled and it is **unreachable**.
+> The module's hover is owned by the simulator's cockpit raycast against the
+> physical cursor; injected `WASM_MOUSE_MOVE` never writes it, and
+> `WASM_MOUSE_DOWN` presses the current hover regardless of the coordinates it
+> carries. Three timings were tried, including same-tick. See "Same-tick
+> injection loses too" in [build/log.md](build/log.md).
+
 The single most useful thing to know about this project is that "does it work in aircraft X"
 is not one question. There are five kinds of surface, they fail for different reasons, and
 pointer forwarding reaches three of them outright, one conditionally, and one not at all.
@@ -16,7 +23,7 @@ pointer forwarding reaches three of them outright, one conditionally, and one no
 | React over HTML DOM | fragile | expected to work | Q01, Q03 |
 | React over SVG | dead | expected to work | Q01, Q03 |
 | Canvas | dead | expected to work | Q01, Q03 |
-| WASM gauge | dead | **unknown** | Q05 |
+| WASM gauge | dead | **unreachable** | Q05 — closed, negative |
 | External-app iframe | dead | **unknown** | Q06 |
 | Toolbar / in-game panels | dead | dead | never reach `VCockpitPanel` |
 

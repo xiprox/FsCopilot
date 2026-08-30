@@ -1,0 +1,6 @@
+page 35  VCockpit06 - WasmInstrument
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p07-wasm-hover.js   settle 600ms
+2026-08-30T10:59:12.999Z
+========================================================================
+[P07] ready on guid=94 (mfd). Try __P07.show(x, y)

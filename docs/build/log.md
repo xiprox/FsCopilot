@@ -36,6 +36,65 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 — Same-tick injection loses too: the sim owns hover absolutely
+
+    Question:  Q05 — CLOSED, negative. WASM gauges cannot be driven by injecting
+               DOM mouse events.
+    Stage:     2
+    Expected:  The last surviving hypothesis: that the sim re-raycasts the cockpit
+               every frame and overwrites the module's hover, so an injected move
+               survives ~16ms. If so, dispatching the move and the press in one JS
+               tick with no yield should land before the overwrite.
+    Found:     It does not. With the real cursor held on IRS at (240,683), a
+               same-tick sequence — four moves converging on NAVAIDS at (207,803),
+               then mousedown, mouseup and click, all synchronous, `hover:0`
+               `hold:0` — produced exactly the forwarded calls we expect:
+
+                 MOUSE_OVER(67,693)  MOUSE_ENTER()  MOUSE_MOVE(102,721)
+                 MOUSE_MOVE(137,748) MOUSE_MOVE(172,776) MOUSE_MOVE(207,803)
+                 MOUSE_DOWN(207,803) MOUSE_UP(207,803) CLICK(207,803)
+
+               **IRS opened.** 120 pixels from where every one of those events
+               said to press.
+
+               So it is not a race and not a timing window. WASM_MOUSE_MOVE does
+               not write the module's hover under any timing, and the coordinates
+               on WASM_MOUSE_DOWN are not consulted. Hover is established
+               exclusively by the simulator's own cockpit raycast against the
+               physical cursor, and the Coherent WASM_MOUSE_* channel only says
+               "a button went down" against whatever that raycast currently says.
+    Changed:   **Q05 closed. The WASM row of 03-scope is unreachable, permanently,
+               by any DOM-level scheme.** A350, A400M, PMDG and every other
+               WasmInstrument display are out of range for pointer forwarding.
+
+               This is not a partial or a "needs more work" result. Three
+               independent attempts — bare click, realistic trail with a 400ms
+               dwell, same-tick with no dwell — all pressed the local pilot's
+               hover instead of the target. The mechanism is understood and it
+               excludes us.
+
+               What is NOT excluded, and is now the only avenue for this surface:
+               something that writes the sim's own cursor or hover state. All
+               known candidates (`ShowVirtualMouse`, `Coherent.on("OnMouseEnter",
+               _target,_x,_y)`, the Raycast channel) are sim-to-JS. Whether any
+               accepts traffic in the other direction is unanswered, and it is a
+               different question from this one — it belongs to the sim's input
+               system, not to the DOM.
+
+               Practical consequence for FS Copilot today, worth carrying back:
+               its existing replay on a WasmInstrument panel presses whatever the
+               *receiving* pilot is hovering. Adding `ignore: WasmInstrument` to
+               affected profiles is a real safety improvement independent of this
+               project, and PMDG's profile already does it.
+    Affects:   03-scope (WASM row -> unreachable), 02-approach (coordinate-selects-
+               target is false on this surface), 01-problem (the "nothing behind
+               the name" mechanism is wrong in both directions)
+    Evidence:  results/p07-wasm-hover-vcockpit06-wasminstrument-*.txt; the
+               distinguishing observation is which page opened, reported from the
+               cockpit.
+
+---
+
 ## 2026-08-30 — A probe that wraps a sim API disabled the aircraft, and could not be undone
 
     Question:  none — an operational lesson
