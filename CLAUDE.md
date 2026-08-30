@@ -67,6 +67,20 @@ returns to stock.
 is FS Copilot's, and never `FSCEDITOR_`, which is fsc-editor's. All three packages live in the
 same Community folder and share the same buses.
 
+## Injected code is Chrome 49
+
+Coherent GT is `Chrome/49.0.2623`. **Read [docs/09-environment.md](docs/09-environment.md)
+before writing anything that runs inside a panel.** The traps are syntax-level, so they take
+out a whole file rather than one line: no optional chaining, no `??`, no class fields, no
+`Object.fromEntries`, no `Array.at`, no `String.replaceAll`, no `Promise.allSettled`.
+
+`const`, arrow functions, template literals, destructuring, spread, `async`/`await` and
+`class` without fields are all fine.
+
+Do not guess at what the simulator provides. `npm run sources` reads MSFS's own JavaScript
+out of the running engine, and `probes/p08-environment.js` re-audits the environment after a
+simulator update.
+
 ## Probes
 
 One file per question, numbered `pNN`, named after what it settles. `.mjs` runs under Node
