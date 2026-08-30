@@ -12,20 +12,31 @@
                 on there being no second machine. A remote tester needs the
                 Community package and the host, and nothing else.
 
-                **IN FLIGHT: drag gestures, implemented and not working.** Agent
-                v5 adds drag capture and replay; drags are not detected in the
-                cockpit and the cause is unknown. See the top of log.md - the
-                diagnostic is written out there and needs no new code. Treat drag
-                as broken until it runs.
+                **IN FLIGHT: drag gestures, implemented and UNTESTED.** Agent v5
+                adds drag capture and replay. An earlier cockpit test appeared to
+                show drags going undetected; that result has been withdrawn - the
+                panel was running v4 because `module:build` had never been run, so
+                the installed package contained no drag code at all. See the top
+                of log.md.
 
-                **UNCOMMITTED WORK.** A tooling fault blocked git for the last
-                stretch of the session, so the working tree is ahead of the last
-                commit (`1e06b6c`). Uncommitted: the drag implementation in
-                agent.js and host/server.mjs, the DevMode-off log entry, the
-                04-transport pointer line, the rewritten cold-start block in
-                docs/index.md, and 01-06 -> 01-10 corrections. Nothing is lost;
-                it just needs `git add -A && git commit`. Run `git status` before
-                assuming anything about what is or is not saved.
+                v5 **is now installed and verified** against source. MSFS needs a
+                restart to pick it up. Nothing is known about whether drag works;
+                it has still never run.
+
+                Next session, in order:
+                1. Restart MSFS, get into the A220, select DisplayUnits.
+                2. `npm run eval -- <page> "window.FSCPP.version"` - confirm 5
+                   before believing anything else. This check is cheap and it has
+                   already cost one session for want of running it.
+                3. Start `npm run host`, drag on the panel, see whether drag
+                   messages arrive.
+                4. If they do not: `npm run probe -- <page> p09-drag-delivery.js`,
+                   drag several times, then `npm run eval -- <page>
+                   "__P09.report()"`. It settles whether MSFS delivers mousemove
+                   under a held button - the one failure that would kill the
+                   feature outright - and replays v5's classifier over the real
+                   gestures, so a threshold fault and a delivery fault are told
+                   apart in one pass without a second sim cycle.
     Supersedes: nothing
     Log:        log.md
 

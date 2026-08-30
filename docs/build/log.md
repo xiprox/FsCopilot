@@ -36,7 +36,68 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - The drag negative result was void: v5 was never installed
+
+    Question:  retracts the previous entry's finding. Drag is untested, not
+               broken.
+    Stage:     gestures, after stage 5
+    Expected:  That the cause of "drags are not detected" was one of the four
+               hypotheses listed in the entry below, with (1) - MSFS not
+               delivering mousemove while a button is held - being the one that
+               would kill the feature.
+    Found:     It was hypothesis 2, in a stronger form than that entry guessed.
+               The entry supposed the panel might still be running agent v4
+               because a reload had not happened. In fact **v4 was all there was
+               to run**: `npm run module:build` was never executed after agent.js
+               was written, so the Community package on disk still contained
+               `var VERSION = 4`. No panel reload could have helped.
+
+               Two independent confirmations, taken before the sim was closed:
+
+               - The live panel reported `{version: 4}` via
+                 `npm run eval -- 23 "window.FSCPP.version"`.
+               - `diff` of the installed
+                 `Community/fscpp-bridge/html_ui/FSCPP/agent.js` against
+                 `module/PackageSources/html_ui/FSCPP/agent.js` showed the entire
+                 v5 delta missing - `onMove`, `replayDrag`, the `DRAG_*`
+                 constants, the `replaying` counter, and the
+                 `listen(document, "mousemove", onMove)` line.
+
+               So the cockpit test exercised a build with no drag capture in it
+               at all. It could not have produced a drag message under any
+               circumstances, and it says nothing whatever about whether MSFS
+               delivers mousemove under a held button.
+    Changed:   **The previous entry's finding is withdrawn.** Drag is unverified,
+               which is a weaker and better position than "probably broken".
+               Q-drag stays open and untouched.
+
+               v5 is now installed and verified byte-identical to source; the
+               build was clean, `module:check` reported no `fscopilot-bridge`
+               conflict, and `derive-vcockpit` reproduced its output exactly
+               (empty `git diff`), so nothing else moved with it. MSFS needs a
+               restart before it is picked up, because layout.json is read at
+               startup.
+
+               The lesson is the same shape as the console-dedup one two entries
+               down, and that is twice now: **a defect in the scaffolding
+               presented as a defect in the mechanism.** Both times a round of
+               reasoning was spent on the mechanism while the harness was the
+               thing at fault. The cheap guard is to make the build state
+               falsifiable before drawing any conclusion from a cockpit test -
+               `window.FSCPP.version` is one eval and it would have ended the
+               previous session in seconds rather than leaving a wrong finding
+               in the log overnight.
+    Affects:   none - it withdraws a log entry, not a design doc
+    Evidence:  none saved; both checks are one-liners reproduced above
+
+---
+
 ## 2026-08-30 - Drag is implemented and does NOT work; diagnosis not started
+
+> **Withdrawn by the entry above.** The panel was running agent v4 because v5 was
+> never installed, so this test could not have detected a drag. The four
+> hypotheses below are superseded; only the diagnostic they describe is still
+> worth keeping, and it now exists as `probes/p09-drag-delivery.js`.
 
     Question:  none yet - this is where the next session starts
     Stage:     gestures, after stage 5
