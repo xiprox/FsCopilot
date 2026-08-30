@@ -36,7 +36,81 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 — A WASM gauge presses whatever the REAL cursor hovers, ignoring the coordinates we send
+
+    Question:  Q05 — the optimism below is wrong. Coordinate injection does not
+               drive a WASM gauge.
+    Stage:     2
+    Expected:  That WASM_MOUSE_MOVE at (x,y) would set the module's hover, and a
+               following WASM_MOUSE_DOWN would press whatever is there — the
+               mechanism a real mouse appears to use.
+    Found:     Observed directly, and the observation is unambiguous.
+
+               Immediately before a replay, the real cursor was parked hovering
+               the **IRS** button, without clicking. The replay sent a full move
+               trail converging on (238,87) — a different control — a 400ms
+               dwell, then down/up/click. **The IRS page opened.** Not the
+               control at (238,87). The one the real cursor was over.
+
+               The second replay, at (269,69), did nothing at all: after the page
+               changed, the real cursor was over empty space, so there was no
+               hover for the press to land on. Our move trail did not create one.
+
+               Then the decisive part: the injected click had not been discarded.
+               When the real cursor was moved onto the **RETURN** button, that
+               button fired immediately, with no new click from us. The press we
+               injected was latched, waiting for a hover to resolve against.
+
+               So the module maintains one "currently hovered control", it is
+               driven by the simulator's own cockpit raycast against the real
+               cursor, and WASM_MOUSE_MOVE does not write to it. WASM_MOUSE_DOWN
+               and WASM_CLICK are honoured — they mean "press the current hover"
+               — but the coordinates they carry are ignored.
+    Changed:   **The WASM row of 03-scope goes back to unreachable, for a new and
+               much more specific reason.** It is not that events fail to arrive;
+               they arrive and are acted on. It is that the coordinate carried by
+               the event is not what selects the control, and the thing that does
+               select it is owned by the sim's input system, keyed to a physical
+               cursor that on the peer's machine is somewhere else entirely.
+
+               Worse than a no-op: injecting a click into a WASM gauge presses
+               whatever the local pilot happens to be hovering. A sync built this
+               way would fire the wrong control on the receiving machine, which is
+               strictly more harmful than doing nothing. The latching behaviour
+               makes it worse again — a press can sit pending and fire later, on
+               whatever the pilot's cursor next touches.
+
+               Note this also revises the (0,0) reading in the entry below. FS
+               Copilot's coordinate-less replay is not landing at the corner of
+               the screen; it is pressing whatever the receiving pilot is hovering
+               at that moment. The bug is worse than described, not milder.
+
+               What remains open is whether any channel writes hover. WASM_MOUSE_MOVE
+               does not. Candidates worth enumerating before declaring this dead:
+               the virtual-mouse path (VCockpit.js `ShowVirtualMouse`,
+               `Coherent.on("OnMouseEnter", _target, _x, _y)`), and whatever
+               drives the cockpit raycast. All of them are sim-to-JS today; the
+               question is whether any accepts traffic in the other direction.
+
+               One long shot untested: every injected move here was followed by a
+               dwell of 250-400ms. If the sim re-raycasts and rewrites hover every
+               frame, an injected move would be overwritten within ~16ms. A
+               same-tick move-then-down, with no dwell, is cheap to try before
+               giving up.
+    Affects:   03-scope (WASM row), 02-approach (the replay sequence assumes the
+               coordinate selects the target, which is false on this surface)
+    Evidence:  Observed in the cockpit by the operator; the injected call
+               sequences are in results/p07-wasm-hover-*.txt. The distinguishing
+               evidence is what the display did, which no probe can capture.
+
+---
+
 ## 2026-08-30 — WASM gauges take DOM mouse events, and FS Copilot has been sending them to (0,0)
+
+> **Superseded in its conclusion.** The transport finding here holds — the events
+> do reach the module — but "coordinates arrived intact" describes the Coherent
+> call, not what the module does with them. See "A WASM gauge presses whatever
+> the REAL cursor hovers" above.
 
     Question:  Q05 — ANSWERED, best case. Also settles the mechanism for Q03 on
                the WASM surface.
