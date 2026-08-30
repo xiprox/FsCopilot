@@ -12,18 +12,30 @@ to read first. Read it before anything else in this repository.
 
 ## Status
 
-Almost nothing is verified. The design record describes a proposal; no part of pointer
-forwarding has been tested against a running simulator.
+**The mechanism works.** A synthetic mouse click at forwarded coordinates drives a
+React/SVG cockpit display, and a real Community package now captures cockpit input and
+carries it to a local process over a WebSocket. WASM-rendered displays are permanently out
+of reach, for reasons that are understood and documented.
+
 [docs/build/plan.md](docs/build/plan.md) has the real state.
 
 ## Commands
 
 ```bash
-npm run probe:00
+npm run module:build     install the prototype package (restart MSFS after)
+npm run host             the local process panels connect to
 ```
 
-Node probes take no dependencies — Node 22 runs them directly. Console probes are pasted
-whole into the Coherent GT debugger, with the correct panel selected in the frame picker.
+Then, for inspecting a running simulator:
+
+```bash
+npm run pages            every inspectable panel document
+npm run probe            run a probe in one
+npm run eval             evaluate an expression in one
+npm run sources          read MSFS's own JavaScript out of the engine
+```
+
+Nothing here has dependencies — Node 22 runs it all directly.
 
 ## Layout
 

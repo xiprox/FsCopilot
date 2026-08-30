@@ -10,6 +10,14 @@ Stage 4 in [build/plan.md](build/plan.md) originally proposed a drop-in for
 `fscopilot-bridge/html_ui/`. That is no longer the best option, because Q00 turned out
 yes: the simulator hosts a remote inspector that will both inject and report.
 
+> **Superseded as the way experiments are run.** The console channel silently
+> drops repeated messages, and once Q03 proved the mechanism the scaffolding
+> stopped paying for itself. The prototype is now an in-simulator module with a
+> WebSocket transport — see [10-module](10-module.md). The inspector remains, for
+> inspecting: `npm run pages`, `probe`, `eval`, `sources`. The rule below about
+> keeping `agent.js` transport-agnostic is the part that survived, and it is what
+> made the switch cheap.
+
 > **Scope, decided 2026-08-30.** There is no second machine available — the only
 > other tester is in another country — so this is built **single-machine first**:
 > record a real interaction to a file, replay the file into a live panel, verify

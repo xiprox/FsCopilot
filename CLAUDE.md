@@ -62,13 +62,21 @@ loaded as-is; edit, reload the panel, done. There is no .NET SDK on this machine
 Copilot desktop app is compiled in Visual Studio and errors come back by hand — so put as much
 of the work as possible in JS.
 
-**Install nothing into the simulator.** Experiments run through the remote inspector — see
-[docs/08-testbed.md](docs/08-testbed.md). This supersedes the earlier plan of dropping code
-into `fscopilot-bridge/html_ui/`: it iterates in seconds rather than sim restarts, cannot
-break FS Copilot, and cannot be left behind.
+**The prototype is a real Community package** — `module/`, installed by
+`npm run module:build`. See [docs/10-module.md](docs/10-module.md). It overrides
+`VCockpit.js`, which is the only way to get code into every panel, and it therefore
+**conflicts with `fscopilot-bridge`**, which overrides the same file. The build refuses to
+install while that package is present; move it aside and back.
 
-If something ever does have to go in a package, do not patch `VCockpit.js` — `fscopilot-bridge`
-already overrides that core file and two packages patching one path is a conflict.
+`module/PackageSources/.../VCockpit.js` is **generated** by `npm run module:derive` — never
+edit it by hand.
+
+**A sim restart is only needed after `module:build`**, because `layout.json` is read at
+startup. Editing the JS under `FSCPP/` afterwards needs no rebuild: reload the panel. Keep as
+much logic as possible in JS for that reason.
+
+**The inspector is for inspecting, not for carrying data.** Its console channel silently drops
+a message identical to the one before it, which cost half a recording before it was found.
 
 **Anything injected into the pilot's own input path must fail open.** A wrapper left
 suppressing silently disabled an aircraft's clicks, and the handle needed to undo it had

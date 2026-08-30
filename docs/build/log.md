@@ -36,6 +36,44 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - The prototype module works end to end in the simulator
+
+    Question:  none - a build milestone, and the end of stage 4
+    Stage:     4
+    Expected:  Several things had to hold at once and any of them could have
+               failed quietly: the derived VCockpit.js had to be a valid stock
+               file, the override had to win, Include.addImports had to resolve
+               three of our scripts, the agent had to find its instrument, and the
+               WebSocket had to reach loopback from a coui:// document in a normal
+               panel rather than one being driven by the inspector.
+    Found:     All of it works. Reported by the operator as working perfectly:
+               panels connect, presses appear live in the host, recording and
+               replay both function.
+
+               So the full production-shaped chain is real - a Community package
+               overriding a core simulator file, loading our scripts into every
+               panel, capturing cockpit input, and carrying it to a local process
+               over a WebSocket. No WASM module, no SimConnect, no CommBus, no C#.
+    Changed:   Stage 4 is done, and by a different route than planned: the plan
+               said a drop-in for fscopilot-bridge/html_ui, and what exists is our
+               own package with its own transport. Documented in 10-module.
+
+               Note what this does NOT yet settle. The open question from the
+               console-dedup entry - whether capture itself was also losing
+               presses, since nine actions produced five events and dedup does not
+               obviously account for all of it - is now *answerable* rather than
+               answered. The host prints every capture live and `s` reports its
+               count against the agent's own counter, so a disagreement is
+               transport and a matching-but-low pair is capture. Worth confirming
+               deliberately on the next session rather than assuming the new
+               transport fixed it.
+    Affects:   08-testbed (superseded as the way experiments are run), and adds
+               10-module
+    Evidence:  reported from the cockpit; the package is at
+               Community/fscpp-bridge
+
+---
+
 ## 2026-08-30 - Q08 yes: a cockpit document can hold a WebSocket to loopback
 
     Question:  Q08 ANSWERED YES

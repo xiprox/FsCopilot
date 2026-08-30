@@ -1,12 +1,16 @@
 # Probe plan
 
-    Status:     The full probe battery p00-p05 is written and syntax-clean; the
-                p05 loopback server is tested end to end. Nothing has been run
-                against a running simulator. Everything in the design record is
-                a proposal.
-                Q00's one previous run probed an orphaned socket and told us
-                nothing — see the log. Port 19999 must be confirmed to have a
-                LIVE owner before any conclusion is drawn from it.
+    Status:     Stages 0-4 done. The mechanism is proven (Q03) and a real
+                in-simulator module carries it over a WebSocket to a local host,
+                with live capture, recording and replay all working - see
+                10-module. Stages 5 and 6 remain, and 6 is blocked on there being
+                no second machine.
+                Settled: Q00, Q01, Q02, Q03, Q08 yes; Q05 no, permanently.
+                Q04 deferred on the same-build assumption. Q06, Q07 and Q09 open
+                and none of them block anything.
+                One thing worth closing deliberately: whether capture ever loses
+                presses. The console channel's dedup explained some of an earlier
+                shortfall but perhaps not all, and the host can now answer it.
     Supersedes: nothing
     Log:        log.md
 
