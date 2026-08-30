@@ -4,6 +4,13 @@
     Depends on: 02-approach
     Decides:    whether the existing bus is widened or bypassed
 
+> **Amended by the build.** The "bypass it" option below is no longer speculative.
+> A `coui://` panel document holds a WebSocket to a local process, full duplex,
+> **with DevMode off** — so the prototype uses no CommBus, no WASM and no
+> SimConnect, and none of the constraints in this file apply to it. See "Q08 yes"
+> and "The module works with DevMode off" in [build/log.md](build/log.md), and
+> [10-module](10-module.md) for what was built.
+
 ## What exists
 
 An interaction crosses seven hops each way. The middle two are the constraint:

@@ -36,6 +36,38 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - The module works with DevMode off
+
+    Question:  closes the caveat on Q08
+    Stage:     6 prerequisite
+    Expected:  Uncertain, and it gated everything downstream. Every result all
+               session had been obtained with the inspector enabled. If a coui://
+               document could only reach loopback in DevMode, a remote tester
+               would have to enable it too, and shipping into FS Copilot would
+               need the CommBus/WASM/SimConnect pipeline back - the exact pipeline
+               this design had just deleted.
+    Found:     It works. DevMode off, panels connect to the host and interaction
+               flows normally.
+    Changed:   **The WebSocket transport is shippable, not merely convenient.**
+
+               For a remote tester this is the difference between "install a
+               package and run a program" and "enable developer mode first". They
+               need the Community package and the host, and nothing else.
+
+               For FS Copilot it means 04-transport's "bypass the bus" option is a
+               real option rather than a thought experiment. The 512-byte cap, the
+               single-slot client-data area, the broadcast every panel parses and
+               the schema handshake are all avoidable, and the C# side costs no new
+               dependency - HttpListener and AcceptWebSocketAsync are BCL, which
+               the ~120-line dependency-free server in host/ws.mjs demonstrates in
+               miniature.
+
+               Stage 6 is now blocked only on there being no second machine.
+    Affects:   04-transport, 10-module
+    Evidence:  tested in the cockpit with DevMode disabled
+
+---
+
 ## 2026-08-30 - Capture does not drop presses; the earlier loss was console dedup
 
     Question:  closes the open question from the console-dedup entry

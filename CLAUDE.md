@@ -8,9 +8,11 @@ before working here.** This file is for working in the repo.
 
 Read [docs/build/plan.md](docs/build/plan.md), then the top of
 [docs/build/log.md](docs/build/log.md). Between them they say what has actually been run and
-what it found. The design record in `docs/01-06` is a **proposal** — treat any of it as
-amended by the log where the two disagree, and do not assume something works because a design
-doc describes it.
+what it found. The design record in `docs/01-10` is amended by the log wherever the two
+disagree — do not assume something works because a design doc describes it. Two of those are
+load-bearing for anyone writing code: [docs/10-module.md](docs/10-module.md) for what actually
+runs, and [docs/09-environment.md](docs/09-environment.md) before writing anything that runs
+inside a panel.
 
 ## The related repositories
 
@@ -29,7 +31,7 @@ that changes scope is worth more than the code written that day. Save the raw ou
 `results/` and commit it — the log is the reading, `results/` is the evidence.
 
 **Amend design docs by pointer, never silently.** If a result overturns something in
-`docs/01-06`, add a blockquote at the top of that doc naming the log entry. Do not rewrite the
+`docs/01-10`, add a blockquote at the top of that doc naming the log entry. Do not rewrite the
 design record mid-build. `docs/06-open-questions.md` is the exception: it is a register and is
 updated in place.
 

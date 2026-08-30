@@ -54,6 +54,18 @@ function panelsByKey(key) {
   return [...panels.values()].filter((p) => p.name === key)
 }
 
+/** One line per gesture. A drag carries a path rather than a point, so its
+ *  interesting numbers are where it started, where it ended and how long it took. */
+function describe(msg) {
+  if (msg.k === "drag" && msg.path && msg.path.length) {
+    const a = msg.path[0]
+    const b = msg.path[msg.path.length - 1]
+    return `drag   (${a[1]}, ${a[2]}) -> (${b[1]}, ${b[2]})  ` +
+           `${msg.path.length} pts  ${b[0]}ms`
+  }
+  return `${msg.k}  (${msg.nx}, ${msg.ny})${msg.hold ? "  hold=" + msg.hold + "ms" : ""}`
+}
+
 function onInteract(from, msg) {
   counts.interact++
   const now = Date.now()
@@ -63,9 +75,7 @@ function onInteract(from, msg) {
     recording.events.push({ at: now - recording.t0, ...msg })
   }
 
-  console.log(`  ${recording ? "REC " : "    "}${String(counts.interact).padStart(4)}  ` +
-    `${msg.k}  (${msg.nx}, ${msg.ny})${msg.hold ? "  hold=" + msg.hold + "ms" : ""}  ` +
-    `[${from.name}]`)
+  console.log(`  ${recording ? "REC " : "    "}${String(counts.interact).padStart(4)}  ${describe(msg)}  [${from.name}]`)
 
   // A second machine would forward here. On one machine there is nowhere to send
   // it — and echoing to the originating panel would replay the pilot's own press
@@ -131,6 +141,13 @@ async function replay(file) {
     if (!targets.length) { console.log(`    no panel for ${ev.key} — skipped`); continue }
     for (const t of targets) t.send({ t: "interact", msg: ev })
     counts.replayed++
+    console.log(`    ${String(ev.at).padStart(6)}ms  ${describe(ev)}`)
+
+    // A drag occupies the far side for as long as it took to make. Waiting for it
+    // keeps the replay honest — otherwise the next gesture lands mid-drag.
+    if (ev.k === "drag" && ev.path && ev.path.length) {
+      await new Promise((r) => setTimeout(r, Math.min(ev.path[ev.path.length - 1][0], 10000)))
+    }
   }
   console.log(`  replay complete (${counts.replayed} sent)`)
 }

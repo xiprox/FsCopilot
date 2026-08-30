@@ -1,15 +1,16 @@
 # Probe plan
 
     Status:     Stages 0-5 done. The mechanism is proven, a real in-simulator
-                module carries it over a WebSocket to a local host, and capture is
-                verified lossless at 33/33 including spam-clicking. Stage 6 is the
-                only one left and it is blocked on there being no second machine.
+                module carries it over a WebSocket to a local host, capture is
+                lossless at 33/33 including spam-clicking, and it all works with
+                **DevMode off** - so the transport is shippable, not merely
+                convenient.
                 Settled: Q00, Q01, Q02, Q03, Q08 yes; Q05 no, permanently.
                 Q04 deferred on the same-build assumption. Q06, Q07 and Q09 open,
                 none of them blocking.
-                **The next thing that gates anything** is whether the module works
-                with DevMode OFF. Everything so far has run with the inspector
-                enabled, and a remote tester will not have it.
+                Stage 6 is the only one left and it is blocked solely on there
+                being no second machine. A remote tester needs the Community
+                package and the host, and nothing else.
     Supersedes: nothing
     Log:        log.md
 

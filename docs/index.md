@@ -9,7 +9,8 @@ DOM elements, which most modern ones do not.
 It is in two halves with different lifetimes, and knowing which is which matters more than
 anything else here.
 
-**The design record** — `01-06` — is what is being *proposed*. It is stable. It is amended
+**The design record** — `01-10` — is what the work *is*, including the parts that turned out
+to be dead ends. It is stable. It is amended
 only by a pointer line at the top of a file naming the log entry that overturned something,
 **never by silent rewriting**, because a design doc that quietly changed is worse than one
 that is openly out of date. The one exception is
@@ -18,17 +19,24 @@ that is openly out of date. The one exception is
 **The build record** — `build/` — is what is actually being *run*, in what order, and what the
 running has found. It is live and it moves.
 
-> **Picking this up fresh?** Almost nothing is verified. The design record describes a
-> proposal, not a system — no part of pointer forwarding has been tested against a running
-> simulator. Read [build/plan.md](build/plan.md) for what is actually being run and where it
-> stands, then the top of [build/log.md](build/log.md) for what the running has found. Only
-> then reach for the design docs, and treat any of them as amended by the log where the two
-> disagree.
+> **Picking this up fresh?** The mechanism is proven and a working prototype exists.
 >
-> The one thing to know before anything else: **Q03 in
-> [06-open-questions](06-open-questions.md) is load-bearing.** If a synthetic pointer sequence
-> does not drive a React/SVG display, the approach has no fallback and the rest of this is
-> wasted effort.
+> A synthetic mouse click at forwarded coordinates drives a React/SVG cockpit display, and a
+> Community package captures cockpit input and carries it to a local process over a WebSocket
+> — no WASM, no SimConnect, no CommBus, and it works with DevMode off. Capture is verified
+> lossless at 33/33.
+>
+> Read [build/plan.md](build/plan.md) for where each stage stands, then the top of
+> [build/log.md](build/log.md), then [10-module](10-module.md) for what actually runs. Only
+> then reach for the rest of the design record, and treat any of it as amended by the log
+> where the two disagree.
+>
+> Two things to know before forming a plan. **WASM-rendered displays are permanently out of
+> reach** — [07-wasm-surface](07-wasm-surface.md) says why, and it is not a matter of trying
+> harder. And **anything you write that runs inside a panel is Chrome 49**, where a stray `?.`
+> takes out the whole file — read [09-environment](09-environment.md) before writing a line.
+>
+> What is left: two-machine testing, blocked on there being no second machine.
 
 Each design part is self-contained. The descriptions below name the decisions inside, so you
 can tell which parts those are without opening anything. Every part opens with three lines —
