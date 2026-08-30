@@ -36,6 +36,61 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 — The cursor cannot be synced either: no position variable, and the screen var is an output
+
+    Question:  Q05 — confirms the closure from a second direction
+    Stage:     2
+    Expected:  A promising escape: rather than inject hover, sync the cursor that
+               owns it. The A350 has two cursors (captain and first officer), so
+               each machine plausibly drives one, and a synced cursor would make
+               a synced click land correctly by construction.
+    Found:     Three separate results, all negative.
+
+               **Injected moves do not move the drawn cursor.** 61 WASM_MOUSE_MOVE
+               calls were driven to the bottom-right corner of the MFD and all
+               were confirmed delivered through Coherent.call. The cursor is
+               drawn on that display and did not move at all. So the simulator
+               accepts the call and discards the coordinates — this is not the
+               module ignoring them, it is the sim never passing them on. That
+               completes the mechanism: of the WASM_MOUSE_* channel, the press
+               half is honoured and the position half is inert.
+
+               **There is no cursor position variable.** inibuilds-A350.wasm ships
+               unstripped, so its symbols are readable with `strings`. They
+               describe the architecture plainly — DrawCursorCPT(NVGcontext*,
+               float, float, bool), DrawCursorFO(...), SwitchCaptainCursor(int),
+               SwitchFOCursor(int), CursorLock/Unlock/Hint. Of 1697 INI_
+               variables in the binary, exactly two concern the cursor:
+               INI_CPT_CURSOR_SCREEN and INI_FO_CURSOR_SCREEN. Which screen, and
+               nothing else. No X, no Y.
+
+               **The screen variable is an output.** Both read 2. Writing 1 to
+               INI_CPT_CURSOR_SCREEN reads straight back as 2 — the module
+               re-asserts it.
+
+               The aircraft's behaviour XML has no KCCU input events either; its
+               <Cursor>Hand</Cursor> entries are MSFS mouse-pointer shape hints
+               and unrelated.
+    Changed:   Closes the last avenue for this surface. Written up in full as
+               [07-wasm-surface](../07-wasm-surface.md), including the complete
+               WASM_MOUSE_* channel table, so none of it is re-derived.
+
+               Notable for generalisation: WasmSimCanvas.js is a **core sim file**
+               and the coordinates are discarded on the sim's side of
+               Coherent.call, so the finding belongs to WasmInstrument as a
+               mechanism, not to iniBuilds. The cursor specifics are vendor
+               detail; the input path is shared.
+
+               Also notable as a feature request rather than a workaround:
+               WASM_MOUSE_DOWN already carries clientX and clientY, already
+               correct. If Asobo honoured them, every WASM display would become
+               syncable with no change on the JavaScript side at all.
+    Affects:   03-scope, and adds 07-wasm-surface
+    Evidence:  results/a350-ini-vars.txt (the extracted variable table);
+               cursor movement observed from the cockpit
+
+---
+
 ## 2026-08-30 — Same-tick injection loses too: the sim owns hover absolutely
 
     Question:  Q05 — CLOSED, negative. WASM gauges cannot be driven by injecting

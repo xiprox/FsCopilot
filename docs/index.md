@@ -53,6 +53,7 @@ drags the whole proposal into context.
 | [03-scope](03-scope.md) | The surface taxonomy — which of five kinds of cockpit display this reaches, conditionally reaches, or cannot. The two iframe problems. Why there is no generic layer above DOM events. |
 | [04-transport](04-transport.md) | The 512-byte single-slot bus, three ways to widen it, and the case for bypassing it with a local WebSocket. The schema handshake that makes every wire change a hard compatibility break. |
 | [05-integration](05-integration.md) | Routing key, profile shape, how config reaches a panel that came up late, where experimental code lives and why not in a second package, naming, and what graduating into FS Copilot would mean. |
+| [07-wasm-surface](07-wasm-surface.md) | **Closed, negative.** What a WasmInstrument display is made of, the full `WASM_MOUSE_*` channel table, why injected coordinates are discarded while the press latches, the cursor architecture read out of an unstripped binary, and the three things that would reopen it. |
 | [06-open-questions](06-open-questions.md) | The register. Ten questions grouped by what they gate, each with the probe that would settle it and what the answer changes. Updated in place. |
 
 ## Probes

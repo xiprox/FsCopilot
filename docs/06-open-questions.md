@@ -66,10 +66,9 @@ graphics settings. Low risk — normalising is free insurance either way.
 ### Q05 · Does `WasmInstrument.html` route DOM input into the WASM module?
 **Status:** CLOSED, negative · **Probes:** `p01`, `p06`, `p07` · **Answered by** "Same-tick injection loses too" in [build/log.md](build/log.md)
 
-It routes the events but not the targeting. Hover belongs to the sim.
-
-Three outcomes and what each means are in [03-scope](03-scope.md). The short version: this one
-question is the difference between fixing two aircraft and fixing five.
+It routes the events but not the targeting. Hover belongs to the sim, the press latches onto
+whatever the receiving pilot is pointing at, and the cursor has no writable position anywhere.
+Full write-up in [07-wasm-surface](07-wasm-surface.md).
 
 ### Q06 · Can a `coui://` page reach into a cross-origin iframe?
 **Status:** open · **Probe:** `probes/p04-iframe.js` *(not written)*
@@ -108,8 +107,9 @@ Whether two `SetClientData` calls in one frame both arrive, or coalesce.
 
 ## Settled
 
-Nothing yet. This section exists so that answers accumulate somewhere visible rather than
-being deleted from the list above.
+- **Q00 — yes.** MSFS hosts a WebKit inspector on 127.0.0.1:19999; probes run over the wire.
+- **Q05 — no, permanently.** WASM displays cannot be driven by injected input. See
+  [07-wasm-surface](07-wasm-surface.md).
 
 ---
 
