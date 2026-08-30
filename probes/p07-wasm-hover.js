@@ -32,7 +32,7 @@
 
   // Share P06's Coherent.call wrapper when it is already installed, so the two
   // probes cannot fight over who owns the native function.
-  if (!window.__P06_STATE) window.__P06_STATE = { captured: [], suppress: true, native: Coherent.call }
+  if (!window.__P06_STATE) window.__P06_STATE = { captured: [], suppress: false, native: Coherent.call, deadman: null }
   const S = window.__P06_STATE
   if (!window.__P06_WRAPPED) {
     Coherent.call = function (name) {
@@ -65,6 +65,7 @@
     const hold = opts.hold == null ? 90 : opts.hold
 
     S.captured.length = 0
+    if (S.touch) S.touch()
     S.suppress = !live
 
     // Approach from up and to the left, the way a cursor would arrive.
@@ -108,7 +109,7 @@
     }, hover)
 
     function report() {
-      S.suppress = true
+      S.suppress = false   // resting state, always
       const seen = S.captured.map(function (c) {
         return c.name.replace("WASM_", "") + "(" + c.args.slice(1).join(",") + ")"
       })

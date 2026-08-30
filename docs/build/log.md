@@ -36,6 +36,42 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 — A probe that wraps a sim API disabled the aircraft, and could not be undone
+
+    Question:  none — an operational lesson
+    Stage:     2
+    Expected:  That leaving the Coherent.call wrapper installed between tests was
+               harmless, since it passes calls through by default.
+    Found:     It was not harmless. p06's report path left `suppress` true as its
+               resting state, so every subsequent **real** cockpit click on that
+               gauge was swallowed. The operator lost the ability to click the
+               MFD entirely, with hover still working — because hover comes from
+               the sim's raycast and never passes through the wrapper. From the
+               cockpit this is indistinguishable from a broken aircraft.
+
+               Recovery was worse. The first version of p06 held the native
+               function in a closure and exposed it only as `window.__P06.restore`.
+               A reset had already deleted `window.__P06`. On that page the native
+               Coherent.call was unreachable from any handle, and the only way
+               back was `location.reload()` on the panel document.
+    Changed:   Three rules, now implemented in p06 and shared by p07:
+
+               1. **Suppression is never the resting state.** It is set for the
+                  duration of a dispatch and cleared unconditionally afterwards.
+               2. **Restore lives at a fixed global**, `window.__FSCPP_RESTORE()`,
+                  which does not depend on holding any probe object.
+               3. **A deadman restores after 120s idle**, refreshed on each use,
+                  so a forgotten wrapper un-installs itself.
+
+               General form, worth applying to anything this project injects: code
+               that sits in the path of the pilot's own input must fail open, must
+               be removable without the handle that installed it, and must expire
+               on its own. The sim has no undo and the pilot gets no error message.
+    Affects:   none
+    Evidence:  none — reported from the cockpit
+
+---
+
 ## 2026-08-30 — A WASM gauge presses whatever the REAL cursor hovers, ignoring the coordinates we send
 
     Question:  Q05 — the optimism below is wrong. Coordinate injection does not

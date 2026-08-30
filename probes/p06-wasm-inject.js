@@ -53,9 +53,36 @@
   // State lives on window, not in this closure: the wrapper is installed once
   // and survives re-running the probe, so a fresh closure would leave the live
   // wrapper writing into an array nobody reads.
-  if (!window.__P06_STATE) window.__P06_STATE = { captured: [], suppress: true, native: Coherent.call }
+  //
+  // This wrapper sits in the path of every cockpit click on this gauge. Left
+  // suppressing, it silently disables the instrument for the pilot — which has
+  // happened, and the pilot has no way to know why. So: suppression is never
+  // the resting state, restore is reachable from a fixed global that survives
+  // losing every other handle, and a deadman puts the native function back
+  // whether or not anybody remembers to.
+  if (!window.__P06_STATE) window.__P06_STATE = { captured: [], suppress: false, native: Coherent.call, deadman: null }
   const S = window.__P06_STATE
   const captured = S.captured
+
+  const DEADMAN_MS = 120000
+
+  window.__FSCPP_RESTORE = function () {
+    if (S.native) Coherent.call = S.native
+    S.suppress = false
+    window.__P06_WRAPPED = false
+    if (S.deadman) { clearTimeout(S.deadman); S.deadman = null }
+    console.log("[FSCPP] Coherent.call restored — the gauge is under the sim's control again")
+    return true
+  }
+
+  function touch() {
+    if (S.deadman) clearTimeout(S.deadman)
+    S.deadman = setTimeout(function () {
+      console.warn("[FSCPP] deadman fired after " + (DEADMAN_MS / 1000) + "s idle — restoring Coherent.call")
+      window.__FSCPP_RESTORE()
+    }, DEADMAN_MS)
+  }
+  S.touch = touch
 
   if (!window.__P06_WRAPPED) {
     Coherent.call = function (name) {
@@ -68,9 +95,11 @@
     }
     window.__P06_WRAPPED = true
   }
+  touch()
 
   function fire(x, y, live) {
     captured.length = 0
+    touch()
     S.suppress = !live
     const target = document.elementFromPoint(x, y) || canvas
 
@@ -114,7 +143,7 @@
         say("      a synthetic MouseEvent at (x, y) becomes WASM_MOUSE_DOWN(guid, x, y).")
       }
     }
-    S.suppress = true
+    S.suppress = false   // resting state, always
     flush()
   }
 
@@ -138,11 +167,11 @@
      * arm() runs in pass-through, so the real click works normally. */
     arm: function () {
       captured.length = 0
+      touch()
       S.suppress = false
       console.log("[P06] armed and passing through. Click the gauge in the cockpit, then __P06.armed()")
     },
     armed: function () {
-      S.suppress = true
       if (!captured.length) { console.log("[P06] nothing captured yet — click the gauge, then try again"); return null }
       const lines = captured.map(function (c) { return "  " + c.name + "(" + c.args.join(", ") + ")" })
       const down = captured.filter(function (c) { return c.name === "WASM_MOUSE_DOWN" || c.name === "WASM_CLICK" })[0]
@@ -157,7 +186,7 @@
     },
 
     captured: function () { return captured },
-    restore: function () { Coherent.call = S.native; window.__P06_WRAPPED = false; console.log("[P06] Coherent.call restored") }
+    restore: function () { return window.__FSCPP_RESTORE() }
   }
 
   say("")
