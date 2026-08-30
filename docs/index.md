@@ -36,7 +36,13 @@ running has found. It is live and it moves.
 > harder. And **anything you write that runs inside a panel is Chrome 49**, where a stray `?.`
 > takes out the whole file — read [09-environment](09-environment.md) before writing a line.
 >
-> What is left: two-machine testing, blocked on there being no second machine.
+> What is left: **drag gestures, which are implemented and do not work** — the diagnosis has
+> not been run and the top of [build/log.md](build/log.md) says exactly how. And two-machine
+> testing, blocked on there being no second machine.
+>
+> **Check `git status` first.** A tooling fault blocked commits at the end of the last
+> session, so the working tree is ahead of the last commit. Nothing is lost, but do not
+> assume the history reflects the files.
 
 Each design part is self-contained. The descriptions below name the decisions inside, so you
 can tell which parts those are without opening anything. Every part opens with three lines —

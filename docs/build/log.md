@@ -36,6 +36,54 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - Drag is implemented and does NOT work; diagnosis not started
+
+    Question:  none yet - this is where the next session starts
+    Stage:     gestures, after stage 5
+    Expected:  Drag capture and replay were added to the agent (v5) on the
+               assumption that MSFS delivers mousemove while a button is held.
+               That assumption was never tested.
+    Found:     **Drags are not detected.** Reported from the cockpit: dragging on
+               the panel produces no drag messages at the host.
+
+               Nothing further was established. The session ended before the
+               diagnostic ran, so the cause is one of these and it is not yet
+               known which:
+
+               1. **MSFS does not deliver mousemove while a button is down.** This
+                  is the one that would kill the feature outright. There is weak
+                  evidence against it - an A350 WASM capture showed
+                  MOUSE_MOVE(238,86) between a MOUSE_DOWN and its MOUSE_UP - but
+                  that was a different panel and a different delivery path, so it
+                  does not settle the DOM case.
+               2. **The panel was still running agent v4.** Editing files under
+                  FSCPP/ needs a panel reload to take effect and it is not certain
+                  one happened. Check `window.FSCPP.version` first; if it says 4,
+                  nothing else matters.
+               3. **The thresholds are wrong.** DRAG_MIN_PX 4, DRAG_SAMPLE_MS 33,
+                  DRAG_MIN_STEP_PX 2. A gesture that travelled but produced no
+                  sample between down and up is classified as a press by design,
+                  and `d.path.length > 1` is required for a drag.
+               4. **Classification is buggy.** Reading it back, `onMove` and the
+                  press/drag branch in `onUp` looked right, but that was eyes, not
+                  a test.
+
+               The separating question is whether the host prints `press` lines
+               when a drag is made, or nothing at all: `press` means captured but
+               misclassified, nothing means not captured.
+    Changed:   Nothing yet. Drag should be treated as unverified and probably
+               broken until this is run.
+
+               The diagnostic is ready and needs no code: paste a raw
+               mousedown/mousemove/mouseup logger into the Coherent GT console on
+               the DisplayUnits panel, drag slowly, and read off the move count
+               and total travel. If moves are zero, the feature is dead and
+               02-approach's tier 3 needs a pointer line saying so.
+    Affects:   none yet
+    Evidence:  none - this is the gap
+
+---
+
 ## 2026-08-30 - The module works with DevMode off
 
     Question:  closes the caveat on Q08

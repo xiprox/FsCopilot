@@ -8,9 +8,24 @@
                 Settled: Q00, Q01, Q02, Q03, Q08 yes; Q05 no, permanently.
                 Q04 deferred on the same-build assumption. Q06, Q07 and Q09 open,
                 none of them blocking.
-                Stage 6 is the only one left and it is blocked solely on there
-                being no second machine. A remote tester needs the Community
-                package and the host, and nothing else.
+                Stage 6 is the only numbered stage left and it is blocked solely
+                on there being no second machine. A remote tester needs the
+                Community package and the host, and nothing else.
+
+                **IN FLIGHT: drag gestures, implemented and not working.** Agent
+                v5 adds drag capture and replay; drags are not detected in the
+                cockpit and the cause is unknown. See the top of log.md - the
+                diagnostic is written out there and needs no new code. Treat drag
+                as broken until it runs.
+
+                **UNCOMMITTED WORK.** A tooling fault blocked git for the last
+                stretch of the session, so the working tree is ahead of the last
+                commit (`1e06b6c`). Uncommitted: the drag implementation in
+                agent.js and host/server.mjs, the DevMode-off log entry, the
+                04-transport pointer line, the rewritten cold-start block in
+                docs/index.md, and 01-06 -> 01-10 corrections. Nothing is lost;
+                it just needs `git add -A && git commit`. Run `git status` before
+                assuming anything about what is or is not saved.
     Supersedes: nothing
     Log:        log.md
 

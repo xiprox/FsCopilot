@@ -31,13 +31,21 @@ What to capture, in ascending order of cost:
 | --- | --- | --- |
 | tier 1 | `pointerdown`, `pointerup` | buttons, softkeys, switches — everything with a discrete press |
 | tier 2 | + press duration | press-and-hold |
-| tier 3 | + throttled `pointermove` while down | drag, scroll, swipe |
+| tier 3 | + throttled `mousemove` while down | drag |
 
-Tier 1 is the whole first cut. Tier 3 is a different bandwidth class and is gated separately —
-see [04-transport](04-transport.md).
+Tier 1 and tier 2 are built and work. **Tier 3 is built and does not work** — see "Drag is
+implemented and does NOT work" in [build/log.md](build/log.md). Whether MSFS delivers
+`mousemove` while a button is held to a panel document is the unanswered question underneath
+it, and if the answer is no then drag is not capturable from the DOM at all.
 
-Whether MSFS delivers `pointerdown` to a panel document at all is unverified; FS Copilot only
-ever listens for `mouseup`. That is Q01, and it decides whether tiers 2 and 3 exist.
+The bandwidth objection that originally gated tier 3 is gone: the transport is a WebSocket
+with no size cap ([10-module](10-module.md)).
+
+Scope decided 2026-08-30, from experience of these cockpits: **wheel and double-click are not
+worth building** — wheel is a first-party MSFS cockpit control and is not injected into large
+instrument panels, and double-click is not used. Keyboard is deferred to a second pass, though
+`keydown`/`keypress`/`keyup` were observed arriving at a panel document and trusted, so it is
+available when wanted.
 
 ## Coordinate space
 
