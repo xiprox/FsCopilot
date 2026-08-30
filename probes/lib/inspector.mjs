@@ -75,6 +75,16 @@ export class Inspector {
     this.ws = null
     this.seq = 0
     this.pending = new Map()
+    this.handlers = new Map()
+  }
+
+  /** Subscribe to a protocol event, e.g. "Console.messageAdded".
+   *  The domain has to be enabled first — Console.enable, Page.enable — or the
+   *  simulator sends nothing and the silence looks like a bug in the handler. */
+  on(method, fn) {
+    if (!this.handlers.has(method)) this.handlers.set(method, [])
+    this.handlers.get(method).push(fn)
+    return this
   }
 
   open(ms = 8000) {
@@ -92,7 +102,13 @@ export class Inspector {
       ws.onmessage = (e) => {
         let msg
         try { msg = JSON.parse(String(e.data)) } catch { return }
-        if (msg.id == null) return                       // protocol events; unused here
+        if (msg.id == null) {
+          const fns = this.handlers.get(msg.method)
+          if (fns) for (const fn of fns) {
+            try { fn(msg.params || {}) } catch { /* a bad handler must not kill the socket */ }
+          }
+          return
+        }
         const p = this.pending.get(msg.id)
         if (!p) return
         this.pending.delete(msg.id)

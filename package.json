@@ -9,6 +9,9 @@
     "eval": "node probes/run.mjs eval",
     "probe:00": "node probes/p00-debugger.mjs",
     "probe:05-server": "node probes/p05-server.mjs",
-    "sources": "node probes/sources.mjs"
+    "sources": "node probes/sources.mjs",
+    "rec": "node testbed/session.mjs rec",
+    "play": "node testbed/session.mjs play",
+    "agent": "node testbed/session.mjs agent"
   }
 }

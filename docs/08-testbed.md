@@ -10,6 +10,16 @@ Stage 4 in [build/plan.md](build/plan.md) originally proposed a drop-in for
 `fscopilot-bridge/html_ui/`. That is no longer the best option, because Q00 turned out
 yes: the simulator hosts a remote inspector that will both inject and report.
 
+> **Scope, decided 2026-08-30.** There is no second machine available — the only
+> other tester is in another country — so this is built **single-machine first**:
+> record a real interaction to a file, replay the file into a live panel, verify
+> the same outcome. Two-machine work is deferred, and the LAN diagram below
+> describes the eventual shape rather than what is being built now.
+>
+> A recording is better than a live peer for the core science anyway: deterministic,
+> re-runnable after every change to the agent, and committable as evidence. The
+> same reasoning produced `fsc-editor/scripts/sim-sandbox.ts`.
+
 ## The channel
 
 Q00 established `Runtime.evaluate` — arbitrary JavaScript into any panel document.
@@ -72,6 +82,18 @@ mechanism that ships.
 Everything transport-shaped — message framing, batching, rate limiting, the 512-byte
 question in [04-transport](04-transport.md) — belongs on the Node side of that line, not
 in the agent.
+
+## Out of scope
+
+**EFBs.** FS Copilot handles them adequately today; improving that is separate work.
+This means no cross-panel test on paired EFB instances — the recorder and player
+target the same panel instead.
+
+**Changing simulator display settings** to probe rect stability. The measured
+DisplayUnits rect was exactly `7410 x 1110`, which is the `pixel_size` from the
+aircraft's `panel.cfg`, so the rect is taken as panel.cfg-derived and therefore
+identical across machines running the same addon build. Assumed rather than proven;
+see Q04.
 
 ## What it proves, and what it cannot
 

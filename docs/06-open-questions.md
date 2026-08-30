@@ -61,7 +61,13 @@ document with nothing in between.
 designed for, and there is no second idea behind it.
 
 ### Q04 · Do the two machines agree on the instrument element's bounding rect?
-**Status:** open, deferred to the two-PC phase · **Probe:** none yet
+**Status:** DEFERRED, assumed yes · no second machine available
+
+The measured DisplayUnits rect is exactly `7410 x 1110`, which is the `pixel_size` line
+from the aircraft's `panel.cfg`. If the rect is panel.cfg-derived it is identical on any
+machine running the same addon build, which is the case that matters. Taken as an
+assumption rather than a result, and normalising against the rect costs nothing either
+way, so a wrong assumption here degrades gracefully.
 
 Coordinates are normalised against the instrument's own `getBoundingClientRect()`, which should
 cancel the `vDisplaySize / vLogicalSize` scaling. Needs confirming nothing else varies with
