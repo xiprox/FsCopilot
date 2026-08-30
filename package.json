@@ -4,6 +4,9 @@
   "type": "module",
   "description": "Experiments toward pointer-forwarding interaction sync for FS Copilot",
   "scripts": {
+    "pages": "node probes/run.mjs pages",
+    "probe": "node probes/run.mjs probe",
+    "eval": "node probes/run.mjs eval",
     "probe:00": "node probes/p00-debugger.mjs",
     "probe:05-server": "node probes/p05-server.mjs"
   }

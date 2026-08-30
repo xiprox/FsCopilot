@@ -36,6 +36,140 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 — WASM gauges take DOM mouse events, and FS Copilot has been sending them to (0,0)
+
+    Question:  Q05 — ANSWERED, best case. Also settles the mechanism for Q03 on
+               the WASM surface.
+    Stage:     2
+    Expected:  Three outcomes were on the table (03-scope). The pessimistic one —
+               that the sim routes cockpit input to WASM gauges natively and the
+               DOM is only a display surface — looked most likely, because the
+               instrument carries data-input-group="WASM-INSTRUMENT" and the leaf
+               is a live-view <img>.
+    Found:     The optimistic outcome, and then some. `coui://html_ui/JS/WasmSimCanvas.js`
+               is a core sim file, 6778 bytes, and its connectedCallback binds
+               click, dblclick, mousemove, mousedown, mouseup, mouseenter,
+               mouseleave, mouseover and mousewheel **on the wasm-sim-canvas
+               element itself**. Every handler forwards viewport coordinates
+               straight through:
+
+                 OnMouseDown(_e) {
+                   Coherent.call("WASM_MOUSE_DOWN",
+                     parseInt(this.m_wasmInstrumentGUid),
+                     _e.clientX, _e.clientY, _e.button)
+                 }
+
+               So there are two routes into a WASM gauge, not one:
+                 1. dispatch a MouseEvent with coordinates anywhere in the canvas
+                    subtree — it bubbles to the canvas and is forwarded;
+                 2. call Coherent.call("WASM_MOUSE_DOWN", guid, x, y, button)
+                    directly, skipping the DOM entirely.
+
+               P06 proves route 1 live, with Coherent.call wrapped so WASM_*
+               calls were captured and suppressed — the synthetic events took the
+               real path and the sim never heard them:
+
+                 inject at (800, 642) on the live-view <img>
+                   WASM_MOUSE_DOWN(105, 800, 642, 0)
+                   WASM_MOUSE_UP(105, 800, 642, 0)
+                   WASM_CLICK(105, 800, 642, 0)
+
+               **And this explains the existing failure.** FS Copilot's replay
+               builds `new MouseEvent(type, {bubbles, cancelable})` with no
+               clientX/clientY, so both default to 0. Those events do reach
+               WasmSimCanvas and do become WASM_MOUSE_DOWN — at (0,0). The A350
+               has never been ignoring FS Copilot's clicks. It has been receiving
+               every one of them, at the corner of the screen.
+
+               Two details that constrain the design: WasmSimCanvas binds **only
+               mouse events**, no pointer events, so PointerEvent is not required
+               for this surface (it is still required for the A220's React
+               handlers). And it binds `mousewheel`, the legacy name — knob
+               scrolling on a WASM gauge is forwardable too.
+    Changed:   The WASM row of the 03-scope table moves from **unknown** to
+               **reachable**. A350, A400M and PMDG displays come into range. This
+               is the "fixing five aircraft rather than two" branch.
+
+               It also raises a cheaper question than the whole project: adding
+               clientX/clientY to the existing replay might fix WASM gauges on its
+               own, without pointer forwarding at all. Worth knowing, though it
+               does nothing for the A220 — a coordinate on the mount div is still
+               a coordinate on the mount div.
+    Affects:   01-problem (the "nothing behind the name" mechanism is wrong —
+               there IS something behind it), 03-scope (WASM row), 02-approach
+               (route 2 is a better replay path for this surface)
+    Evidence:  results/p01-wasm-shell-vcockpit17-wasminstrument-*.txt
+               results/p06-wasm-inject-vcockpit17-wasminstrument-*.txt
+
+---
+
+## 2026-08-30 — Q00 is yes: the sim hosts a WebKit inspector and it evaluates anything
+
+    Question:  Q00 — ANSWERED yes
+    Stage:     0
+    Expected:  Nothing, after the orphaned-socket fiasco below.
+    Found:     Once port 19999 was freed, **MSFS bound it immediately and lazily**
+               — no restart, no DevMode toggle. The stale socket had been holding
+               the sim out of its own debugger port.
+
+               What is behind it is a full WebKit Web Inspector backend:
+
+                 GET /pagelist.json                     every inspectable document
+                 ws://127.0.0.1:19999/devtools/page/N   inspector protocol for one
+
+               `Runtime.evaluate` works and returns values:
+
+                 -> {"id":1,"method":"Runtime.evaluate","params":{"expression":"1+1"}}
+                 <- {"result":{"result":{"type":"number","value":2}},"id":1}
+
+               Paths `/devtools/page/N` and `/N` both work; `/`, `/?page=N` and
+               `/inspector/Main.html?page=N` accept the upgrade and then never
+               answer, so the path does carry the page selection.
+
+               The page list names every panel by document.title, which
+               VCockpit.js sets to `VCockpitNN - <instrumentIdentifier>` — so
+               panels can be selected by name rather than by a page id that
+               changes between sessions.
+
+               Incidentally visible in that list: `VCockpit02 - WasmInstrument -
+               WasmInstrument`, a panel with two instruments in one document.
+               That is the multi-gauge amplification case from the deep dive,
+               present in a shipping aircraft.
+    Changed:   **Every probe is now scriptable.** probes/lib/inspector.mjs drives
+               the protocol; probes/run.mjs adds `npm run pages`, `npm run probe`
+               and `npm run eval`. Console probes run unchanged — a shim buffers
+               console.* so output written for a human console comes back over the
+               wire.
+
+               The only thing still needing a human is a *real* cockpit click,
+               for the events only MSFS can generate.
+    Affects:   none — this is about how the work is done, not what is being built
+    Evidence:  results/p00-debugger-2026-08-30-10-27-58.txt
+
+---
+
+## 2026-08-30 — The port was squatted by a dead process's inherited socket
+
+    Question:  Q00 — unblocked it
+    Stage:     0
+    Expected:  That closing the CoherentGT Debugger would free 19999.
+    Found:     It did not. The holder was `TDSGTNXiFlightSimEXE` (4124) and
+               `map-server` (27736) — both children of the dead pid 33168, both
+               having outlived it, one of them holding the inherited listening
+               socket. MSFS meanwhile was listening on 61657/62487/62488 and had
+               never got 19999.
+
+               Killing both freed the port, and MSFS bound it within seconds
+               without a restart.
+    Changed:   Worth remembering as a class of failure: an addon's external
+               process outliving the sim and holding one of the sim's own ports.
+               TDS GTN is a probe target for Q07, so it will need relaunching —
+               a sim restart brings it back.
+    Affects:   none
+    Evidence:  none
+
+---
+
 ## 2026-08-30 — The first Q00 run probed a dead socket
 
     Question:  Q00 — back to untested. The entry below it is void.

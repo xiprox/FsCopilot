@@ -1,0 +1,19 @@
+========================================================================
+P00  Coherent GT debugger reachability
+     127.0.0.1:19999   2026-08-30T10:24:15.069Z
+========================================================================
+
+--- listening in 19000-21000 ---
+0.0.0.0:19999 pid=33168 *** OWNER IS DEAD - ORPHANED SOCKET ***
+
+--- is anyone home? ---
+  ORPHAN 33168
+
+  STOP. The socket's owning process no longer exists. Everything below
+  would be a probe of nothing — the OS accepts connections on behalf of a
+  listening socket with nobody reading from it, and that silence means
+  nothing at all.
+
+  Close whatever inherited the handle (the CoherentGT Debugger is the
+  usual suspect), confirm the port frees, then start MSFS with DevMode and
+  confirm the sim itself owns the port before re-running.

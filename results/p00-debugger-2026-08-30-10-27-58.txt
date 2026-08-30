@@ -1,0 +1,46 @@
+========================================================================
+P00  Coherent GT debugger reachability
+     127.0.0.1:19999   2026-08-30T10:27:03.758Z
+========================================================================
+
+--- listening in 19000-21000 ---
+0.0.0.0:19999 pid=14428 FlightSimulator2024
+
+--- is anyone home? ---
+  ALIVE 14428 FlightSimulator2024
+
+--- does it speak first? ---
+  silence  (0 bytes)
+
+--- HTTP ---
+  data then idle         1480B  /   HTTP/1.1 200 OK
+  data then idle           64B  /json   HTTP/1.1 404 Not Found
+  data then idle           64B  /json/list   HTTP/1.1 404 Not Found
+  data then idle           64B  /json/version   HTTP/1.1 404 Not Found
+  data then idle           64B  /list   HTTP/1.1 404 Not Found
+  data then idle           64B  /list.json   HTTP/1.1 404 Not Found
+  data then idle           64B  /index.html   HTTP/1.1 404 Not Found
+  data then idle           64B  /inspector   HTTP/1.1 404 Not Found
+  data then idle           64B  /views   HTTP/1.1 404 Not Found
+  data then idle           64B  /pages   HTTP/1.1 404 Not Found
+  data then idle           64B  /debug   HTTP/1.1 404 Not Found
+
+--- WebSocket upgrade ---
+  data then idle          138B  /   HTTP/1.1 101 WebSocket Protocol Handshake
+  data then idle          138B  /devtools/page/1   HTTP/1.1 101 WebSocket Protocol Handshake
+  data then idle          138B  /inspector   HTTP/1.1 101 WebSocket Protocol Handshake
+  data then idle          138B  /socket   HTTP/1.1 101 WebSocket Protocol Handshake
+  data then idle          138B  /ws   HTTP/1.1 101 WebSocket Protocol Handshake
+  data then idle          138B  /debug   HTTP/1.1 101 WebSocket Protocol Handshake
+
+--- a few non-HTTP openers ---
+  silence                   0B  bare CRLF
+  silence                   0B  JSON-RPC line
+  silence                   0B  COHERENT token
+
+--- read this as ---
+  an HTTP response listing views  -> inspector backend; drive it and automate everything
+  a 101 Switching Protocols       -> WebSocket inspector; same conclusion
+  silence on everything           -> 19999 is the debugger UI's own port, not a backend.
+                                     Next: find the port the SIM listens on (the debugger
+                                     connects to it), or accept the manual console loop.
