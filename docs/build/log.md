@@ -36,6 +36,51 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - The console channel silently drops repeated messages
+
+    Question:  none - a defect in the testbed's own transport, found by a user
+               noticing that a recording was short
+    Stage:     4
+    Expected:  That Console.messageAdded either delivers or visibly fails.
+    Found:     A recording of roughly nine deliberate cockpit actions contained
+               five events. Measured directly:
+
+                 40 unique messages sent  -> 40 received.  No loss under load.
+                 20 identical messages    ->  1 received.
+                 A, B, A                  ->  3 received.  Dedup is consecutive-only.
+                 C, wait 400ms, C         ->  1 received.  But it spans any gap.
+
+               Coherent's console collapses a message identical to the one
+               immediately before it and increments `repeatCount` instead of
+               emitting a second event. Two presses on the same control with the
+               same rounded hold produce byte-identical JSON, so the second one
+               vanishes with no error anywhere.
+
+               This is a property of the console channel, not of capture and not
+               of the mechanism. The 40-unique test rules out throughput.
+    Changed:   Fixed for the testbed by prefixing each message with a monotonic
+               sequence number, which also makes any future gap visible instead
+               of silent - the recorder now prints "GAP, expected #n".
+
+               The larger consequence is architectural. This class of defect
+               belongs to the debugger-as-transport, and debugging our own
+               scaffolding is not what the project is for. The prototype moves to
+               an in-simulator module with a real transport; the inspector stays,
+               but for inspecting rather than for carrying data.
+
+               Note what was NOT established: whether capture also missed events.
+               Nine-ish actions to five recorded is more loss than dedup alone
+               obviously accounts for, and the reconciliation that would have
+               separated the two - the agent's own `captured` counter against
+               lines received - was not in place. It is now, and it is worth
+               re-checking once the real transport is in, because if capture is
+               also dropping presses that is a defect in the part that ships.
+    Affects:   08-testbed (the rough edge it listed as unmeasured is now measured
+               and is worse than a rate limit)
+    Evidence:  the burst measurements above; recordings/fpln-session-*.ndjson
+
+---
+
 ## 2026-08-30 - Q03 PASSES: a synthetic mouse click drives a React/SVG display
 
     Question:  Q03 ANSWERED YES. Q01 and Q02 answered with it.

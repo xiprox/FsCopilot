@@ -57,19 +57,34 @@ async function install(insp) {
   const wired = await insp.evaluate(
     `(function(){
        if (!window.FSCPP) return "agent missing"
-       window.FSCPP.onCapture(function (m) { console.log(${JSON.stringify(MARK)} + JSON.stringify(m)) })
+       window.__FSCPP_SEQ = 0
+       window.FSCPP.onCapture(function (m) {
+         // The sequence number is not decoration. Coherent's console collapses a
+         // message identical to the one before it — verified, and across any gap,
+         // not just within a burst. Two presses on the same control with the same
+         // hold produce identical JSON, and the second would vanish silently.
+         // A monotonic prefix makes every message unique on the wire.
+         window.__FSCPP_SEQ = window.__FSCPP_SEQ + 1
+         console.log(${JSON.stringify(MARK)} + window.__FSCPP_SEQ + " " + JSON.stringify(m))
+       })
        return window.FSCPP.key + " | " + JSON.stringify(window.FSCPP.rect())
      })()`)
   return wired
 }
 
-/** Console.messageAdded carries the text; pull out anything wearing our mark. */
+/** Console.messageAdded carries the text; pull out anything wearing our mark.
+ *  Payload is "<seq> <json>" — the seq exists to defeat console dedup, and is
+ *  also how a gap in delivery becomes visible rather than silent. */
 function readMarks(params, onMsg) {
   const m = params && params.message
   if (!m || typeof m.text !== "string") return
   const at = m.text.indexOf(MARK)
   if (at === -1) return
-  try { onMsg(JSON.parse(m.text.slice(at + MARK.length))) } catch { /* truncated or not ours */ }
+  const body = m.text.slice(at + MARK.length)
+  const sp = body.indexOf(" ")
+  if (sp === -1) return
+  const seq = Number(body.slice(0, sp))
+  try { onMsg(JSON.parse(body.slice(sp + 1)), seq) } catch { /* truncated or not ours */ }
 }
 
 async function main() {
@@ -105,16 +120,20 @@ async function main() {
     const info = await install(insp)
 
     const lines = []
+    const seqs = []
     let t0 = null
-    insp.on("Console.messageAdded", (params) => readMarks(params, (msg) => {
+    insp.on("Console.messageAdded", (params) => readMarks(params, (msg, seq) => {
       const now = Date.now()
       if (t0 === null) t0 = now
       // Timing is stamped here rather than in the agent: the agent stays
       // transport-agnostic, and this is when the message actually arrived.
       const rec = { at: now - t0, ...msg }
       lines.push(rec)
-      console.log(`  ${String(rec.at).padStart(6)}ms  ${rec.k}  ${rec.key}  ` +
-                  `(${rec.nx}, ${rec.ny})${rec.hold ? "  hold=" + rec.hold + "ms" : ""}`)
+      seqs.push(seq)
+      const gap = seqs.length > 1 && seq !== seqs[seqs.length - 2] + 1
+      console.log(`  ${String(rec.at).padStart(6)}ms  #${seq}  ${rec.k}  ` +
+                  `(${rec.nx}, ${rec.ny})${rec.hold ? "  hold=" + rec.hold + "ms" : ""}` +
+                  (gap ? `   <-- GAP, expected #${seqs[seqs.length - 2] + 1}` : ""))
     }))
 
     console.log(`page ${page.id}  ${page.title}`)
@@ -158,8 +177,17 @@ async function main() {
       console.log(`  ${String(ev.at).padStart(6)}ms  ${ev.k}  (${ev.nx}, ${ev.ny})  -> ${ok}`)
     }
 
-    const stats = await insp.evaluate(`JSON.stringify(window.FSCPP.stats())`)
-    console.log(`\nagent stats ${stats}`)
+    // A held press finishes inside a timeout, so reading counters immediately
+    // undercounts the last event and makes a clean run look like a lost one.
+    const tail = list.length ? Math.max(...list.map((e) => e.hold || 0)) : 0
+    await new Promise((r) => setTimeout(r, tail + 250))
+
+    const stats = JSON.parse(await insp.evaluate(`JSON.stringify(window.FSCPP.stats())`))
+    const expect = list.length
+    console.log(`\nagent stats ${JSON.stringify(stats)}`)
+    console.log(`  replayed ${stats.replayed}/${expect}` +
+      (stats.missed ? `   MISSED ${stats.missed} — elementFromPoint found nothing there` : "") +
+      (stats.captured ? `   ECHO ${stats.captured} — loop breaking leaked` : "   no echo"))
     console.log("Watch the display: only a human can confirm what actually happened.")
     insp.close()
     return
