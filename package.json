@@ -17,7 +17,8 @@
     "module:build": "node module/tools/derive-vcockpit.mjs && node module/tools/build.mjs",
     "module:check": "node module/tools/build.mjs --check",
     "module:remove": "node module/tools/build.mjs --remove",
-    "host": "node host/server.mjs"
+    "host": "node host/server.mjs",
+    "drift": "node probes/p10-drag-drift.mjs"
   },
   "version": "0.1.0"
 }

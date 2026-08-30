@@ -135,16 +135,26 @@ on the reading that single-machine replay — the same rect, the same panel, cap
 racing in one document — is the likeliest source, and that the case which actually matters is
 two machines, which cannot be tested until stage 6. Revisit if it shows up in real use.
 
-One candidate is visible in the code and is **not** the single-machine explanation, so it
+One candidate was visible in the code and is **not** the single-machine explanation, so it
 would survive to two machines. `replayDrag` rebuilds timing by summing per-step intervals
 clamped to `DRAG_MAX_STEP_MS` (250ms), so replay is *shorter* than capture whenever any gap
 between samples exceeded that. Such gaps are not exotic: `DRAG_MIN_STEP_PX` (2) gates out
 sub-2px motion, so a slow deliberate pan emits sparse samples and can exceed 250ms between
-them. The replay then runs faster than the gesture did, and any receiver applying velocity,
-easing or inertia to the path would end up somewhere else.
+them.
 
-Cheap to test when wanted: log captured gesture duration against summed replay `elapsed` and
-compare. No cockpit time needed beyond one drag.
+**Measured, and it is real but small.** `npm run drift` (`probes/p10-drag-drift.mjs`) replays
+the exact loop from `agent.js` over the nine real drags in `recordings/`, needing no simulator:
+replay runs **0–12% short**, worst case 186ms lost on a 1534ms gesture, and seven of the nine
+lose under 4%. Almost every gesture has exactly one clamped gap, which is the pilot pausing
+after mousedown before moving — the natural hesitation at the start of a pan.
+
+So this is not enough on its own to explain a visible drift, and it is **temporal, not
+spatial**: path coordinates are replayed verbatim, so a replayed drag's endpoint is exact. It
+only becomes spatial if the receiving display does velocity, easing or inertia work on the
+path. That makes it a real but secondary suspect, and it argues for the single-machine
+explanation being the main one — as assumed.
+
+Evidence: `results/p10-drag-drift-2026-08-30.txt`.
 
 **Changes:** nothing yet. Fidelity, not viability — the mechanism is proven either way.
 

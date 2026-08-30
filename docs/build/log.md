@@ -36,6 +36,46 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - The drag drift candidate is real but small, and temporal not spatial
+
+    Question:  bounds Q10 without settling it
+    Stage:     gestures, after stage 5
+    Expected:  The entry below flagged replay time-compression as a candidate
+               cause of drag drift, unverified, and expected it to need cockpit
+               time to check.
+    Found:     It needed no cockpit time at all. The nine drags captured during
+               the drag session were already sitting in `recordings/`, so the
+               exact timing loop from `replayDrag` could be replayed over real
+               data offline - `npm run drift`, `probes/p10-drag-drift.mjs`.
+
+               **Replay runs 0-12% short.** Worst case 186ms lost on a 1534ms
+               gesture; seven of nine lose under 4%; two lose nothing. Almost
+               every gesture contains exactly one gap over the 250ms clamp, and
+               from its position it is the pilot pausing after mousedown before
+               starting to move - the natural hesitation at the start of a pan,
+               not a mid-gesture stall.
+
+               Two readings follow. The effect is **too small to explain a
+               visible drift on its own**, and it is **temporal, not spatial**:
+               the path coordinates are replayed verbatim, so a replayed drag
+               ends exactly where the captured one did. It can only become
+               spatial in a receiver that does velocity, easing or inertia work
+               on the path.
+    Changed:   Q10 goes from speculation to a bounded measurement, and the
+               decision to defer it is better supported than when it was taken:
+               the surviving-to-two-machines candidate is now known to be minor,
+               which leaves single-machine replay as the main suspect, which is
+               exactly the thing that stops mattering at stage 6.
+
+               Worth noting as method rather than result: this was answered for
+               free because the transport records everything it carries. Keeping
+               `recordings/` committed turned a question that looked like it
+               needed a sim session into one command.
+    Affects:   06-open-questions (Q10, updated in place)
+    Evidence:  results/p10-drag-drift-2026-08-30.txt
+
+---
+
 ## 2026-08-30 - Drag works. Tier 3 is real, with a drift caveat
 
     Question:  settles the mousemove-under-held-button question that the
