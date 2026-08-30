@@ -104,7 +104,7 @@ trainer. It could equally be a live-view `<img>` like the A350. Do not assume.
 ## Gate D — transport
 
 ### Q08 · Can a `coui://` page open a WebSocket to `ws://127.0.0.1`?
-**Status:** open, probe ready · **Probes:** `probes/p05-server.mjs` + `probes/p05-websocket.js` (server tested end to end)
+**Status:** ANSWERED YES · **Probes:** `probes/p05-server.mjs` + `probes/p05-websocket.js` · full duplex confirmed from both ends. Caveat: shown with the inspector running; a shipped build must work with DevMode off, which is untested.
 
 The Fenix EFB proves outbound HTTP to loopback works from a cockpit document. WebSocket is
 untested. [04-transport](04-transport.md) has what it buys.

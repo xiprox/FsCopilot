@@ -36,6 +36,44 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - Q08 yes: a cockpit document can hold a WebSocket to loopback
+
+    Question:  Q08 ANSWERED YES
+    Stage:     3
+    Expected:  Plausible but unproven. The Fenix EFB reaches localhost, but it is
+               an iframe with an http:// origin of its own, so it said nothing
+               about what a coui:// document may do.
+    Found:     All three work from `coui://html_UI/Pages/VCockpit/Core/VCockpit.html`:
+
+                 XHR    ok   status=200
+                 fetch  ok   status=200
+                 WS     OPEN, full duplex
+
+               Confirmed from the server side independently: an UPGRADED line,
+               the panel's message received, and the echo delivered back to the
+               panel. Server is ~60 lines of RFC 6455 on node:net and node:crypto,
+               no dependencies - which also demonstrates that hosting one costs no
+               new package in a trimmed single-file build.
+    Changed:   **The prototype needs no WASM module, no SimConnect, no CommBus and
+               no C#.** A panel document can talk directly to a local process.
+
+               That removes the entire pipeline behind the constraints in
+               04-transport: the 512-byte str_msg, the single-slot client-data
+               area, the broadcast that every panel has to parse, and the schema
+               handshake that makes any wire change a hard compatibility break.
+               It also removes the console channel's dedup defect, since that
+               belonged to the debugger-as-transport.
+
+               For FS Copilot itself this stays a proposal rather than a decision -
+               a shipped build must work with DevMode off, and the WebSocket path
+               has only been shown to work with the inspector running. Whether a
+               coui:// document can reach loopback in a normal session is a
+               separate question and should be checked before anyone plans on it.
+    Affects:   04-transport, 08-testbed
+    Evidence:  results/p05-websocket-vcockpit02-displayunits-*.txt
+
+---
+
 ## 2026-08-30 - The console channel silently drops repeated messages
 
     Question:  none - a defect in the testbed's own transport, found by a user
