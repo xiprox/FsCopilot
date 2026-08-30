@@ -16,21 +16,23 @@ has not been thought about hard enough to run yet.
 ## Gate A — can Claude run the experiments?
 
 ### Q00 · Is the Coherent GT debugger scriptable from outside the sim?
-**Status:** open, one hypothesis left · **Probe:** `probes/p00-debugger.mjs` · **Run once, 2026-08-30**
+**Status:** ANSWERED yes · **Probe:** `probes/p00-debugger.mjs` · **Answered by** "Q00 is yes" in [build/log.md](build/log.md)
 
-Port 19999 accepts a TCP connection and then answers nothing at all, to anything, and does not
-hang up either. See the log entry for what was tried. One explanation is cheap to eliminate:
-the backend may serve a single client and the debugger UI had the slot.
+MSFS hosts a WebKit Web Inspector backend on `127.0.0.1:19999`. `GET /pagelist.json` lists every
+inspectable document; `ws://127.0.0.1:19999/devtools/page/N` evaluates arbitrary JavaScript in
+one. Driven by `probes/lib/inspector.mjs` through `npm run pages | probe | eval`.
 
-**Changes:** whether every probe below is a script that can be run and re-run, or a snippet
-pasted into a console by hand. Worth one more attempt and no more.
+**Caution that cost a probe once:** confirm the port's owning process is *alive* before reading
+anything into its behaviour. An orphaned socket accepts connections and answers nothing, which
+is indistinguishable from a server that dislikes your protocol. `p00` now refuses to interpret
+a dead owner.
 
 ---
 
 ## Gate B — does pointer forwarding work at all?
 
 ### Q01 · Does MSFS deliver `pointerdown` / `mousedown` / `mousemove` to a panel document, or only `mouseup`?
-**Status:** open · **Probe:** `probes/p02-capture.js` *(not written)*
+**Status:** open, probe ready · **Probe:** `probes/p02-capture.js`
 
 FS Copilot only ever listens for `mouseup`, so everything else is unverified. The A220 binds
 `onPointerDown`, which is suggestive but not proof — React may be synthesising pointer events
@@ -45,9 +47,15 @@ sequence needs real `PointerEvent`s.
 **Changes:** whether `ev.isTrusted` is usable as a second loop breaker alongside `selfEmit`.
 
 ### Q03 · Does a synthetic pointer sequence at coordinates drive a real React/SVG display?
-**Status:** open · **Probe:** `probes/p03-replay.js` *(not written)*
+**Status:** open, probe ready · **Probe:** `probes/p03-replay.js`
 
 The core of the proposal. Target: A220 `CTP`.
+
+**Now the only question that matters.** With Q05 closed negative, the WASM surface is gone and
+everything this project can still deliver sits behind this one answer. Note the WASM failure
+does **not** predict it: there the simulator owned the hit-target and discarded our
+coordinates, whereas a React or canvas display does its own hit-testing inside the panel
+document with nothing in between.
 
 **Changes:** everything. A negative result kills the approach for the class of aircraft it was
 designed for, and there is no second idea behind it.
@@ -71,7 +79,7 @@ whatever the receiving pilot is pointing at, and the cursor has no writable posi
 Full write-up in [07-wasm-surface](07-wasm-surface.md).
 
 ### Q06 · Can a `coui://` page reach into a cross-origin iframe?
-**Status:** open · **Probe:** `probes/p04-iframe.js` *(not written)*
+**Status:** open · **Probe:** `probes/p04-iframe.js` — needs an aircraft with a genuine cross-origin panel (Fenix). The A350 EFB turned out to be plain HTML DOM with only an `about:blank` viewer iframe, so it does not test this.
 
 Two problems, not one — reach, and the fact that capture has to happen in the child regardless.
 [03-scope](03-scope.md) has both.
@@ -90,7 +98,7 @@ trainer. It could equally be a live-view `<img>` like the A350. Do not assume.
 ## Gate D — transport
 
 ### Q08 · Can a `coui://` page open a WebSocket to `ws://127.0.0.1`?
-**Status:** open · **Probe:** `probes/p05-websocket.js` *(not written)*
+**Status:** open, probe ready · **Probes:** `probes/p05-server.mjs` + `probes/p05-websocket.js` (server tested end to end)
 
 The Fenix EFB proves outbound HTTP to loopback works from a cockpit document. WebSocket is
 untested. [04-transport](04-transport.md) has what it buys.
