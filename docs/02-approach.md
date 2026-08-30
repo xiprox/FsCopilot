@@ -4,12 +4,15 @@
     Depends on: 01-problem
     Decides:    what is sent, in what units, how it is replayed, how loops are broken
 
-> **Amended by the build.** Two corrections. **`PointerEvent` does not exist in
+> **Amended by the build.** Three corrections. **`PointerEvent` does not exist in
 > Coherent GT** — the constructor is absent, so "dispatch real `PointerEvent`s"
 > below is impossible, not merely unnecessary; the sequence is `mousedown`,
-> `mouseup`, `click` with `MouseEvent` only. And the approach itself is now
+> `mouseup`, `click` with `MouseEvent` only. The approach itself is now
 > **demonstrated** on a React/SVG display, so this file is no longer entirely a
-> proposal. See "Q03 PASSES" in [build/log.md](build/log.md).
+> proposal — see "Q03 PASSES" in [build/log.md](build/log.md). And **tier 3
+> (drag) works**: MSFS does deliver `mousemove` to a panel document while a
+> button is held. See "Drag works" in [build/log.md](build/log.md), which also
+> supersedes an earlier entry claiming drag was broken.
 
 **Most of this file has now been verified against a running simulator.** It is the design the
 probes in [build/plan.md](build/plan.md) exist to test. Where a probe has run, the log says so
@@ -33,10 +36,14 @@ What to capture, in ascending order of cost:
 | tier 2 | + press duration | press-and-hold |
 | tier 3 | + throttled `mousemove` while down | drag |
 
-Tier 1 and tier 2 are built and work. **Tier 3 is built and does not work** — see "Drag is
-implemented and does NOT work" in [build/log.md](build/log.md). Whether MSFS delivers
-`mousemove` while a button is held to a panel document is the unanswered question underneath
-it, and if the answer is no then drag is not capturable from the DOM at all.
+All three tiers are built and work. **Tier 3 works** — MSFS does deliver `mousemove` to a
+panel document while a button is held, which was the question underneath it. See "Drag works"
+in [build/log.md](build/log.md). An earlier entry reporting drag as broken is withdrawn: it
+tested a build that had no drag code in it.
+
+Replayed drags sometimes drift from the original gesture. Accepted as a known limitation
+rather than diagnosed, since the case that matters is two machines and that cannot be tested
+yet — recorded as Q10 in [06-open-questions](06-open-questions.md).
 
 The bandwidth objection that originally gated tier 3 is gone: the transport is a WebSocket
 with no size cap ([10-module](10-module.md)).

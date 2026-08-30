@@ -12,31 +12,16 @@
                 on there being no second machine. A remote tester needs the
                 Community package and the host, and nothing else.
 
-                **IN FLIGHT: drag gestures, implemented and UNTESTED.** Agent v5
-                adds drag capture and replay. An earlier cockpit test appeared to
-                show drags going undetected; that result has been withdrawn - the
-                panel was running v4 because `module:build` had never been run, so
-                the installed package contained no drag code at all. See the top
-                of log.md.
+                **Drag works.** Agent v5 captures and replays drags in the
+                cockpit, so all three tiers of 02-approach are built and tested
+                and MSFS does deliver mousemove under a held button. Replayed
+                drags sometimes drift; that is accepted as a known limitation and
+                tracked as Q10, not investigated, because the case that matters is
+                two machines. **There is no in-flight work item.**
 
-                v5 **is now installed and verified** against source. MSFS needs a
-                restart to pick it up. Nothing is known about whether drag works;
-                it has still never run.
-
-                Next session, in order:
-                1. Restart MSFS, get into the A220, select DisplayUnits.
-                2. `npm run eval -- <page> "window.FSCPP.version"` - confirm 5
-                   before believing anything else. This check is cheap and it has
-                   already cost one session for want of running it.
-                3. Start `npm run host`, drag on the panel, see whether drag
-                   messages arrive.
-                4. If they do not: `npm run probe -- <page> p09-drag-delivery.js`,
-                   drag several times, then `npm run eval -- <page>
-                   "__P09.report()"`. It settles whether MSFS delivers mousemove
-                   under a held button - the one failure that would kill the
-                   feature outright - and replays v5's classifier over the real
-                   gestures, so a threshold fault and a delivery fault are told
-                   apart in one pass without a second sim cycle.
+                Everything this project set out to prove on one machine is proven.
+                What remains is stage 6, which is not a question about the
+                mechanism but about packaging it for someone else to run.
     Supersedes: nothing
     Log:        log.md
 

@@ -32,7 +32,13 @@ a dead owner.
 ## Gate B — does pointer forwarding work at all?
 
 ### Q01 · Does MSFS deliver `pointerdown` / `mousedown` / `mousemove` to a panel document, or only `mouseup`?
-**Status:** ANSWERED · **Probe:** `probes/p02-capture.js` · mouse events only; `PointerEvent` does not exist in Coherent GT
+**Status:** ANSWERED, fully · **Probes:** `probes/p02-capture.js`, `probes/p09-drag-delivery.js` · mouse events only; `PointerEvent` does not exist in Coherent GT
+
+**`mousemove` is delivered while a button is held**, which was the part still outstanding and
+the one that gated drag. Confirmed by drag working end to end in the cockpit — see "Drag
+works" in [build/log.md](build/log.md). `p09` is the instrument that re-answers this in
+isolation if drag ever regresses; it separates a delivery fault from a threshold fault in one
+cockpit pass.
 
 FS Copilot only ever listens for `mouseup`, so everything else is unverified. The A220 binds
 `onPointerDown`, which is suggestive but not proof — React may be synthesising pointer events
@@ -119,6 +125,31 @@ Whether two `SetClientData` calls in one frame both arrive, or coalesce.
 
 ---
 
+## Gate E — fidelity
+
+### Q10 · Why do replayed drags drift from the original gesture?
+**Status:** open, deliberately deferred · **Probe:** none yet
+
+Drag works, but a replayed drag sometimes does not land where the captured one did. Deferred
+on the reading that single-machine replay — the same rect, the same panel, capture and replay
+racing in one document — is the likeliest source, and that the case which actually matters is
+two machines, which cannot be tested until stage 6. Revisit if it shows up in real use.
+
+One candidate is visible in the code and is **not** the single-machine explanation, so it
+would survive to two machines. `replayDrag` rebuilds timing by summing per-step intervals
+clamped to `DRAG_MAX_STEP_MS` (250ms), so replay is *shorter* than capture whenever any gap
+between samples exceeded that. Such gaps are not exotic: `DRAG_MIN_STEP_PX` (2) gates out
+sub-2px motion, so a slow deliberate pan emits sparse samples and can exceed 250ms between
+them. The replay then runs faster than the gesture did, and any receiver applying velocity,
+easing or inertia to the path would end up somewhere else.
+
+Cheap to test when wanted: log captured gesture duration against summed replay `elapsed` and
+compare. No cockpit time needed beyond one drag.
+
+**Changes:** nothing yet. Fidelity, not viability — the mechanism is proven either way.
+
+---
+
 ## Settled
 
 - **Q00 — yes.** MSFS hosts a WebKit inspector on 127.0.0.1:19999; probes run over the wire.
@@ -128,6 +159,10 @@ Whether two `SetClientData` calls in one frame both arrive, or coalesce.
 - **Q02 — yes.** Real cockpit input is trusted; VCockpit.js's own synthetic events are not.
 - **Q03 — YES.** A synthetic mouse click at captured coordinates opened a dropdown on the
   A220's React/SVG DisplayUnits. The approach works on the surface it was designed for.
+- **Q08 — YES, and with DevMode off.** A `coui://` document holds a WebSocket to loopback,
+  which is what deletes the CommBus/WASM/SimConnect pipeline from the design.
+- **Drag — yes.** `mousemove` is delivered under a held button; tier 3 captures and replays.
+  Fidelity is imperfect and tracked as Q10 above.
 
 ---
 

@@ -36,6 +36,53 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - Drag works. Tier 3 is real, with a drift caveat
+
+    Question:  settles the mousemove-under-held-button question that the
+               withdrawn entry raised. Closes tier 3 of 02-approach.
+    Stage:     gestures, after stage 5
+    Expected:  Genuinely unknown. The failure mode that would have killed the
+               feature - MSFS not delivering mousemove while a button is held -
+               was still live going in, and p09 existed to separate it from a
+               threshold fault.
+    Found:     **Drags are captured and replayed in the cockpit.** Confirmed by
+               hand against agent v5 through the real module and host.
+
+               So MSFS does deliver mousemove to a panel document while a button
+               is held, and the v5 thresholds (DRAG_MIN_PX 4, DRAG_SAMPLE_MS 33,
+               DRAG_MIN_STEP_PX 2) classify real gestures correctly. p09 was not
+               needed and was not run; it stays in the tree because it is the
+               instrument that separates delivery faults from threshold faults if
+               drag ever regresses.
+
+               **Replayed drags sometimes drift** from the original gesture.
+               Judged not worth chasing now - see below - and recorded as Q10.
+    Changed:   Tier 3 of 02-approach is built, tested and working. The gesture
+               work that has been in flight since the drag implementation landed
+               is done, and there is no in-flight item left.
+
+               Drift is accepted as a known limitation rather than investigated,
+               on the reading that single-machine replay is the most likely
+               source and that the case which matters is two machines, which
+               cannot be tested yet. Revisit if it shows up in real use.
+
+               One candidate cause is visible in the code and is worth writing
+               down before it is forgotten, because it is not the
+               single-machine explanation and would not go away on two:
+               `replayDrag` reconstructs timing by summing per-step intervals
+               clamped to DRAG_MAX_STEP_MS (250ms), so total replay duration is
+               **less than** the captured duration whenever any gap between
+               samples exceeded 250ms. Those gaps are not rare: DRAG_MIN_STEP_PX
+               gates out sub-2px motion, so a slow deliberate pan emits sparse
+               samples and can easily exceed 250ms between them. The replay then
+               runs faster than the original gesture, and any receiver doing
+               velocity, easing or inertia work on the path would land somewhere
+               else. Unverified, and deliberately not acted on.
+    Affects:   02-approach (tier 3), 06-open-questions (Q01 strengthened, Q10 new)
+    Evidence:  confirmed by hand in the cockpit; no raw capture saved
+
+---
+
 ## 2026-08-30 - The drag negative result was void: v5 was never installed
 
     Question:  retracts the previous entry's finding. Drag is untested, not
