@@ -1,0 +1,9 @@
+{
+  "name": "fsc-pointer-playground",
+  "private": true,
+  "type": "module",
+  "description": "Experiments toward pointer-forwarding interaction sync for FS Copilot",
+  "scripts": {
+    "probe:00": "node probes/p00-debugger.mjs"
+  }
+}
