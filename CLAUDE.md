@@ -48,7 +48,11 @@ right panel selected. Batch everything that needs it into deliberate sessions. W
 so it answers as much as possible in one paste, prints a self-contained report, and stashes
 its raw data on a global for follow-up questions.
 
-Whether probes can be driven remotely at all is Q00, and it is unresolved.
+**Probes are driven remotely**, not pasted. MSFS hosts a WebKit inspector on
+`127.0.0.1:19999` and `probes/lib/inspector.mjs` drives it: `npm run pages`, `npm run probe`,
+`npm run eval`. The only thing still needing a human is a *real* cockpit click and a pair of
+eyes on the display — several results this project depends on could not have been measured
+any other way.
 
 ## Rules that come from the sim, not from us
 
@@ -58,10 +62,18 @@ loaded as-is; edit, reload the panel, done. There is no .NET SDK on this machine
 Copilot desktop app is compiled in Visual Studio and errors come back by hand — so put as much
 of the work as possible in JS.
 
-**Do not ship a second package that patches `VCockpit.js`.** `fscopilot-bridge` already
-overrides that core file. Two packages patching one path is a conflict. Put probe and
-prototype code in the bridge's own `html_ui/`, with an install/uninstall script so the tree
-returns to stock.
+**Install nothing into the simulator.** Experiments run through the remote inspector — see
+[docs/08-testbed.md](docs/08-testbed.md). This supersedes the earlier plan of dropping code
+into `fscopilot-bridge/html_ui/`: it iterates in seconds rather than sim restarts, cannot
+break FS Copilot, and cannot be left behind.
+
+If something ever does have to go in a package, do not patch `VCockpit.js` — `fscopilot-bridge`
+already overrides that core file and two packages patching one path is a conflict.
+
+**Anything injected into the pilot's own input path must fail open.** A wrapper left
+suppressing silently disabled an aircraft's clicks, and the handle needed to undo it had
+already been deleted. Clear the suppressing state unconditionally, expose restore at a fixed
+global that survives losing every other handle, and add a deadman that un-installs on its own.
 
 **Prefix anything that runs in the sim or speaks on a bus with `FSCPP_`.** Never `FSC_`, which
 is FS Copilot's, and never `FSCEDITOR_`, which is fsc-editor's. All three packages live in the
