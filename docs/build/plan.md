@@ -1,16 +1,15 @@
 # Probe plan
 
-    Status:     Stages 0-4 done. The mechanism is proven (Q03) and a real
-                in-simulator module carries it over a WebSocket to a local host,
-                with live capture, recording and replay all working - see
-                10-module. Stages 5 and 6 remain, and 6 is blocked on there being
-                no second machine.
+    Status:     Stages 0-5 done. The mechanism is proven, a real in-simulator
+                module carries it over a WebSocket to a local host, and capture is
+                verified lossless at 33/33 including spam-clicking. Stage 6 is the
+                only one left and it is blocked on there being no second machine.
                 Settled: Q00, Q01, Q02, Q03, Q08 yes; Q05 no, permanently.
-                Q04 deferred on the same-build assumption. Q06, Q07 and Q09 open
-                and none of them block anything.
-                One thing worth closing deliberately: whether capture ever loses
-                presses. The console channel's dedup explained some of an earlier
-                shortfall but perhaps not all, and the host can now answer it.
+                Q04 deferred on the same-build assumption. Q06, Q07 and Q09 open,
+                none of them blocking.
+                **The next thing that gates anything** is whether the module works
+                with DevMode OFF. Everything so far has run with the inspector
+                enabled, and a remote tester will not have it.
     Supersedes: nothing
     Log:        log.md
 
@@ -79,20 +78,16 @@ An intermediate testbed that carried data over the inspector's console channel w
 then retired: that channel silently drops repeated messages.
 
 ### Stage 5 · End-to-end on one machine
-**Mostly done; one thing left worth doing deliberately.**
+**DONE.**
 
-Recording and replay work through the real module. The original description of this stage —
-echoing `Interact` packets back through CommBus/WASM/SimConnect — is obsolete, since none of
-those are in the path any more.
+Recording and replay work through the real module, and capture is verified clean: 33 presses
+counted deliberately, including spam-clicking, produced 33 captures and 33 replays. The
+earlier five-of-nine shortfall was entirely the retired console channel's dedup.
 
-What remains: **confirm capture never loses presses.** An early recording held five events for
-roughly nine deliberate actions. Console dedup explains some of that and possibly all of it,
-but it was never separated. The host now prints every capture live and `s` reports its count
-against the agent's own counter — a disagreement is transport, a matching-but-low pair is
-capture, and capture is the part that ships.
-
-The paired-panel test named here originally is cancelled: EFBs are out of scope, and the A220's
-other paired panels are bezel-driven rather than pointer-driven.
+The original description of this stage — echoing `Interact` packets back through
+CommBus/WASM/SimConnect — is obsolete, since none of those are in the path any more. The
+paired-panel test named here is cancelled too: EFBs are out of scope and the A220's other
+paired panels are bezel-driven rather than pointer-driven.
 
 ### Stage 6 · Two machines
 **Blocked — there is no second machine.**

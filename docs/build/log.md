@@ -36,6 +36,35 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - Capture does not drop presses; the earlier loss was console dedup
+
+    Question:  closes the open question from the console-dedup entry
+    Stage:     5
+    Expected:  Unclear. Nine-ish deliberate actions had produced five recorded
+               events, and consecutive-message dedup did not obviously account for
+               all of the shortfall. The possibility that capture itself was
+               losing presses was left open, because capture is the part that
+               ships and a defect there would matter more than anything else
+               outstanding.
+    Found:     Capture is clean. Counted deliberately through the real module:
+               **33 captured, 33 replayed.** Including deliberate spam-clicking,
+               which is the case most likely to expose a dropped press.
+
+               So the earlier shortfall was entirely the console channel
+               collapsing messages identical to their predecessor. It was a
+               property of the debugger-as-transport and it left with it.
+    Changed:   Stage 5 is done. Nothing further is owed on capture fidelity.
+
+               Worth keeping as a general lesson rather than a footnote: the
+               defect was in the scaffolding, presented as a defect in the
+               mechanism, and cost a round of investigation aimed at the wrong
+               layer. The tell was available and ignored - a channel that has a
+               `repeatCount` field is a channel that deduplicates.
+    Affects:   none
+    Evidence:  counted in the cockpit, 33/33
+
+---
+
 ## 2026-08-30 - The prototype module works end to end in the simulator
 
     Question:  none - a build milestone, and the end of stage 4
