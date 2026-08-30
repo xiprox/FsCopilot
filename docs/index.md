@@ -40,6 +40,7 @@ drags the whole proposal into context.
 
 | File | What is in it |
 | --- | --- |
+| [build/runsheet.md](build/runsheet.md) | The order to run probes in during one sim session, which panel each needs selected, and what to save. Use this when you are about to fly. |
 | [build/plan.md](build/plan.md) | **Start here.** The seven stages, what each one answers, its exit criterion, where it stands. Stage 1 is the one that decides whether any of this is real. Working notes on how to probe without wasting sim sessions. |
 | [build/log.md](build/log.md) | What the probes found and what changed as a result, newest first. Including approaches tried and abandoned, which is the part git history cannot tell anyone. |
 

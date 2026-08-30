@@ -1,8 +1,12 @@
 # Probe plan
 
-    Status:     Gate A run once, inconclusive. Gate B not started — nothing about
-                pointer forwarding has been tested against a running simulator yet.
-                Everything in the design record is a proposal.
+    Status:     The full probe battery p00-p05 is written and syntax-clean; the
+                p05 loopback server is tested end to end. Nothing has been run
+                against a running simulator. Everything in the design record is
+                a proposal.
+                Q00's one previous run probed an orphaned socket and told us
+                nothing — see the log. Port 19999 must be confirmed to have a
+                LIVE owner before any conclusion is drawn from it.
     Supersedes: nothing
     Log:        log.md
 

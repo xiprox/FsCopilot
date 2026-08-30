@@ -36,7 +36,61 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
-## 2026-08-30 — The debugger port accepts connections and says nothing
+## 2026-08-30 — The first Q00 run probed a dead socket
+
+    Question:  Q00 — back to untested. The entry below it is void.
+    Stage:     0
+    Expected:  That the silent listener on 19999 was a live backend refusing to
+               talk to us, and that the single-client hypothesis would explain it.
+    Found:     Port 19999 is held by **pid 33168, which does not exist**. Checked
+               with Get-Process (no such process) while netstat still reports
+               `0.0.0.0:19999 LISTENING 33168` — an orphaned listening socket whose
+               owner has gone, with the handle presumably inherited by a surviving
+               child.
+
+               It has been orphaned for the whole session. When the first run
+               happened, `FlightSimulator2024` was pid 23444 and 19999 was already
+               33168 — two different processes — and Get-Process already failed on
+               33168 then. That was read as "elevated, name hidden". It was not.
+               It was dead.
+
+               So "accepts TCP, holds the socket open, answers nothing, to
+               everything, for 12 seconds" has a much duller explanation than a
+               framed protocol: the OS completes the handshake on behalf of a
+               listening socket that nobody is reading from. No server was ever
+               on the other end.
+
+               Also running: `C:\MSFS 2024 SDK\Tools\CoherentGT Debugger\Debugger.exe`
+               as pid 24348 — a live process, and a different one. It is the SDK
+               tool that *connects to* the sim, not the endpoint.
+    Changed:   **Q00 is untested, not "open with one hypothesis left".** Discard
+               the entry below and its conclusions; the single-client theory was
+               explaining an artefact.
+
+               Worse, the orphan may be actively harmful: a stale bind on
+               0.0.0.0:19999 can stop the simulator from opening the debugger port
+               at all, which would explain why a later MSFS instance was running
+               without owning it.
+
+               Re-run sequence, in order: close Debugger.exe, confirm 19999 frees,
+               start MSFS with DevMode, confirm MSFS itself now owns 19999, and
+               only then run `npm run probe:00`.
+    Affects:   none
+    Evidence:  none beyond the process listings above — the earlier results file
+               records a probe of nothing.
+
+    Lesson worth keeping: check that a port's owner is alive before interpreting
+    its silence. Ten seconds of Get-Process would have saved the whole first
+    entry.
+
+---
+
+## 2026-08-30 — VOID: the debugger port accepts connections and says nothing
+
+> **Void.** This probed an orphaned socket, not a server. See "The first Q00 run
+> probed a dead socket" above. Kept because the reasoning it contains — that
+> accept-then-silence is not how an HTTP server rejects a path — is sound, and
+> was applied to the wrong facts.
 
     Question:  Q00 — still open, one hypothesis left
     Stage:     0

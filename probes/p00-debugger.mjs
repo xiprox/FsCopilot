@@ -30,6 +30,14 @@ const PORT = portArg >= 0 ? Number(process.argv[portArg + 1]) : 19999
 const out = []
 const say = (s = "") => { out.push(String(s)); console.log(s) }
 
+function writeTranscript() {
+  mkdirSync(join(ROOT, "results"), { recursive: true })
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")
+  const file = join(ROOT, "results", `p00-debugger-${stamp}.txt`)
+  writeFileSync(file, out.join("\n") + "\n")
+  console.log(`\nwritten: ${file}`)
+}
+
 /** Paths worth trying. The first block is Chrome DevTools Protocol, the second
  *  is WebKit Web Inspector, which is what Coherent GT is built on. */
 const HTTP_PATHS = [
@@ -46,11 +54,36 @@ function listeners() {
       "-NoProfile", "-Command",
       "Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -ge 19000 -and $_.LocalPort -le 21000 } | " +
       "ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; " +
-      "'{0}:{1} pid={2} {3}' -f $_.LocalAddress, $_.LocalPort, $_.OwningProcess, $p.ProcessName }"
+      "'{0}:{1} pid={2} {3}' -f $_.LocalAddress, $_.LocalPort, $_.OwningProcess, " +
+      "$(if ($p) { $p.ProcessName } else { '*** OWNER IS DEAD — ORPHANED SOCKET ***' }) }"
     ], { encoding: "utf8", timeout: 15000 })
     return ps.trim() || "(nothing listening in 19000-21000)"
   } catch (e) {
     return `(port scan failed: ${e.message})`
+  }
+}
+
+/** Is anything alive behind the port?
+ *
+ *  This exists because the first run of this probe spent its whole budget
+ *  interrogating an orphaned socket — pid gone, netstat still reporting
+ *  LISTENING, the OS completing handshakes on behalf of nobody. Silence from a
+ *  dead socket is indistinguishable from silence from a server that dislikes
+ *  your protocol, so establish liveness before interpreting anything below. */
+function ownerAlive() {
+  try {
+    const ps = execFileSync("powershell", [
+      "-NoProfile", "-Command",
+      `$c = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | ` +
+      `Where-Object { $_.LocalPort -eq ${PORT} } | Select-Object -First 1; ` +
+      `if (-not $c) { 'NOT-LISTENING' } else { ` +
+      `$p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue; ` +
+      `if ($p) { 'ALIVE ' + $c.OwningProcess + ' ' + $p.ProcessName } ` +
+      `else { 'ORPHAN ' + $c.OwningProcess } }`
+    ], { encoding: "utf8", timeout: 15000 }).trim()
+    return ps
+  } catch (e) {
+    return `check failed: ${e.message}`
   }
 }
 
@@ -106,6 +139,31 @@ say("--- listening in 19000-21000 ---")
 say(listeners())
 
 say()
+say("--- is anyone home? ---")
+const liveness = ownerAlive()
+say(`  ${liveness}`)
+if (liveness.startsWith("ORPHAN")) {
+  say()
+  say("  STOP. The socket's owning process no longer exists. Everything below")
+  say("  would be a probe of nothing — the OS accepts connections on behalf of a")
+  say("  listening socket with nobody reading from it, and that silence means")
+  say("  nothing at all.")
+  say()
+  say("  Close whatever inherited the handle (the CoherentGT Debugger is the")
+  say("  usual suspect), confirm the port frees, then start MSFS with DevMode and")
+  say("  confirm the sim itself owns the port before re-running.")
+  writeTranscript()
+  process.exit(0)
+}
+if (liveness === "NOT-LISTENING") {
+  say()
+  say("  Nothing is listening. Start MSFS with DevMode enabled, and check the port")
+  say("  is not being shadowed by a stale bind from a previous session.")
+  writeTranscript()
+  process.exit(0)
+}
+
+say()
 say("--- does it speak first? ---")
 const first = await raw(null, "connect and wait")
 say(`  ${first.verdict}  (${first.bytes} bytes)`)
@@ -150,8 +208,4 @@ say("  silence on everything           -> 19999 is the debugger UI's own port, n
 say("                                     Next: find the port the SIM listens on (the debugger")
 say("                                     connects to it), or accept the manual console loop.")
 
-mkdirSync(join(ROOT, "results"), { recursive: true })
-const file = join(ROOT, "results", `p00-debugger-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.txt`)
-writeFileSync(file, out.join("\n") + "\n")
-say()
-say(`written: ${file}`)
+writeTranscript()
