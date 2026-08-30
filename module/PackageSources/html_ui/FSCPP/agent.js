@@ -19,22 +19,35 @@
  * It wraps nothing and replaces nothing, so it cannot disable the aircraft the way
  * a Coherent.call wrapper did. stop() removes everything it added.
  *
- *   window.FSCPP.onCapture(fn)   fn(msg) whenever the pilot presses
- *   window.FSCPP.replay(msg)     apply a message from the peer
- *   window.FSCPP.stop()          remove all listeners
- *   window.FSCPP.stats()         counters
+ * Exposed as a factory so that both callers use this one file:
+ *
+ *   FSCPP_Agent(instrumentElement)   -> the agent, also parked on window.FSCPP
+ *
+ * The module calls it from boot.js with the instrument VCockpit.js just created.
+ * The testbed calls it after injecting this file through the inspector. Neither
+ * path has its own copy.
+ *
+ *   agent.onCapture(fn)   fn(msg) whenever the pilot presses
+ *   agent.replay(msg)     apply a message from the peer
+ *   agent.stop()          remove all listeners
+ *   agent.stats()         counters
  */
 
-(function () {
-  var VERSION = 3
+window.FSCPP_Agent = function (instrument) {
+  var VERSION = 4
 
   // Replacing a previous install must not leave the old listeners attached.
   if (window.FSCPP && window.FSCPP.stop) {
     try { window.FSCPP.stop() } catch (e) { /* keep going */ }
   }
 
-  var panel = document.getElementById("panel")
-  var instr = panel && panel.children.length ? panel.children[0] : null
+  // Given an instrument, use it. Otherwise fall back to finding one, which is
+  // what an injected testbed session does.
+  var instr = instrument || null
+  if (!instr) {
+    var panel = document.getElementById("panel")
+    instr = panel && panel.children.length ? panel.children[0] : null
+  }
 
   /* The routing key.
    *
@@ -195,7 +208,7 @@
 
   /* Surface ---------------------------------------------------------------- */
 
-  window.FSCPP = {
+  var api = {
     version: VERSION,
     key: KEY,
     instrument: instr ? instr.tagName.toLowerCase() : null,
@@ -213,7 +226,11 @@
     }
   }
 
+  window.FSCPP = api
+
   console.log("[FSCPP] agent v" + VERSION + " on " + KEY +
     "  rect=" + Math.round(rect().width) + "x" + Math.round(rect().height) +
     (instr ? "" : "  WARNING: no instrument element found"))
-})();
+
+  return api
+};

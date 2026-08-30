@@ -12,6 +12,12 @@
     "sources": "node probes/sources.mjs",
     "rec": "node testbed/session.mjs rec",
     "play": "node testbed/session.mjs play",
-    "agent": "node testbed/session.mjs agent"
-  }
+    "agent": "node testbed/session.mjs agent",
+    "module:derive": "node module/tools/derive-vcockpit.mjs",
+    "module:build": "node module/tools/derive-vcockpit.mjs && node module/tools/build.mjs",
+    "module:check": "node module/tools/build.mjs --check",
+    "module:remove": "node module/tools/build.mjs --remove",
+    "host": "node host/server.mjs"
+  },
+  "version": "0.1.0"
 }
