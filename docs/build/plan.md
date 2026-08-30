@@ -27,75 +27,80 @@ where the two disagree.
 
 ## The stages
 
-Each stage exists to answer specific questions and has an exit criterion. Stages are ordered so
-that a negative result stops work as early as possible.
+Each stage exists to answer specific questions and has an exit criterion. Stages were ordered
+so that a negative result would stop work early. In the event nothing did.
 
 ### Stage 0 · Automation — Q00
-**Status: run once, inconclusive.**
+**DONE — yes.**
 
-Determine whether probes can be driven from outside the sim rather than pasted into a console.
+MSFS hosts a WebKit inspector on `127.0.0.1:19999`. `Runtime.evaluate` runs arbitrary
+JavaScript in any panel; `Console.enable`, `Page.getResourceTree` and `Page.searchInResources`
+do the rest. Driven by `probes/lib/inspector.mjs` through `npm run pages | probe | eval |
+sources`.
 
-*Exit:* either the debugger answers something and we build a runner, or it does not and we
-accept the manual loop. **One more attempt only** — with the Coherent GT Debugger window
-closed, to test the single-client hypothesis in the log.
+The first attempt measured an orphaned socket and concluded nothing — see the log. Confirm a
+port's owner is alive before reading anything into its silence.
 
 ### Stage 1 · Does the mechanism work — Q01, Q02, Q03
-**Status: not started. `p02-capture.js` and `p03-replay.js` not written.**
+**DONE — the load-bearing stage passed.**
 
-The load-bearing stage. Everything after this assumes it passed.
-
-- **Q01/Q02, capture:** attach a logging listener for the full pointer and mouse families on a
-  panel document, click the panel in the sim, record which events arrive, in what order, with
-  what `isTrusted` and what coordinates.
-- **Q03, replay:** on the A220 `CTP`, dispatch the sequence from
-  [02-approach](../02-approach.md) at a known softkey's coordinates and observe whether the
-  display reacts.
-
-*Exit:* a demonstrated synthetic press on a React/SVG display. **If Q03 fails, stop** — the
-approach has no fallback and the remaining stages are wasted effort.
+A synthetic `mousedown`/`mouseup`/`click` at captured coordinates opened a dropdown on the
+A220's React/SVG DisplayUnits, target an SVG `rect` — exactly the class the existing scheme
+cannot name. Q01: mouse events only, and `PointerEvent` does not exist in Coherent GT at all.
+Q02: real input is trusted, so `isTrusted` works as a second loop breaker.
 
 ### Stage 2 · Reach — Q05, Q06, Q07
-**Status: `p01-wasm-shell.js` written, not run.**
+**Q05 done and negative. Q06 and Q07 still open, and neither blocks anything.**
 
-Independent of Stage 1 and can run alongside it, because it changes scope rather than
-viability. Q05 first: it moves the most.
+WASM displays are permanently unreachable: the simulator owns the hit-target and discards the
+coordinates we send, so an injected press fires whatever the *receiving* pilot is hovering —
+worse than a no-op. Written up in full as [07-wasm-surface](../07-wasm-surface.md).
 
-*Exit:* each of the five surfaces in [03-scope](../03-scope.md) marked reachable or not, with
-evidence.
+Q06 needs an aircraft with a genuine cross-origin panel; the A350's EFB turned out to be plain
+HTML. Q07 needs the TDS GTN loaded.
 
 ### Stage 3 · Transport — Q08, Q09
-**Status: not started.**
+**DONE — Q08 yes, which made Q09 moot.**
 
-*Exit:* a decision on whether the interaction path keeps the CommBus/WASM/SimConnect route or
-moves to a local WebSocket, recorded in [04-transport](../04-transport.md) by pointer.
+A `coui://` document can hold a WebSocket to loopback, full duplex. The prototype therefore
+uses no CommBus, no WASM and no SimConnect, and Q09 — whether the 512-byte bus survives a
+burst — no longer matters unless that path comes back.
 
-### Stage 4 · Instrumented bridge
-**Status: not started.**
+Caveat on the record: demonstrated with the inspector running. DevMode off is untested.
 
-A drop-in for `fscopilot-bridge/html_ui/` that captures and replays for real, with an
-install/uninstall script so the tree returns to stock. No protocol changes yet — it talks to
-itself.
+### Stage 4 · A real module
+**DONE, by a different route than planned.**
 
-*Exit:* a real click on one panel producing a correct synthetic press on the same panel, with
-per-instrument counters.
+The plan said a drop-in for `fscopilot-bridge/html_ui/`. What exists is our own Community
+package with its own WebSocket transport — see [10-module](../10-module.md). Panels connect,
+presses appear live in the host, recording and replay both work.
+
+An intermediate testbed that carried data over the inspector's console channel was built and
+then retired: that channel silently drops repeated messages.
 
 ### Stage 5 · End-to-end on one machine
-**Status: not started.**
+**Mostly done; one thing left worth doing deliberately.**
 
-A dev toggle that echoes received `Interact` packets straight back into the sim, so a message
-traverses every hop — CommBus, WASM, SimConnect, C#, and back — on a single PC. Higher fidelity
-than a JS-only loopback because it exercises the transport.
+Recording and replay work through the real module. The original description of this stage —
+echoing `Interact` packets back through CommBus/WASM/SimConnect — is obsolete, since none of
+those are in the path any more.
 
-Then paired panels: several aircraft carry two instances of the same instrument (A220 `CTP_1` /
-`CTP_2` and `MKP_1` / `MKP_2`, A350 `$EFIS_LEFT` / `$EFIS_RIGHT`, EFB captain and first officer).
-Capture on one, replay on the other. Real cross-document routing, still one machine.
+What remains: **confirm capture never loses presses.** An early recording held five events for
+roughly nine deliberate actions. Console dedup explains some of that and possibly all of it,
+but it was never separated. The host now prints every capture live and `s` reports its count
+against the agent's own counter — a disagreement is transport, a matching-but-low pair is
+capture, and capture is the part that ships.
 
-*Exit:* a press on the left panel appearing on the right.
+The paired-panel test named here originally is cancelled: EFBs are out of scope, and the A220's
+other paired panels are bezel-driven rather than pointer-driven.
 
 ### Stage 6 · Two machines
-**Status: not started.**
+**Blocked — there is no second machine.**
 
-Start with the A220 `CTP`.
+The only other tester is in another country, so this waits on a packaged build they can run.
+[08-testbed](08-testbed.md) has the eventual shape. Q04, whether two machines agree on the
+instrument rect, is deferred with it on the assumption that the rect is `panel.cfg`-derived and
+therefore identical on the same addon build.
 
 ## Working notes
 
