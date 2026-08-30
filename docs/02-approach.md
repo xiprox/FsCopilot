@@ -4,7 +4,14 @@
     Depends on: 01-problem
     Decides:    what is sent, in what units, how it is replayed, how loops are broken
 
-**Nothing in this file has been verified against a running simulator.** It is the design the
+> **Amended by the build.** Two corrections. **`PointerEvent` does not exist in
+> Coherent GT** — the constructor is absent, so "dispatch real `PointerEvent`s"
+> below is impossible, not merely unnecessary; the sequence is `mousedown`,
+> `mouseup`, `click` with `MouseEvent` only. And the approach itself is now
+> **demonstrated** on a React/SVG display, so this file is no longer entirely a
+> proposal. See "Q03 PASSES" in [build/log.md](build/log.md).
+
+**Most of this file has now been verified against a running simulator.** It is the design the
 probes in [build/plan.md](build/plan.md) exist to test. Where a probe has run, the log says so
 and this file carries a pointer line.
 

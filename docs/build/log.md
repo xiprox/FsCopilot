@@ -36,6 +36,111 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-08-30 - Q03 PASSES: a synthetic mouse click drives a React/SVG display
+
+    Question:  Q03 ANSWERED YES. Q01 and Q02 answered with it.
+    Stage:     1 - the load-bearing stage
+    Expected:  Genuinely uncertain. The WASM surface had just closed, and while
+               the mechanisms are different there was no evidence either way for
+               a React display doing its own hit-testing inside the panel
+               document.
+    Found:     It works.
+
+               On the A220 DisplayUnits, with a real click first captured at
+               (3229,191) - the FPLN/PERF dropdown, target `rect` in the SVG
+               namespace - a synthetic sequence of mousedown, mouseup and click
+               carrying those coordinates **opened the dropdown**. Confirmed two
+               ways: a MutationObserver A/B showed {characterData:2} in the idle
+               baseline against {childList:2} in the 900ms after the click, and
+               the operator confirmed the dropdown visibly open.
+
+               The target was an SVG element - precisely the class the existing
+               scheme cannot name, and the reason the A220 does not sync today.
+
+               **Q01: MSFS delivers mouse events only.** Captured over a real
+               interaction: mousedown x4, mouseup x6, mousemove x754, click x4,
+               mouseover/out/enter/leave, and keyboard events. Never seen:
+               pointerdown, pointerup, pointermove.
+
+               The reason is stronger than "not delivered" - **window.PointerEvent
+               does not exist in Coherent GT at all**. The constructor is absent.
+               So the A220's own onPointerDown handlers are dead code in the
+               simulator, and its buttons are driven by onClick.
+
+               **Q02: isTrusted is a usable discriminator.** 571 of 627 captured
+               events were trusted. The untrusted 56 are exactly the
+               mouseenter/mouseleave pairs reported at (0,0) - which is
+               VCockpit.js dispatching new MouseEvent("mouseenter") with no
+               coordinates from its own Coherent.on("OnMouseEnter") handler.
+               Real cockpit input is trusted and carries real coordinates.
+
+               Geometry, for the record: the DisplayUnits panel is ONE document
+               7410x1110 containing five display units of 1480x1110 side by side
+               at x = 0, 1481, 2963, 4447, 5930. Only the mount and five
+               zero-height wrapper divs are HTMLElements; everything visual is
+               SVG. So a coordinate identifies both the DU and the control,
+               which the existing scheme cannot do at either level.
+    Changed:   **The approach is viable.** Three rows of the 03-scope table -
+               React over HTML DOM, React over SVG, canvas - move from "expected
+               to work" to demonstrated on the middle one, and the mechanism that
+               makes it work is shared by all three.
+
+               **02-approach needs correcting on one point.** It specifies
+               dispatching real PointerEvents and calls that a requirement. It is
+               not merely unnecessary, it is impossible - the constructor does not
+               exist in this engine. The replay sequence is mousedown, mouseup,
+               click, with MouseEvent only. The hold and trail machinery in p07 is
+               not needed on this surface either; a bare three-event sequence at
+               the right coordinate was sufficient.
+
+               Note the contrast with the WASM surface, which is the useful
+               generalisation: where the panel document does its own hit-testing,
+               coordinates work. Where the simulator sits between the event and
+               the hit-test, they are discarded. The dividing line is not the
+               rendering technology, it is whether the sim is in the path.
+    Affects:   02-approach (PointerEvent), 03-scope (three rows), 01-problem
+    Evidence:  results/p02-capture-vcockpit02-displayunits-*.txt and the A/B
+               mutation measurement above; dropdown state confirmed visually.
+
+---
+
+## 2026-08-30 - A220 panel identifiers collide, and MKP is not interactive
+
+    Question:  none - two findings for integration, from the A220 page list
+    Stage:     1
+    Expected:  That instrumentIdentifier distinguishes panels well enough to
+               route an interaction, as 05-integration assumes.
+    Found:     It does not, on this aircraft. Both CTPs report `CTP`, both MKPs
+               report `MKP`, and all four FCPs report `FCP` - the identifier is
+               the templateID, and the side is carried only in the URL query
+               (?side=left / ?side=right), which never reaches it. An interaction
+               routed by identifier alone would replay on **every** panel sharing
+               it.
+
+               The EFBs are the counter-example and show the fix is the addon's:
+               they load with ?Index=1 / ?Index=2 and report efbA220_1 and
+               efbA220_2 correctly.
+
+               Separately: the MKP declares isInteractive = false, so FS
+               Copilot's hook skips DOM sync for it entirely at gate G4,
+               regardless of anything else about it.
+
+               Also worth recording as scope: the A220's CTP, MKP, FCP and ISI
+               are driven by physical bezel buttons rather than by clicking the
+               display. Their interactions are model-behaviour events and are
+               already covered by FS Copilot's definitions mechanism. The
+               DisplayUnits and the EFBs are the only pointer-scope surfaces on
+               this aircraft.
+    Changed:   05-integration's routing key needs more than instrumentIdentifier
+               where an aircraft reuses it. The URL is available on the element as
+               the `url` attribute and already distinguishes these panels, so the
+               key wants to be identifier plus a discriminator derived from the
+               URL query rather than the identifier alone.
+    Affects:   05-integration
+    Evidence:  page listing and p04 output for pages 69-79
+
+---
+
 ## 2026-08-30 — The cursor cannot be synced either: no position variable, and the screen var is an output
 
     Question:  Q05 — confirms the closure from a second direction

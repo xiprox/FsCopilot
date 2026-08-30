@@ -1,0 +1,6 @@
+page 76  VCockpit05 - CTP
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p02-capture.js   settle 700ms
+2026-08-30T11:24:58.192Z
+========================================================================
+[P02] listening on document + a22x-ctp. Go click / hold / drag the panel in the cockpit, then run __P02.report()

@@ -1,0 +1,6 @@
+page 79  VCockpit02 - DisplayUnits
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p03-replay.js   settle 900ms
+2026-08-30T11:30:33.405Z
+========================================================================
+[P03] ready. __P03.arm() then click a control, then __P03.fire()

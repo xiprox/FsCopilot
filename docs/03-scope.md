@@ -20,9 +20,9 @@ pointer forwarding reaches three of them outright, one conditionally, and one no
 | Surface | Today | With pointer forwarding | Gated by |
 | --- | --- | --- | --- |
 | Classic HTML gauges | works | works | — leave on the existing scheme |
-| React over HTML DOM | fragile | expected to work | Q01, Q03 |
-| React over SVG | dead | expected to work | Q01, Q03 |
-| Canvas | dead | expected to work | Q01, Q03 |
+| React over HTML DOM | fragile | expected to work | same mechanism as the row below |
+| React over SVG | dead | **demonstrated** | Q03 — passed |
+| Canvas | dead | expected to work | same mechanism; untested |
 | WASM gauge | dead | **unreachable** | Q05 — closed, negative |
 | External-app iframe | dead | **unknown** | Q06 |
 | Toolbar / in-game panels | dead | dead | never reach `VCockpitPanel` |

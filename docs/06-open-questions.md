@@ -32,7 +32,7 @@ a dead owner.
 ## Gate B — does pointer forwarding work at all?
 
 ### Q01 · Does MSFS deliver `pointerdown` / `mousedown` / `mousemove` to a panel document, or only `mouseup`?
-**Status:** open, probe ready · **Probe:** `probes/p02-capture.js`
+**Status:** ANSWERED · **Probe:** `probes/p02-capture.js` · mouse events only; `PointerEvent` does not exist in Coherent GT
 
 FS Copilot only ever listens for `mouseup`, so everything else is unverified. The A220 binds
 `onPointerDown`, which is suggestive but not proof — React may be synthesising pointer events
@@ -42,12 +42,12 @@ from mouse events.
 sequence needs real `PointerEvent`s.
 
 ### Q02 · Are cockpit clicks delivered as trusted events?
-**Status:** open · **Probe:** `probes/p02-capture.js`
+**Status:** ANSWERED yes · **Probe:** `probes/p02-capture.js` · real input is trusted; VCockpit.js's own synthetic enter/leave at (0,0) are not, which makes `isTrusted` a usable second loop breaker
 
 **Changes:** whether `ev.isTrusted` is usable as a second loop breaker alongside `selfEmit`.
 
 ### Q03 · Does a synthetic pointer sequence at coordinates drive a real React/SVG display?
-**Status:** open, probe ready · **Probe:** `probes/p03-replay.js`
+**Status:** ANSWERED YES · **Probe:** `probes/p03-replay.js` · **Answered by** "Q03 PASSES" in [build/log.md](build/log.md)
 
 The core of the proposal. Target: A220 `CTP`.
 
@@ -118,6 +118,10 @@ Whether two `SetClientData` calls in one frame both arrive, or coalesce.
 - **Q00 — yes.** MSFS hosts a WebKit inspector on 127.0.0.1:19999; probes run over the wire.
 - **Q05 — no, permanently.** WASM displays cannot be driven by injected input. See
   [07-wasm-surface](07-wasm-surface.md).
+- **Q01 — mouse events only.** `PointerEvent` does not exist in Coherent GT.
+- **Q02 — yes.** Real cockpit input is trusted; VCockpit.js's own synthetic events are not.
+- **Q03 — YES.** A synthetic mouse click at captured coordinates opened a dropdown on the
+  A220's React/SVG DisplayUnits. The approach works on the surface it was designed for.
 
 ---
 

@@ -1,0 +1,34 @@
+page 77  VCockpit04 - MKP
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p04-iframe.js   settle 1200ms
+2026-08-30T11:23:40.568Z
+========================================================================
+=========================================================
+P04  panel composition and iframe reach
+=========================================================
+title      VCockpit04 - MKP
+href       coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+origin     coui://html_UI
+
+--- instruments ---
+  <a22x-mkp>  id=MKP  interactive=false
+      url  coui://html_ui/Pages/VCockpit/Instruments/a22x/MKP/instrument.html?side=right
+      data-input-group  A22X-MKP
+
+--- composition ---
+  270 elements   svg=1  canvas=0  img=1  iframe=0
+  -> looks like: SVG (likely React)
+
+--- iframes ---
+  none. Q06 does not apply to this panel.
+
+--- read this as ---
+  no iframe                     -> this panel's clicks land in this document;
+     Q06 is irrelevant here and P02/P03 are the probes that matter.
+  iframe, contentDocument null  -> same-origin policy is enforced. A
+     cross-origin child needs the addon developer's cooperation; there is
+     no unilateral route in.
+  iframe, REACHABLE + attachable-> we can run capture and replay inside the
+     child. Note this is required even for a same-origin child: a real click
+     inside an iframe never reaches the parent's listeners.
+  live-view <img> and no iframe -> WASM gauge. Q05 decides it, not this.
