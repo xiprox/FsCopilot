@@ -20,11 +20,20 @@ public sealed class PanelServer : IDisposable
 
     private static readonly TimeSpan StateRenewal = TimeSpan.FromSeconds(2);
 
+    // Bounds on events held for a panel that has not helloed its key yet (still loading,
+    // or reloading on a view change). Flushed in order on hello; capped so a key that
+    // never appears cannot leak.
+    private static readonly TimeSpan PendingMaxAge = TimeSpan.FromMinutes(5);
+    private const int PendingMaxCount = 500;
+
     private readonly HttpListener? _listener;
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<PanelSocket, byte> _sockets = new();
     private readonly BehaviorSubject<bool> _bindFailed = new(false);
     private readonly CompositeDisposable _d = new();
+    private readonly Subject<PointerPress> _presses = new();
+    private readonly Subject<PointerDrag> _drags = new();
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<(string Json, DateTime At)>> _pending = new();
 
     private volatile string[] _pointerKeys = [];
     private volatile string _session = SessionState.None;
@@ -34,6 +43,12 @@ public sealed class PanelServer : IDisposable
 
     /// <summary>True when every port in the range was taken and the feature is off.</summary>
     public IObservable<bool> BindFailed => _bindFailed.ObserveOn(TaskPoolScheduler.Default);
+
+    /// <summary>Presses captured by panels on this machine. Session/Seq are unstamped here.</summary>
+    public IObservable<PointerPress> Presses => _presses.ObserveOn(TaskPoolScheduler.Default);
+
+    /// <summary>Drags captured by panels on this machine. Session/Seq are unstamped here.</summary>
+    public IObservable<PointerDrag> Drags => _drags.ObserveOn(TaskPoolScheduler.Default);
 
     public PanelServer()
     {
@@ -81,6 +96,65 @@ public sealed class PanelServer : IDisposable
         _session = session;
         _isMaster = isMaster;
         Broadcast(StateJson());
+    }
+
+    /// <summary>Replays a peer's press on every panel that helloed with its key, or holds it
+    /// for a panel that has not appeared yet (loading, or reloading on a view change).</summary>
+    public void Send(PointerPress p) => Route(p.Key, Json(w =>
+    {
+        w.WriteString("t", "pointer");
+        w.WriteStartObject("msg");
+        w.WriteNumber("v", 5);
+        w.WriteString("k", "press");
+        w.WriteString("key", p.Key);
+        w.WriteNumber("nx", p.DownX);
+        w.WriteNumber("ny", p.DownY);
+        w.WriteNumber("ux", p.UpX);
+        w.WriteNumber("uy", p.UpY);
+        w.WriteNumber("hold", p.HoldMs);
+        w.WriteNumber("button", p.Button);
+        w.WriteEndObject();
+    }));
+
+    public void Send(PointerDrag d) => Route(d.Key, Json(w =>
+    {
+        w.WriteString("t", "pointer");
+        w.WriteStartObject("msg");
+        w.WriteNumber("v", 5);
+        w.WriteString("k", "drag");
+        w.WriteString("key", d.Key);
+        w.WriteNumber("button", d.Button);
+        w.WriteStartArray("path");
+        // The wire carries per-step deltas; the panel replays against absolute
+        // times from the gesture start, so rebuild them here.
+        var at = 0;
+        foreach (var point in d.Path)
+        {
+            at += point.DtMs;
+            w.WriteStartArray();
+            w.WriteNumberValue(at);
+            w.WriteNumberValue(point.X);
+            w.WriteNumberValue(point.Y);
+            w.WriteEndArray();
+        }
+        w.WriteEndArray();
+        w.WriteEndObject();
+    }));
+
+    private void Route(string key, string text)
+    {
+        var delivered = false;
+        foreach (var socket in _sockets.Keys)
+        {
+            if (!socket.HasName(key)) continue;
+            Send(socket, text);
+            delivered = true;
+        }
+        if (delivered) return;
+
+        var queue = _pending.GetOrAdd(key, _ => new ConcurrentQueue<(string, DateTime)>());
+        queue.Enqueue((text, DateTime.UtcNow));
+        while (queue.Count > PendingMaxCount && queue.TryDequeue(out _)) { }
     }
 
     public void Dispose()
@@ -183,9 +257,61 @@ public sealed class PanelServer : IDisposable
                 // profile loaded still learns its mode; Configure() broadcasts later changes.
                 Send(socket, ConfigJson());
                 Send(socket, StateJson());
+                FlushPending(socket, name);
+                break;
+            case "pointer":
+                HandlePointer(json);
                 break;
             case "stats":
                 Log.Debug("[PanelServer] Panel stats: {Stats}", text);
+                break;
+        }
+    }
+
+    private void FlushPending(PanelSocket socket, string name)
+    {
+        if (!_pending.TryRemove(name, out var queue)) return;
+        var cutoff = DateTime.UtcNow - PendingMaxAge;
+        var flushed = 0;
+        while (queue.TryDequeue(out var item))
+        {
+            if (item.At < cutoff) continue;
+            Send(socket, item.Json);
+            flushed++;
+        }
+        if (flushed > 0) Log.Debug("[PanelServer] Flushed {Count} held events to {Name}", flushed, name);
+    }
+
+    private void HandlePointer(JsonElement json)
+    {
+        if (!json.TryGetProperty("msg", out var msg)) return;
+        var key = msg.String("key");
+        if (key.Length == 0) return;
+        var button = (byte)msg.Double("button");
+
+        switch (msg.String("k"))
+        {
+            case "press":
+                _presses.OnNext(new PointerPress(key, 0, 0, 0, button,
+                    (ushort)Math.Clamp(msg.Double("hold"), 0, 1500),
+                    (float)msg.Double("nx"), (float)msg.Double("ny"),
+                    (float)msg.Double("ux", msg.Double("nx")), (float)msg.Double("uy", msg.Double("ny"))));
+                break;
+            case "drag":
+                if (!msg.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.Array) return;
+                var points = new List<PointerDrag.Point>();
+                var prev = 0.0;
+                foreach (var p in path.EnumerateArray())
+                {
+                    if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() < 3) continue;
+                    // Capture reports absolute ms from the gesture start; the wire carries deltas.
+                    var at = p[0].GetDouble();
+                    var dt = Math.Clamp(at - prev, 0, ushort.MaxValue);
+                    prev = at;
+                    points.Add(new PointerDrag.Point((ushort)dt, (float)p[1].GetDouble(), (float)p[2].GetDouble()));
+                }
+                if (points.Count < 2) return;
+                _drags.OnNext(new PointerDrag(key, 0, 0, 0, button, points.ToArray()));
                 break;
         }
     }

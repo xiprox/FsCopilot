@@ -6,23 +6,49 @@ using Network;
 
 public class Coordinator : IDisposable
 {
+    // A dropped link is treated as a recoverable outage for this long; after that the
+    // session is considered over, held pointer history is discarded and slaves unlock.
+    private static readonly TimeSpan DegradedTimeout = TimeSpan.FromMinutes(5);
+
+    // Pointer history kept while the session is live, to cover reconnect races: per key,
+    // bounded by count and, on re-send, by age. While degraded, everything from the
+    // outage start is kept instead (bounded by DegradedTimeout ending the session), so
+    // a slave that was locked for the whole gap replays the master's inputs completely.
+    private const int LiveHistoryPerKey = 50;
+    private const int DegradedHistoryPerKey = 2000;
+    private static readonly TimeSpan LiveHistoryMaxAge = TimeSpan.FromSeconds(60);
+
     private readonly INetwork _net;
     private readonly MasterSwitch _masterSwitch;
     private readonly SimClient _sim;
+    private readonly PanelServer _panels;
     private readonly CompositeDisposable _d = new();
     private CompositeDisposable _cSubs = new();
     private HashSet<string> _ignore = [];
+    private volatile PointerFilter _pointer = PointerFilter.Empty;
 
-    public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch)
+    private readonly ulong _sessionId;
+    private int _pointerSeq;
+    private readonly object _stateLock = new();
+    private readonly Dictionary<string, List<(object Packet, DateTime At)>> _history = new();
+    private readonly Dictionary<ulong, uint> _lastSeq = new();
+    private bool _accumulate;
+    private bool _hadPeer;
+    private string _session = SessionState.None;
+    private IDisposable? _degradedTimer;
+
+    public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch, PanelServer panels)
     {
         _net = net;
         _masterSwitch = masterSwitch;
         _sim = sim;
+        _panels = panels;
         var sw = Stopwatch.StartNew();
 
         Span<byte> sessionBytes = stackalloc byte[8];
         RandomNumberGenerator.Fill(sessionBytes);
         var sessionId = BitConverter.ToUInt64(sessionBytes);
+        _sessionId = sessionId;
 
         net.RegisterPacket<Update, Update.Codec>();
         net.RegisterPacket<Interact, InteractCodec>();
@@ -31,6 +57,8 @@ public class Coordinator : IDisposable
         _sim.Register<Surfaces>();
         _net.RegisterPacket<Physics, Physics.Codec>();
         _net.RegisterPacket<Surfaces, Surfaces.Codec>();
+        _net.RegisterPacket<PointerPress, PointerPress.Codec>();
+        _net.RegisterPacket<PointerDrag, PointerDrag.Codec>();
 
         _d.Add(sim.Aircraft.Take(1).Subscribe(_ => AddLink((ref Physics physics) =>
         {
@@ -44,12 +72,44 @@ public class Coordinator : IDisposable
             surfaces.TimeMs = (uint)sw.ElapsedMilliseconds;
         })));
 
+        // Instruments synced by pointer are excluded from the element-name path in both
+        // directions - one press must not actuate twice.
         _d.Add(_sim.Interactions
-            .Where(i => !_ignore.Contains(i.Instrument))
+            .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(interact => _net.SendAll(interact)));
         _d.Add(_net.Stream<Interact>()
-            .Where(i => !_ignore.Contains(i.Instrument))
+            .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(update => _sim.Set(update)));
+
+        // Pointer sync is symmetric like Interact - never gated on master. The profile
+        // filter runs on both ends: outbound it is the opt-in, inbound it defends
+        // against a peer whose profile differs.
+        _d.Add(panels.Presses
+            .Where(p => _pointer.Keys.Contains(p.Key))
+            .Subscribe(p => SendPointer(p with { Session = _sessionId, Seq = NextSeq() })));
+        _d.Add(panels.Drags
+            .Where(d => _pointer.Keys.Contains(d.Key))
+            .Subscribe(d => SendPointer(d with { Session = _sessionId, Seq = NextSeq() })));
+        _d.Add(_net.Stream<PointerPress>()
+            .Where(p => Fresh(p.Session, p.Seq))
+            .Where(p => _pointer.Keys.Contains(p.Key))
+            .Subscribe(panels.Send));
+        _d.Add(_net.Stream<PointerDrag>()
+            .Where(d => Fresh(d.Session, d.Seq))
+            .Where(d => _pointer.Keys.Contains(d.Key))
+            .Subscribe(panels.Send));
+
+        // The session state machine behind the panel overlays: none -> live on the first
+        // peer, live -> degraded when the last peer drops, back to live on reconnect
+        // (re-sending held history), and degraded -> none when the outage outlives the
+        // timeout. An intentional Leave calls EndSession directly.
+        _d.Add(net.Peers
+            .Select(peers => peers.Count > 0)
+            .DistinctUntilChanged()
+            .Subscribe(OnPeersChanged));
+        _d.Add(masterSwitch.Master
+            .DistinctUntilChanged()
+            .Subscribe(_ => { lock (_stateLock) _panels.SetSession(_session, _masterSwitch.IsMaster); }));
     }
 
     public void Dispose()
@@ -65,6 +125,127 @@ public class Coordinator : IDisposable
         _cSubs = new();
         foreach (var def in definitions) AddLink(def);
         foreach (var i in definitions.Ignore) _ignore.Add(i);
+        _pointer = new PointerFilter(definitions.Pointer);
+        _panels.Configure(definitions.Pointer);
+    }
+
+    /// <summary>The user left the session on purpose: no outage to bridge, so held pointer
+    /// history is dropped and panels return to their resting state.</summary>
+    public void EndSession()
+    {
+        lock (_stateLock)
+        {
+            _degradedTimer?.Dispose();
+            _degradedTimer = null;
+            _hadPeer = false;
+            _accumulate = false;
+            _session = SessionState.None;
+            _history.Clear();
+            _panels.SetSession(_session, _masterSwitch.IsMaster);
+        }
+    }
+
+    private void OnPeersChanged(bool hasPeers)
+    {
+        lock (_stateLock)
+        {
+            if (hasPeers)
+            {
+                _degradedTimer?.Dispose();
+                _degradedTimer = null;
+                var recovered = _session == SessionState.Degraded;
+                _hadPeer = true;
+                _session = SessionState.Live;
+                _panels.SetSession(_session, _masterSwitch.IsMaster);
+                // Re-send held history; the receiver drops what it already has by
+                // (Session, Seq). After an outage everything held is sent - the slave was
+                // locked for the whole gap, so ordered replay reconstructs sync exactly.
+                // Otherwise only recent events go, to cover the reconnect race without
+                // replaying stale input into a panel that moved on.
+                ResendHistory(includeAll: recovered);
+                _accumulate = false;
+            }
+            else if (_hadPeer && _session == SessionState.Live)
+            {
+                _session = SessionState.Degraded;
+                _accumulate = true;
+                _panels.SetSession(_session, _masterSwitch.IsMaster);
+                _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
+                {
+                    Log.Warning("[Pointer] Peer did not return within {Timeout}; session over, panels may be desynced", DegradedTimeout);
+                    EndSession();
+                });
+            }
+        }
+    }
+
+    private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
+
+    private void SendPointer(PointerPress p) { Record(p.Key, p); _net.SendAll(p); }
+    private void SendPointer(PointerDrag d) { Record(d.Key, d); _net.SendAll(d); }
+
+    private void Record(string key, object packet)
+    {
+        lock (_stateLock)
+        {
+            if (!_history.TryGetValue(key, out var list)) _history[key] = list = [];
+            list.Add((packet, DateTime.UtcNow));
+            var cap = _accumulate ? DegradedHistoryPerKey : LiveHistoryPerKey;
+            if (list.Count > cap) list.RemoveAt(0);
+        }
+    }
+
+    private void ResendHistory(bool includeAll)
+    {
+        List<(object Packet, DateTime At)> entries;
+        lock (_stateLock)
+        {
+            entries = _history.Values.SelectMany(l => l).OrderBy(e => e.At).ToList();
+        }
+        var cutoff = DateTime.UtcNow - LiveHistoryMaxAge;
+        foreach (var (packet, at) in entries)
+        {
+            if (!includeAll && at < cutoff) continue;
+            switch (packet)
+            {
+                case PointerPress p: _net.SendAll(p); break;
+                case PointerDrag d: _net.SendAll(d); break;
+            }
+        }
+        if (entries.Count > 0) Log.Debug("[Pointer] Re-sent {Count} held events after reconnect", entries.Count);
+    }
+
+    private bool Fresh(ulong session, uint seq)
+    {
+        lock (_lastSeq)
+        {
+            if (_lastSeq.TryGetValue(session, out var last))
+            {
+                if (seq <= last) return false; // already applied; history re-sends overlap by design
+                if (seq > last + 1)
+                    Log.Warning("[Pointer] {Lost} events from the peer never arrived - panels may be desynced", seq - last - 1);
+            }
+            _lastSeq[session] = seq;
+            return true;
+        }
+    }
+
+    private sealed class PointerFilter
+    {
+        public static readonly PointerFilter Empty = new([]);
+
+        public HashSet<string> Keys { get; }
+        public HashSet<string> Instruments { get; }
+
+        public PointerFilter(string[] keys)
+        {
+            Keys = [..keys];
+            // pointer: entries are full keys (identifier|query); Interact carries the bare
+            // identifier, so the double-actuation guard matches on the prefix.
+            Instruments = keys
+                .Select(k => { var i = k.IndexOf('|'); return i < 0 ? k : k[..i]; })
+                .ToHashSet();
+        }
     }
 
     private void AddLink<TPacket>(RefAction<TPacket> modify)
