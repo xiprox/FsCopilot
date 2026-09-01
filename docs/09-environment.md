@@ -5,6 +5,14 @@
     Depends on: nothing
     Decides:    what injected code may use, and where MSFS's own source is read
 
+> **Amended by the build** ("Single-machine cockpit validation" in
+> [build/log.md](build/log.md)): two rendering constraints for anything *drawn* on a panel
+> document. Displays are emissive with bloom — bright strokes glow and fatten, so design in
+> dark muted shades. And CSS gradients evaluate in reduced precision — a repeating gradient
+> with a small period across a large document degenerates into smeared bands; tile a small
+> gradient via `background-size` instead. Also: the inspector on 19999 works with DevMode
+> off (Q00, corrected in place).
+
 This exists because a design document confidently specified dispatching
 `PointerEvent`s, and the constructor does not exist in this engine. That was
 discoverable in thirty seconds. This file is those thirty seconds, run once and

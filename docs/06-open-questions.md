@@ -22,6 +22,11 @@ MSFS hosts a WebKit Web Inspector backend on `127.0.0.1:19999`. `GET /pagelist.j
 inspectable document; `ws://127.0.0.1:19999/devtools/page/N` evaluates arbitrary JavaScript in
 one. Driven by `probes/lib/inspector.mjs` through `npm run pages | probe | eval`.
 
+**Available with DevMode OFF** — confirmed 2026-09-01 (see "Single-machine cockpit
+validation" in [build/log.md](build/log.md)). Every earlier session happened to run with
+DevMode on, and a refused connection during sim boot was misread as requiring it. The port
+comes up once the sim finishes loading, stock configuration included.
+
 **Caution that cost a probe once:** confirm the port's owning process is *alive* before reading
 anything into its behaviour. An orphaned socket accepts connections and answers nothing, which
 is indistinguishable from a server that dislikes your protocol. `p00` now refuses to interpret

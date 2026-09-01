@@ -36,6 +36,82 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-01 - Single-machine cockpit validation: the production pipeline works
+
+    Question:  none directly - first in-sim exercise of the built implementation.
+               Also corrects a Q00 caveat.
+    Stage:     graduation; the single-machine half of what stage 6 needs
+    Expected:  The offline-verified build would need a debugging session before
+               anything flowed end to end.
+    Found:     It worked first try. With the generated fscopilot-bridge package
+               installed and the app in --dev (echo mode), all 14 A220 panels
+               connected over the WebSocket channel and helloed with exactly the
+               predicted keys - including FCP|type=vs/alt/hdg/speed (the four
+               FCPs are discriminated by ?type=, not ?side= as assumed from the
+               CTP/MKP pattern; the keyFor mechanism absorbs the difference).
+               Two cockpit presses on the DisplayUnits echoed and replayed:
+               captured=2, replayed=2, missed=0, ignored=4 - ignored exactly 2x
+               replayed is the healthy loop-guard signature - and rect was
+               7410x1110, matching panel.cfg. The pilot saw the double
+               actuation (dropdown opens, echo closes it).
+
+               Findings and fixes from the session, in the branch:
+               - Dev echo initially auto-opted every helloed panel, including
+                 the A220's WasmInstrument shell - exactly the latch-press
+                 hazard the record warns about. Dev mode now loads the aircraft
+                 profile and Configures from its pointer: list, same as
+                 production; overlays and echo follow the profile only.
+               - Panel reconnect after an app restart took ~80s: port rotation
+                 advanced every retry, so rediscovery cost ports x max-backoff.
+                 channel.js now advances the backoff tier once per full port
+                 lap, capped at 4s - rediscovery within ~20s steady state.
+               - The overlay design went through a real iteration loop in the
+                 cockpit (see the rendering lessons entry below). Final:
+                 blue CONNECTING / amber SYNC DEGRADED (blocking, pulsing dot)
+                 and red SYNC BROKEN (non-blocking, steady dot), a veil plus
+                 fine diagonal weave plus an opaque state-tinted card, with
+                 user-approved copy. Rendering split into overlay.js (dumb
+                 renderer + states table); pointer.js keeps policy only.
+               - window.fscOverlay('connecting'|'degraded'|'lost'|'clear')
+                 force-holds any overlay state against the 2s renewals for
+                 debugging; window.fscUnlock() remains the escape hatch.
+               - The app's installer re-prompted whenever its bundled package
+                 copy drifted from the sim's - three copies must stay in sync
+                 (worktree Packages/, bin output Community/, sim Community/);
+                 the package build script now mirrors to all three.
+
+               **Q00 correction: the Coherent inspector on 127.0.0.1:19999 is
+               available with DevMode OFF.** All previous probing ran with
+               DevMode on, and an early ECONNREFUSED this session (sim still
+               booting) was misread as confirmation it was needed. It is not:
+               pages listed, eval worked, panels reloaded remotely - the whole
+               iteration loop (edit JS, rebuild package, location.reload() the
+               panel) runs against a stock-configured sim.
+
+               Two rendering lessons for anything drawn on a panel document:
+               - The sim renders cockpit displays as emissive surfaces with
+                 bloom. Bright overlay strokes glow and fatten; dark muted
+                 shades survive. Design for bloom, not for a desktop browser.
+               - Coherent evaluates CSS gradients in reduced precision: a
+                 repeating-linear-gradient with a few-px period across the
+                 7410px DisplayUnits document degenerates into huge smeared
+                 bands. A small gradient tile repeated via background-size
+                 renders correctly - the gradient math never spans more than
+                 the tile.
+    Changed:   The single-machine half of stage 6 is done: capture, transport,
+               replay, profiles, config handshake and overlay states all
+               exercised in the real cockpit. What remains for stage 6 is
+               strictly two-machine: Q04 rect agreement, real-network feel,
+               gap-replay and the lock lifecycle under a genuine peer session.
+               One caveat: the overlay.js split landed after the sim closed -
+               syntax-checked, mechanical, but pending one in-sim load check.
+    Affects:   06-open-questions (Q00 caveat corrected in place),
+               09-environment (rendering lessons pointered)
+    Evidence:  the app log (PanelServer hellos and stats) in the worktree's
+               bin output; cockpit screenshots reviewed during the session
+
+---
+
 ## 2026-09-01 - The FS Copilot implementation is built and verified offline
 
     Question:  none - executes the plan in 11-fsc-implementation-plan.md
