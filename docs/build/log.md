@@ -36,6 +36,60 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-01 - The FS Copilot implementation is built and verified offline
+
+    Question:  none - executes the plan in 11-fsc-implementation-plan.md
+    Stage:     graduation; feeds stage 6
+    Expected:  The plan, unchanged.
+    Found:     Built as planned, in a git worktree at ../fscopilot-pointer
+               (branch pointer-forwarding off upstream/main), leaving the
+               dev-var-replay checkout and its uncommitted state untouched.
+               Five commits: the VCockpit.js pending-array fix; the inbound
+               Interact ignore filter; the panel WebSocket channel
+               (PanelServer.cs + channel.js, ports 9020-9024 with rotation);
+               the pointer feature (pointer.js port of agent.js v5,
+               PointerPress/PointerDrag with Session+Seq, two-mode gap-replay
+               history, blue-lock/red-warning overlays, pointer: profile key);
+               stats reports + a --dev echo mode.
+
+               Verified without the sim, all passing:
+               - Codec round-trips (press 60 bytes; 240-point drag 2430 bytes;
+                 oversized-path decode rejected).
+               - Live PanelServer over a real ClientWebSocket: hello ->
+                 config+state, pending-buffer flush on late hello, inbound
+                 JSON -> typed packets with delta conversion, outbound
+                 absolute-time reconstruction, port rotation (second instance
+                 lands on 9021), Configure broadcast.
+               - All 212 recorded gestures from recordings/ survive
+                 JSON -> record -> bytes -> record verbatim.
+               - dotnet publish with PublishTrimmed+SingleFile: the trimmed
+                 exe binds 9020 non-elevated and accepts a WebSocket upgrade
+                 (HTTP 101) - the trimming and URL-ACL risks are retired.
+
+               Two deviations from the written plan, both discovered against
+               the real tree: upstream ships no aircraft profiles (only
+               Definitions/modules/), so the ignore:/pointer: profile entries
+               belong to the served-profile store, not the PR; and the
+               packaged Packages/ output is not in git at all (built by the
+               MSFS SDK from PackageSources/), so commits touch
+               PackageSources/ only. One near-miss caught in review: the
+               routing key's query must come from the instrument element's
+               url attribute, as agent.js does - not location.href.
+
+               What remains needs the sim or two machines: the single-machine
+               --dev echo session, and the remote tester's session for
+               Q04/Q10 (rect is in the hello; Seq gaps and per-key counters
+               are in the logs).
+    Changed:   Stage 6's deliverable exists. CLAUDE.md's "no .NET SDK on this
+               machine" is stale: dotnet 9.0.317 is installed and builds the
+               desktop app.
+    Affects:   none (executes 11-fsc-implementation-plan.md as written)
+    Evidence:  the pointer-forwarding branch in ../fscopilot-pointer; the
+               verification harness output is reproducible from
+               scratchpad (codec/PanelServer/recordings checks)
+
+---
+
 ## 2026-09-01 - The production design for FS Copilot is decided and recorded
 
     Question:  none directly - this is the graduation decision 05-integration
