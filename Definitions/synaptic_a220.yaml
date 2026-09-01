@@ -1,0 +1,628 @@
+# Synaptic Simulations A220-300.
+# Authors: AlexdAviator, xip
+# Version: 0.0.1
+# Updated: 2026-08-20
+
+# ═══ NOTES ══════════════════════════════════════════════════════════════════
+
+# UNVERIFIED. Written from docs.synapticsim.com/pilots/{simvars,inputs} without the
+# aircraft installed. Nothing here has been run against the sim yet. Entries that need
+# checking are marked TODO or VERIFY; see PLAN.md sections 2b/2c for the reasoning.
+#
+# 2026-08-20: APU Switch and Engine Master fixes.
+# - APU Switch: was a bare get: with no guard, so the spring-loaded Start position (2) got
+#   re-sent every tick even after the local system auto-returned to Run (1), re-triggering
+#   Start repeatedly. Now guarded to fire only on disagreement, same as the Circuit Breaker
+#   block. This was the actual bug -- the var name/enum were already correct.
+# - Engine Master 1/2: confirmed no L:/A: var is documented anywhere for these on the A220.
+#   Added a VERIFY entry using A:GENERAL ENG FUEL VALVE:index as a readback proxy for the
+#   ENGINE_MASTER_n_SET events. Needs confirming against --dev; see the comment at that
+#   block if it doesn't move with the switch.
+#
+# Filename is a placeholder. FS Copilot loads <SimObjects\Airplanes\FOLDER>.yaml, so this
+# needs renaming to the installed folder name once known.
+
+# ═══ DELIBERATE EXCLUSIONS ══════════════════════════════════════════════════
+
+# - L:A22X Aural * (~120 vars). Aural playback state. Each sim generates its own from its
+#   own systems model; syncing double-plays callouts and warnings.
+# - "* Lamp" / "* PBA" annunciator vars (~45). Computed outputs. The other side's systems
+#   drive them from the switch state we do sync, so writing them fights the local model.
+#   Held in reserve as READ-ONLY observables if a pulse var proves too short to watch.
+# - L:A22X Throttle Type / Throttle L Idle / Throttle R Idle / Throttle L Rev Idle /
+#   Throttle R Rev Idle / Throttle L Raw / Throttle R Raw. Per-user hardware calibration.
+#   Syncing these corrupts the other pilot's throttle mapping. Do not add them.
+# - L:A22X Flight Stage, Paused at TOD, Emer Transmitter Test, RDC Powered, L/R MKP Powered.
+#   Derived or read-only state.
+# - Flight controls and aircraft position. Already synced natively by FS Copilot (Physics +
+#   Surfaces packets at 20fps with interpolation). Nothing from the AXIS_* section of the
+#   inputs doc belongs here.
+# - MCDU / EFB keypresses. Already synced by the JS interaction hook, not by definitions.
+
+# ═══ DETERMINISM ════════════════════════════════════════════════════════════
+
+# The wire payload is the absolute current value, never a delta, and the implicit set is an
+# absolute write -- so a bare `get:` on a state var is already idempotent and last-writer-
+# wins. Two things break that, and are handled specially below:
+#
+#   1. Encoder pulses (baro knobs). Several increments can land inside one poll interval
+#      with no intervening zero, so clicks coalesce and the two altimeters drift apart.
+#      Fixed by syncing the absolute A:KOHLSMAN vars instead of the L:A22X pulse vars.
+#   2. Toggles. A toggle applied to a receiver that has already diverged preserves the
+#      divergence forever. Where a toggle is unavoidable it is written as
+#      `value != current ? '(>K:EVENT)' : ''` so it only fires on disagreement.
+#
+# Button-driven pulses (caution ack, chrono, gear aural, FMS cancel/execute) relay directly
+# -- a press is a clean 0->1->0 spanning many frames, so each one gets its own change event.
+#
+# Commented `set:` lines are alternates. Uncommenting is a 2-character delete: strip "# "
+# and the set: lands aligned under its get:.
+
+# ═══ NOT SYNCED ON CONNECT ══════════════════════════════════════════════════
+
+# FS Copilot pushes no state snapshot when a peer joins -- the two cockpits converge only as
+# controls are touched. Connect before starting the flow, or sweep the panels after joining.
+
+include:
+  - modules/payload.yaml
+  - modules/fuel.yaml
+  # Uncomment to sync GSX ground services (boarding, fuelling, pushback, doors).
+  # Both pilots need GSX installed. Harmless to leave off if only one of you runs it.
+  # - modules/FSDT_GSX.yaml
+
+pointer:
+  - DisplayUnits|config=Default
+
+master:
+  # ── Thrust levers, spoiler, trim ──────────────────────────────────────────
+
+  # Master-only by choice: the pilot not flying cannot move these. To make them shared,
+  # move the block to `shared:` -- expect input fighting if both have hardware axes.
+
+  - get: L:A22X Throttle L Raw
+    set: "`${Math.round(value * 16383)} (>K:THROTTLE1_SET)`"
+  - get: L:A22X Throttle R Raw
+    set: "`${Math.round(value * 16383)} (>K:THROTTLE2_SET)`"
+  - get: L:A22X Horizontal Stabilizer
+
+  # ── Sidestick and pedal animation ─────────────────────────────────────────
+  - get: L:A22X L Sidestick X
+  - get: L:A22X L Sidestick Y
+  - get: L:A22X Rudder Pedals
+  # UNVERIFIED / ASSUMED: the docs only document the left sidestick. These two are guessed
+  # from the naming convention every other L/R pair in this aircraft follows, and have not
+  # been confirmed to exist. An unknown var is harmless -- it just never produces a value --
+  # so leaving them in costs nothing.
+  - get: L:A22X R Sidestick X
+  - get: L:A22X R Sidestick Y
+
+  # ── Wheel braking ─────────────────────────────────────────────────────────
+  # VERIFY: units. The A220 ramps commanded brake pressure over time while the BRAKES event
+  # is held, so this may fight the local ramp -- if it feels wrong, drop these two lines.
+  - get: A:BRAKE LEFT POSITION, Position
+  - get: A:BRAKE RIGHT POSITION, Position
+
+shared:
+  # ═══ ANNUNCIATORS AND CHRONOS ═════════════════════════════════════════════
+
+  # Caution/warning acknowledge. Relayed as a pulse so that a silence by the pilot
+  # monitoring also silences it for the pilot flying.
+  # If --dev shows the pulse is too short to observe, read the lamp instead:
+  #   - get: L:A22X Caution PBA
+  #     set: "!value && current ? '1 (>L:A22X Master Caution Warning)' : ''"
+  - get: L:A22X Master Caution Warning
+
+  - get: L:A22X L Chrono
+  - get: L:A22X R Chrono
+
+  # State var; the writable form is the `Display Tune Inhibit` pulse.
+  - get: L:A22X Display Tune Inhibited
+    set: "value != current ? '1 (>L:A22X Display Tune Inhibit)' : ''"   # enable if sync doesn't work
+
+  # ═══ OVERHEAD ═════════════════════════════════════════════════════════════
+  # ── Electrical ────────────────────────────────────────────────────────────
+  - get: L:A22X RAT Gen
+  - get: L:A22X APU Gen Off
+  - get: L:A22X L Gen Off
+  - get: L:A22X R Gen Off
+  - get: L:A22X L Gen Disc
+  - get: L:A22X R Gen Disc
+  - get: L:A22X Cabin Power Off
+  - get: L:A22X Bus Isolation Mode
+  - get: L:A22X L Eng Fire
+  - get: L:A22X R Eng Fire
+
+  - get: A:ELECTRICAL MASTER BATTERY:1, Bool
+    set: "value ? '1 (>K:BATTERY1_SET)' : '0 (>K:BATTERY1_SET)'"
+  - get: A:ELECTRICAL MASTER BATTERY:2, Bool
+    set: "value ? '1 (>K:BATTERY2_SET)' : '0 (>K:BATTERY2_SET)'"
+
+  - get: L:INI_GPU_AVAIL
+  - get: L:A22X External Power In Use
+
+  # ── Fuel ──────────────────────────────────────────────────────────────────
+  - get: L:A22X L Boost Pump
+  - get: L:A22X R Boost Pump
+  - get: L:A22X Manual Transfer
+  - get: L:A22X Gravity Transfer
+
+  # ── Bleed, packs, pressurisation ──────────────────────────────────────────
+  - get: L:A22X L Bleed Off
+  - get: L:A22X R Bleed Off
+  - get: L:A22X APU Bleed Off
+  - get: L:A22X Crossbleed
+  - get: L:A22X L Pack Off
+  - get: L:A22X R Pack Off
+  - get: L:A22X Pack Flow
+  - get: L:A22X Ram Air
+  - get: L:A22X Trim Air Off
+  - get: L:A22X Cockpit Air
+  - get: L:A22X Fwd Cabin Air
+  - get: L:A22X Aft Cabin Air
+  - get: L:A22X Fwd Cargo Air
+  - get: L:A22X Aft Cargo Air
+  - get: L:A22X Manual Temperature
+  - get: L:A22X Recirc Air Off
+  - get: L:A22X Emergency Depress
+  - get: L:A22X Man Press
+  - get: L:A22X Manual Rate
+  - get: L:A22X Ditching
+  - get: L:A22X Passenger Oxygen
+
+  # ── Anti-ice ──────────────────────────────────────────────────────────────
+  - get: L:A22X L Cowl Anti Ice
+  - get: L:A22X R Cowl Anti Ice
+  - get: L:A22X Wing Anti Ice
+  - get: L:A22X Probe Heat
+  - get: L:A22X L Side Window Heat Off
+  - get: L:A22X R Side Window Heat Off
+  - get: L:A22X L Windshield Heat Off
+  - get: L:A22X R Windshield Heat Off
+
+  # ── APU, hydraulics, flight control computers ─────────────────────────────
+  # FIX: guarded so the write only fires on disagreement. Position 2 (Start) is spring-
+  # loaded -- the local system auto-returns it to 1 (Run) once the APU lights off. A bare
+  # get: still implies a bidirectional write every tick, so it kept re-sending '2' after
+  # the local side had already moved to '1', re-triggering Start repeatedly and blocking
+  # the sequence from ever completing on the receiving side. Same guard pattern as the
+  # Circuit Breaker block further down.
+  - get: L:A22X APU Switch
+    set: |
+      switch (value) {
+          case 0: return '0 (>L:A22X APU Switch)'
+          case 1: return '1 (>L:A22X APU Switch)'
+          case 2: return '2 (>L:A22X APU Switch)'
+          default: return ''
+      }
+  - get: L:A22X PTU
+  - get: L:A22X ACMP 2B
+  - get: L:A22X ACMP 3A
+  - get: L:A22X ACMP 3B
+  - get: L:A22X Hyd 1 SOV
+  - get: L:A22X Hyd 2 SOV
+  - get: L:A22X PFCC 1 Off
+  - get: L:A22X PFCC 2 Off
+  - get: L:A22X PFCC 3 Off
+
+  # ── Exterior lights ───────────────────────────────────────────────────────
+  - get: L:A22X Nav Lights
+  - get: L:A22X Beacon Lights
+  - get: L:A22X Strobe Lights
+  - get: L:A22X Logo Lights
+  - get: L:A22X Wing Insp Lights
+  - get: L:A22X Taxi Lights
+  - get: L:A22X L Landing Lights
+  - get: L:A22X R Landing Lights
+  - get: L:A22X Nose Landing Lights
+
+  # ── Interior lights and signs ─────────────────────────────────────────────
+  - get: L:A22X Dome Lights
+  - get: L:A22X Annun Lights
+  - get: L:A22X Emergency Lights
+  - get: L:A22X Seat Belt Lights
+  - get: L:A22X No PED Lights
+  - get: L:A22X Entrance Lights
+  - get: L:A22X L Foot Lights
+  - get: L:A22X R Foot Lights
+  - get: L:A22X L Bag Lights
+  - get: L:A22X R Bag Lights
+
+  # ── Warnings, inhibits, emergency ─────────────────────────────────────────
+  - get: L:A22X Lamp Test
+  - get: L:A22X Aural Warn Inhibit
+  - get: L:A22X TAWS Gear Inhibit
+  - get: L:A22X TAWS Terrain Inhibit
+  - get: L:A22X TAWS Flaps Inhibit
+  - get: L:A22X TAWS GS Inhibit
+  - get: L:A22X Evac
+  - get: L:A22X Emer Transmitter
+
+  # ═══ FLIGHT CONTROL PANEL ═════════════════════════════════════════════════
+
+  # The FG vars are documented as "whether X is engaged", i.e. state readbacks. If they are
+  # writable, the bare get: below is fully deterministic and nothing more is needed. If they
+  # turn out to be read-only, uncomment the set: under each -- the A220 exposes only toggle
+  # events for these (no _SET variants), so the guard fires them only when the two sides
+  # disagree.
+
+  # Synchronize FCP mode buttons using their state readbacks.
+  # The associated K-events are toggles, so the event is only sent
+  # when the source and destination states differ.
+
+  - get: L:A22X AP Master
+    set: "value != current ? '(>K:AP_MASTER)' : ''"
+
+  - get: L:A22X AT Master
+    set: "value != current ? '(>K:AUTO_THROTTLE_ARM)' : ''"
+
+  - get: L:A22X FG Heading
+    set: "value != current ? '(>K:AP_HDG_HOLD)' : ''"
+
+  - get: L:A22X FG LNAV
+    set: "value != current ? '(>K:AP_NAV1_HOLD)' : ''"
+
+  - get: L:A22X FG Approach
+    set: "value != current ? '(>K:AP_APR_HOLD)' : ''"
+
+  - get: L:A22X FG Flight Level
+    set: "value != current ? '(>K:FLIGHT_LEVEL_CHANGE)' : ''"
+
+  - get: L:A22X FG Altitude
+    set: "value != current ? '(>K:AP_ALT_HOLD)' : ''"
+
+  - get: L:A22X FG Vertical Speed
+    set: "value != current ? '(>K:AP_VS_HOLD)' : ''"
+
+  - get: L:A22X FG Flight Path Angle
+    set: "value != current ? '(>K:AP_ATT_HOLD)' : ''"
+
+  - get: L:A22X FG VNAV
+    set: "value != current ? '1 (>L:A22X FG VNAV Toggle)' : ''"
+
+  - get: L:A22X FG EDM
+    set: "value != current ? '1 (>L:A22X EDM)' : ''"
+
+  - get: L:A22X FG Source
+    set: "value != current ? '1 (>L:A22X FG Source Transfer)' : ''"
+
+  - get: L:A22X FG Half Bank
+  - get: L:A22X FG Speed Mode
+  - get: L:A22X FG Altitude Unit
+  - get: L:A22X FG Altitude Fine
+  - get: L:A22X L Flight Director
+  - get: L:A22X R Flight Director
+
+  # Selected targets. Synced as absolute values rather than the INC/DEC events.
+  # VERIFY: the inputs doc lists only AP_*_VAR_INC/DEC for speed, altitude and VS. The
+  # stock _SET events used here are undocumented for this aircraft but normally still work.
+  - get: A:AUTOPILOT HEADING LOCK DIR:1, Degrees
+    set: "`1 ${value} (>K:2:HEADING_BUG_SET)`"
+  - get: A:AUTOPILOT AIRSPEED HOLD VAR, Knots
+    set: (>K:AP_SPD_VAR_SET)
+  - get: A:AUTOPILOT ALTITUDE LOCK VAR, Feet
+    set: (>K:AP_ALT_VAR_SET_ENGLISH)
+  - get: A:AUTOPILOT VERTICAL HOLD VAR, Feet per minute
+    set: (>K:AP_VS_VAR_SET_ENGLISH)
+  - get: L:A22X Selected FPA
+  - get: A:AUTOPILOT MANAGED SPEED IN MACH, Bool
+    set: "value != current ? '(>K:AP_MANAGED_SPEED_IN_MACH_TOGGLE)' : ''"
+
+  # ═══ CONTROL TUNING PANEL / EFIS - LEFT AND RIGHT ═════════════════════════
+
+  # Baro is synced as the absolute A:KOHLSMAN value, NOT as the L:A22X Altimeter Set pulse.
+  # That pulse is an encoder (-1/+1 per detent) and coalesces on a fast spin, which silently
+  # drifts the two altimeters apart. Same pattern as a400m, the CRJs, the A340 and the PA-24.
+
+  - get: L:A22X ISI Altimeter STD,Bool
+
+  - get: A:KOHLSMAN SETTING MB:1, Millibars
+    set: "`1 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+  - get: A:KOHLSMAN SETTING MB:2, Millibars
+    set: "`2 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+  - get: A:KOHLSMAN SETTING STD:1, Bool
+    set: "value ? '1 (>K:BAROMETRIC_STD_PRESSURE)' : ''"
+  - get: A:KOHLSMAN SETTING STD:2, Bool
+    set: "value ? '2 (>K:BAROMETRIC_STD_PRESSURE)' : ''"
+  - get: L:A22X L Altimeter HPA
+  - get: L:A22X R Altimeter HPA
+
+  - get: L:A22X L Nav Source
+  - get: L:A22X R Nav Source
+  - get: L:A22X L CTP Crosstune
+  - get: L:A22X R CTP Crosstune
+
+  # ═══ MULTIFUNCTION KEYBOARD PANEL AND DISPLAY REVERSION ═══════════════════
+  - get: L:A22X Reversion Mode
+  - get: L:A22X L ADS Reversion
+  - get: L:A22X R ADS Reversion
+  - get: L:A22X L IRS Reversion
+  - get: L:A22X R IRS Reversion
+
+  # ═══ INTEGRATED STANDBY INSTRUMENT ════════════════════════════════════════
+
+  # VERIFY: assumes the ISI is Kohlsman index 3, as it is on the CRJ.
+
+  - get: A:KOHLSMAN SETTING MB:3, Millibars
+    set: "`3 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+  - get: A:KOHLSMAN SETTING STD:3, Bool
+    set: "value ? '3 (>K:BAROMETRIC_STD_PRESSURE)' : ''"
+  - get: L:A22X ISI ADS Reversion
+
+  # ═══ PEDESTAL ═════════════════════════════════════════════════════════════
+  # ── Engine ────────────────────────────────────────────────────────────────
+  - get: L:A22X Eng Start Mode
+  - get: L:A22X Continuous Ignition
+
+  # ── Engine master switches ────────────────────────────────────────────────
+
+  # CONFIRMED (2026-08-20 against docs.synapticsim.com/pilots/{simvars,inputs}): no L: or
+  # A: var is documented anywhere on the A220 for reading these back. The inputs doc gives
+  # only the write-side events, ENGINE_MASTER_1_SET / ENGINE_MASTER_2_SET.
+  # VERIFY: the readback below uses the stock MSFS SDK var these events normally drive --
+  # A:GENERAL ENG FUEL VALVE:index (Bool, open/closed) -- as a proxy. This is standard
+  # behaviour for turbine ENGINE_MASTER events across most stock and third-party engine
+  # models, but is NOT documented by Synaptic for the A22X specifically, so confirm with
+  # --dev that toggling the switch in-sim actually moves this simvar before trusting it.
+  # If it doesn't move, the get: will just read a constant and the set: guard will never
+  # fire (harmless no-op) -- find the real backing var in --dev and swap it in here.
+
+  - get: L:A22X Engine 1 Master
+    set: "value ? '1 (>K:ENGINE_MASTER_1_SET)' : '0 (>K:ENGINE_MASTER_1_SET)'"
+
+  - get: L:A22X Engine 2 Master
+    set: "value ? '1 (>K:ENGINE_MASTER_2_SET)' : '0 (>K:ENGINE_MASTER_2_SET)'"
+
+  # ── Spoilers, Flaps, gear, brakes ─────────────────────────────────────────
+
+  - get: L:A22X Spoiler Lever
+    set: "`${Math.round(value * 32766 - 16383)} (>K:AXIS_SPOILER_SET)`"
+
+  - get: A:FLAPS HANDLE PERCENT
+    set: "`${Math.round(value * 32766 - 16383)} (>K:AXIS_FLAPS_SET)`"
+
+  - get: L:A22X Alternate Flap
+  - get: A:GEAR HANDLE POSITION, Bool
+    set: (>K:GEAR_SET)
+  - get: L:A22X Alternate Gear
+  - get: L:A22X Nose Steer Off
+  - get: L:A22X L Tiller
+  - get: L:A22X Parking Brake
+  - get: L:A22X Autobrake
+    set: (>K:SET_AUTOBRAKE_CONTROL)
+  - get: L:A22X Alternate Brake
+  # Gear aural cancel. Button pulse, relayed directly.
+  - get: L:A22X Gear Aural
+
+  # ── Radios, transponder, audio ────────────────────────────────────────────
+  - get: A:COM ACTIVE FREQUENCY:1, Hz
+    set: (>K:COM_RADIO_SET_HZ)
+  - get: A:COM STANDBY FREQUENCY:1, Hz
+    set: (>K:COM_STBY_RADIO_SET_HZ)
+  - get: A:COM ACTIVE FREQUENCY:2, Hz
+    set: (>K:COM2_RADIO_SET_HZ)
+  - get: A:COM STANDBY FREQUENCY:2, Hz
+    set: (>K:COM2_STBY_RADIO_SET_HZ)
+  - get: A:COM ACTIVE FREQUENCY:3, Hz
+    set: (>K:COM3_RADIO_SET_HZ)
+  - get: A:COM STANDBY FREQUENCY:3, Hz
+    set: (>K:COM3_STBY_RADIO_SET_HZ)
+  - get: A:NAV STANDBY FREQUENCY:1, Hz
+    set: (>K:NAV1_STBY_SET_HZ)
+  - get: A:NAV STANDBY FREQUENCY:2, Hz
+    set: (>K:NAV2_STBY_SET_HZ)
+
+  - get: A:TRANSPONDER CODE:1, BCO16
+    set: (>K:XPNDR_SET)
+  - get: A:TRANSPONDER IDENT:1, Bool
+    set: "value ? '1 (>K:XPNDR_IDENT_ON)' : '1 (>K:XPNDR_IDENT_OFF)'"
+
+  # Transmit selection. The three ACP VHF vars are button-press flags; this is the resulting
+  # state, so it is the deterministic one to sync.
+  - get: L:A22X Tx Channel
+
+  # ═══ FLIGHT MANAGEMENT SYSTEM ═════════════════════════════════════════════
+
+  # MCDU keypresses are handled by the interaction hook, not here. These three carry the
+  # modify/execute handshake, which the hook cannot reproduce. Cancel and Execute are
+  # irreducibly momentary -- Flight Plan Modified only tells us a mod ended, not which way.
+
+  - get: L:A22X Flight Plan Modified
+  - get: L:A22X Flight Plan Cancel
+  - get: L:A22X Flight Plan Execute
+
+  # ═══ SIMULATOR OPTIONS ════════════════════════════════════════════════════
+
+  # Synced so both sides pause together at top of descent.
+
+  - get: L:INI_PAUSE_AT_TOD_ENABLED
+  - get: L:INI_PAUSE_AT_TOD_DISTANCE
+
+  # ═══ BRIGHTNESS ═══════════════════════════════════════════════════════════
+
+  # Synced by choice. To make brightness a per-pilot preference instead, comment out this
+  # whole block -- nothing else depends on it.
+
+  - get: L:A22X DU1 Backlight
+  - get: L:A22X DU2 Backlight
+  - get: L:A22X DU3 Backlight
+  - get: L:A22X DU4 Backlight
+  - get: L:A22X DU5 Backlight
+  - get: L:A22X L Outboard Brightness
+  - get: L:A22X L Inboard Brightness
+  - get: L:A22X R Inboard Brightness
+  - get: L:A22X R Outboard Brightness
+  - get: L:A22X Lower Brightness
+  - get: L:A22X L MKP Brightness
+  - get: L:A22X R MKP Brightness
+  - get: L:A22X L CTP Brightness
+  - get: L:A22X R CTP Brightness
+  - get: L:A22X L CTP Backlight
+  - get: L:A22X R CTP Backlight
+  - get: L:A22X FCP Brightness
+  - get: L:A22X FCP Backlight
+  - get: L:A22X ISI Brightness
+  - get: L:A22X Annun Brightness
+  - get: L:A22X Pedestal Integral Lights
+  - get: L:A22X Glareshield Integral Lights
+  - get: L:A22X Overhead Integral Lights
+  - get: L:A22X CB Integral Lights
+  - get: L:A22X Flood Lights
+  - get: L:A22X L Reading Lights
+  - get: L:A22X R Reading Lights
+  - get: L:A22X L Console Lights
+  - get: L:A22X R Console Lights
+  - get: L:A22X L Map Lights
+  - get: L:A22X R Map Lights
+
+  # ═══ CIRCUIT BREAKERS ═════════════════════════════════════════════════════
+
+  # Documented only as "pulls cockpit circuit breaker when set", which leaves it ambiguous
+  # whether the bool is the latched pulled/pushed state or a momentary command.
+  #
+  # The guard below is enabled deliberately, so this needs no revisiting either way. It
+  # fires the pull only when the two sides actually disagree, which is what makes it
+  # correct if the var is a momentary command -- and if the var IS latched state, the
+  # guard merely suppresses a redundant write and behaves identically to a bare get:.
+
+  - get: L:A22X Circuit Breaker L A1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L A1)` : ''"
+  - get: L:A22X Circuit Breaker L A2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L A2)` : ''"
+  - get: L:A22X Circuit Breaker L A3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L A3)` : ''"
+  - get: L:A22X Circuit Breaker L A4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L A4)` : ''"
+  - get: L:A22X Circuit Breaker L A5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L A5)` : ''"
+  - get: L:A22X Circuit Breaker L B1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L B1)` : ''"
+  - get: L:A22X Circuit Breaker L B2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L B2)` : ''"
+  - get: L:A22X Circuit Breaker L B3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L B3)` : ''"
+  - get: L:A22X Circuit Breaker L B4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L B4)` : ''"
+  - get: L:A22X Circuit Breaker L B5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L B5)` : ''"
+  - get: L:A22X Circuit Breaker L C1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L C1)` : ''"
+  - get: L:A22X Circuit Breaker L C2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L C2)` : ''"
+  - get: L:A22X Circuit Breaker L C3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L C3)` : ''"
+  - get: L:A22X Circuit Breaker L C4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L C4)` : ''"
+  - get: L:A22X Circuit Breaker L D1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L D1)` : ''"
+  - get: L:A22X Circuit Breaker L D2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L D2)` : ''"
+  - get: L:A22X Circuit Breaker L D3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L D3)` : ''"
+  - get: L:A22X Circuit Breaker L D4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L D4)` : ''"
+  - get: L:A22X Circuit Breaker L D5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L D5)` : ''"
+  - get: L:A22X Circuit Breaker L E1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L E1)` : ''"
+  - get: L:A22X Circuit Breaker L E2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L E2)` : ''"
+  - get: L:A22X Circuit Breaker L E3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L E3)` : ''"
+  - get: L:A22X Circuit Breaker L E4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L E4)` : ''"
+  - get: L:A22X Circuit Breaker L E5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L E5)` : ''"
+  - get: L:A22X Circuit Breaker L F1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L F1)` : ''"
+  - get: L:A22X Circuit Breaker L F2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L F2)` : ''"
+  - get: L:A22X Circuit Breaker L F3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L F3)` : ''"
+  - get: L:A22X Circuit Breaker L F4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L F4)` : ''"
+  - get: L:A22X Circuit Breaker L F5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L F5)` : ''"
+  - get: L:A22X Circuit Breaker L G1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L G1)` : ''"
+  - get: L:A22X Circuit Breaker L G2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L G2)` : ''"
+  - get: L:A22X Circuit Breaker L H1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L H1)` : ''"
+  - get: L:A22X Circuit Breaker L H2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L H2)` : ''"
+  - get: L:A22X Circuit Breaker L H3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L H3)` : ''"
+  - get: L:A22X Circuit Breaker L H4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L H4)` : ''"
+  - get: L:A22X Circuit Breaker L I4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker L I4)` : ''"
+  - get: L:A22X Circuit Breaker R A1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R A1)` : ''"
+  - get: L:A22X Circuit Breaker R A2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R A2)` : ''"
+  - get: L:A22X Circuit Breaker R A3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R A3)` : ''"
+  - get: L:A22X Circuit Breaker R A4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R A4)` : ''"
+  - get: L:A22X Circuit Breaker R A5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R A5)` : ''"
+  - get: L:A22X Circuit Breaker R B1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R B1)` : ''"
+  - get: L:A22X Circuit Breaker R B2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R B2)` : ''"
+  - get: L:A22X Circuit Breaker R B3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R B3)` : ''"
+  - get: L:A22X Circuit Breaker R B4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R B4)` : ''"
+  - get: L:A22X Circuit Breaker R B5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R B5)` : ''"
+  - get: L:A22X Circuit Breaker R C1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R C1)` : ''"
+  - get: L:A22X Circuit Breaker R C2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R C2)` : ''"
+  - get: L:A22X Circuit Breaker R C3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R C3)` : ''"
+  - get: L:A22X Circuit Breaker R C4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R C4)` : ''"
+  - get: L:A22X Circuit Breaker R D1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R D1)` : ''"
+  - get: L:A22X Circuit Breaker R D2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R D2)` : ''"
+  - get: L:A22X Circuit Breaker R D3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R D3)` : ''"
+  - get: L:A22X Circuit Breaker R D4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R D4)` : ''"
+  - get: L:A22X Circuit Breaker R D5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R D5)` : ''"
+  - get: L:A22X Circuit Breaker R E1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R E1)` : ''"
+  - get: L:A22X Circuit Breaker R E2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R E2)` : ''"
+  - get: L:A22X Circuit Breaker R E3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R E3)` : ''"
+  - get: L:A22X Circuit Breaker R E4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R E4)` : ''"
+  - get: L:A22X Circuit Breaker R E5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R E5)` : ''"
+  - get: L:A22X Circuit Breaker R F1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R F1)` : ''"
+  - get: L:A22X Circuit Breaker R F2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R F2)` : ''"
+  - get: L:A22X Circuit Breaker R F3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R F3)` : ''"
+  - get: L:A22X Circuit Breaker R F4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R F4)` : ''"
+  - get: L:A22X Circuit Breaker R F5
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R F5)` : ''"
+  - get: L:A22X Circuit Breaker R G1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R G1)` : ''"
+  - get: L:A22X Circuit Breaker R G2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R G2)` : ''"
+  - get: L:A22X Circuit Breaker R H1
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R H1)` : ''"
+  - get: L:A22X Circuit Breaker R H2
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R H2)` : ''"
+  - get: L:A22X Circuit Breaker R H3
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R H3)` : ''"
+  - get: L:A22X Circuit Breaker R H4
+    set: "value != current ? `${value} (>L:A22X Circuit Breaker R H4)` : ''"

@@ -89,6 +89,20 @@ public sealed class PanelServer : IDisposable
         Broadcast(ConfigJson());
     }
 
+    /// <summary>
+    /// Dev harness only (--dev): captures from pointer-opted panels are reflected
+    /// straight back, exercising the whole panel -> app -> panel path on one machine.
+    /// The reflected press visibly actuates twice - that is the signal that the
+    /// pipeline works, not a bug. Which panels participate comes from the aircraft
+    /// profile's pointer: list via Configure, exactly as in normal mode.
+    /// </summary>
+    public void EnableDevEcho()
+    {
+        _d.Add(Presses.Subscribe(Send));
+        _d.Add(Drags.Subscribe(Send));
+        Log.Information("[PanelServer] Dev echo enabled: panel captures reflect back to their panels");
+    }
+
     /// <summary>Updates the session state broadcast to panels; drives the overlay lock.</summary>
     public void SetSession(string session, bool isMaster)
     {

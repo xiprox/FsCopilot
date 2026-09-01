@@ -72,8 +72,19 @@ sealed class Program
             .UseReactiveUIWithMicrosoftDependencyResolver(
                 services =>
                 {
-                    services.AddSingleton(new SimClient(!isDev ? "FS Copilot" : "FS Copilot DEV"));
-                    services.AddSingleton(new PanelServer());
+                    var simClient = new SimClient(!isDev ? "FS Copilot" : "FS Copilot DEV");
+                    services.AddSingleton(simClient);
+                    var panelServer = new PanelServer();
+                    if (isDev)
+                    {
+                        panelServer.EnableDevEcho();
+                        // Dev mode has no Coordinator, so wire the profile's pointer list
+                        // straight through - which panels sync is profile-driven either way.
+                        simClient.Aircraft
+                            .Select(Definitions.Load)
+                            .Subscribe(defs => panelServer.Configure(defs.Pointer));
+                    }
+                    services.AddSingleton(panelServer);
                     services.AddSingleton<SetupViewModel>();
                     services.AddSingleton(new Updater("http://p2p.fscopilot.com:2320"));
                     

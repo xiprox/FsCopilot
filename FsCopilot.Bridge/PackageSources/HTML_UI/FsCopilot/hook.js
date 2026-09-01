@@ -44,6 +44,19 @@ class Hook {
             if (this._pointerOwner && window.fscPointer) window.fscPointer.linkLost();
         });
 
+        // Per-instrument sent/replayed/missed counters answer "which aircraft does
+        // this work in" far faster than flying them. One report per document.
+        if (!window.fscStatsTimer) {
+            window.fscStatsTimer = setInterval(() => {
+                const report = {t: 'stats', link: channel.stats()};
+                if (window.fscPointer) {
+                    report.key = window.fscPointer.key;
+                    report.pointer = window.fscPointer.stats();
+                }
+                channel.send(report);
+            }, 60000);
+        }
+
         const interact = instrument.onInteractionEvent;
         instrument.onInteractionEvent = (_args) => {
             interact.call(instrument, _args);
