@@ -73,6 +73,7 @@ sealed class Program
                 services =>
                 {
                     services.AddSingleton(new SimClient(!isDev ? "FS Copilot" : "FS Copilot DEV"));
+                    services.AddSingleton(new PanelServer());
                     services.AddSingleton<SetupViewModel>();
                     services.AddSingleton(new Updater("http://p2p.fscopilot.com:2320"));
                     
@@ -91,7 +92,8 @@ sealed class Program
                             sp.GetRequiredService<SimClient>(),
                             sp.GetRequiredService<MasterSwitch>(),
                             sp.GetRequiredService<Coordinator>(),
-                            sp.GetRequiredService<Updater>()
+                            sp.GetRequiredService<Updater>(),
+                            sp.GetRequiredService<PanelServer>()
                         ));
                     }
                     else

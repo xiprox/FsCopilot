@@ -83,6 +83,7 @@ public class MainViewModel : ReactiveObject, IDisposable
         _errors.HasFlag(ViewErrors.NotSupported) ? $"No profile available for the {_aircraft}." :
         _errors.HasFlag(ViewErrors.Rejected) ? "Both sides must use the same FS Copilot version." :
         _errors.HasFlag(ViewErrors.Conflict) ? "Conflict detected with YourControls package." :
+        _errors.HasFlag(ViewErrors.PanelChannel) ? "Panel channel unavailable - ports 9020-9024 are in use." :
         string.Empty;
 
     public ObservableCollection<Connection> Connections { get; set; } = [];
@@ -97,7 +98,8 @@ public class MainViewModel : ReactiveObject, IDisposable
         SimClient sim,
         MasterSwitch masterSwitch,
         Coordinator coordinator,
-        Updater updater)
+        Updater updater,
+        PanelServer panels)
     {
         ClientName = name;
         PeerId = peerId;
@@ -160,6 +162,13 @@ public class MainViewModel : ReactiveObject, IDisposable
             .Subscribe(conflict => Errors = conflict
                 ? _errors | ViewErrors.Conflict
                 : _errors & ~ViewErrors.Conflict)
+            .DisposeWith(_d);
+
+        panels.BindFailed
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(failed => Errors = failed
+                ? _errors | ViewErrors.PanelChannel
+                : _errors & ~ViewErrors.PanelChannel)
             .DisposeWith(_d);
 
         net.Peers
@@ -262,7 +271,8 @@ public class MainViewModel : ReactiveObject, IDisposable
         Rejected        = 0b_0000_1000,
         Conflict        = 0b_0001_0000,
         NotLoadedBridge = 0b_0010_0000,
-        BridgeMismatch  = 0b_0100_0000
+        BridgeMismatch  = 0b_0100_0000,
+        PanelChannel    = 0b_1000_0000
     }
 
     public record Connection(string PeerId, string Name, int Ping, bool IsDirect, bool HasSeparatorAfter)
