@@ -48,6 +48,7 @@ public class Coordinator : IDisposable
             .Where(i => !_ignore.Contains(i.Instrument))
             .Subscribe(interact => _net.SendAll(interact)));
         _d.Add(_net.Stream<Interact>()
+            .Where(i => !_ignore.Contains(i.Instrument))
             .Subscribe(update => _sim.Set(update)));
     }
 
