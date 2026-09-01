@@ -36,6 +36,73 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-01 - The production design for FS Copilot is decided and recorded
+
+    Question:  none directly - this is the graduation decision 05-integration
+               deferred to "its own piece of work". Gives Q04 and Q10 their
+               answer path.
+    Stage:     after stage 5; feeds stage 6
+    Expected:  Graduating would mean choosing between the WebSocket sidecar and
+               widening the bus, and porting agent.js with "about twenty lines
+               of plumbing".
+    Found:     The full within-FS-Copilot design was worked through against the
+               real fscopilot source and every open choice was decided. Recorded
+               in docs/11-fsc-implementation-plan.md; the decisions in brief:
+
+               - Transport panel<->app: the WebSocket sidecar, per Q08. Ports
+                 9020-9024, app binds first free, channel.js rotates the range
+                 in its backoff. Bus untouched, bus-widening kept as the
+                 documented fallback.
+               - Peer wire: two new LiteNetLib packets, PointerPress and
+                 PointerDrag (batched full-path drags), registered after
+                 Surfaces. Session + Seq fields from day one because
+                 Codecs.Schema hard-rejects any later wire change.
+               - Profiles: top-level `pointer:` key, opt-in, FULL keys
+                 (identifier|query, per the A220 CTP/MKP/FCP finding). Pointer
+                 instruments excluded from the Interact path both directions.
+               - Robustness: two-mode send history (small ring while live, full
+                 accumulation from the moment the session degrades, bounded by
+                 the 5-min session-end timeout) replayed on reconnect, deduped
+                 by Session/Seq. Invariant: an outage ending within the timeout
+                 loses nothing.
+               - Locking: overlay DIVs, never event suppression (the p06
+                 lesson). Blue blocking lock on the slave while degraded and on
+                 both during "connecting"; red NON-blocking warning when a
+                 configured panel loses the app link - blocking requires a live
+                 app renewing the lock, so red never blocks. window.fscUnlock()
+                 fixed global; renewal deadman ~8s.
+               - Delivery: one PR against the src submodule, clean commits,
+                 including two standalone fixes found along the way (the
+                 VCockpit.js pending-array bug; the inbound Interact ignore
+                 filter + ignore: WasmInstrument as the latch-press safety fix).
+
+               Two facts verified in source while planning, worth keeping:
+               Coordinator.cs:47-51 applies `ignore:` only to OUTBOUND Interact
+               (inbound replays everything), and Definitions.cs:24 has
+               IgnoreUnmatchedProperties() commented out, so any new top-level
+               profile key bricks profile loading on older builds. Re-enabling
+               it was ruled out of scope; no served profile carries `pointer:`
+               until the release is adopted.
+
+               Also settled honestly rather than around: concurrent conflicting
+               inputs on the same panel can diverge the peers and no
+               input-replay design can fix that without rollback. Recovery is
+               documented instead - panel chrome sits at fixed coordinates, so
+               both pilots pressing the same page button converges a diverged
+               panel.
+    Changed:   Stage 6 stops being "package the prototype for a tester" and
+               becomes "the FS Copilot PR ships the instrumentation" - rect in
+               the hello answers Q04, Session/Seq counters plus a scripted
+               disconnect answer Q10, both from one remote-tester session.
+    Affects:   04-transport (adopted, pointered), 05-integration (routing key,
+               config delivery and graduation superseded, pointered),
+               06-open-questions (Q04, Q10 answer path, updated in place),
+               index.md (11 added, stale fresh-pickup note corrected)
+    Evidence:  none - a design decision, not a probe. The plan itself is
+               docs/11-fsc-implementation-plan.md.
+
+---
+
 ## 2026-08-30 - The drag drift candidate is real but small, and temporal not spatial
 
     Question:  bounds Q10 without settling it

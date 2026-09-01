@@ -10,6 +10,11 @@
 > SimConnect, and none of the constraints in this file apply to it. See "Q08 yes"
 > and "The module works with DevMode off" in [build/log.md](build/log.md), and
 > [10-module](10-module.md) for what was built.
+>
+> **Adopted for production.** The bypass is now the decided design for FS Copilot
+> itself — a WebSocket sidecar on ports 9020–9024 — with the widening options below
+> kept as the documented fallback. See "production design" in
+> [build/log.md](build/log.md) and [11-fsc-implementation-plan](11-fsc-implementation-plan.md).
 
 ## What exists
 

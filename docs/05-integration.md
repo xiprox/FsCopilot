@@ -4,6 +4,14 @@
     Depends on: 02-approach, 04-transport
     Decides:    routing key, profile shape, where experimental code lives, naming
 
+> **Superseded in part by the production plan.** The graduation this file sketches is now
+> decided and recorded in [11-fsc-implementation-plan](11-fsc-implementation-plan.md): the
+> routing key gains a URL-query discriminator (full keys — the A220 reuses
+> `instrumentIdentifier` across its CTPs, MKPs and FCPs), config delivery collapses into
+> the WebSocket hello/config handshake, and delivery is a single PR rather than a series.
+> See "production design" in [build/log.md](build/log.md). The routing-key rationale,
+> opt-in argument and naming rules below still stand.
+
 ## The routing key
 
 An interaction is addressed to an instrument by `instrumentIdentifier` — the same string the

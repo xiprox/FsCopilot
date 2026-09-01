@@ -36,13 +36,10 @@ running has found. It is live and it moves.
 > harder. And **anything you write that runs inside a panel is Chrome 49**, where a stray `?.`
 > takes out the whole file — read [09-environment](09-environment.md) before writing a line.
 >
-> What is left: **drag gestures, which are implemented and do not work** — the diagnosis has
-> not been run and the top of [build/log.md](build/log.md) says exactly how. And two-machine
-> testing, blocked on there being no second machine.
->
-> **Check `git status` first.** A tooling fault blocked commits at the end of the last
-> session, so the working tree is ahead of the last commit. Nothing is lost, but do not
-> assume the history reflects the files.
+> Drag gestures work — tier 3 is proven in the cockpit, with a bounded drift caveat tracked
+> as Q10. What is left is two-machine testing, and the work has moved to graduation: the
+> production design for folding this into FS Copilot itself is decided and recorded in
+> [11-fsc-implementation-plan](11-fsc-implementation-plan.md).
 
 Each design part is self-contained. The descriptions below name the decisions inside, so you
 can tell which parts those are without opening anything. Every part opens with three lines —
@@ -72,6 +69,7 @@ drags the whole proposal into context.
 | [08-testbed](08-testbed.md) | How the mechanism is exercised end to end with **nothing installed in the simulator** — the inspector injects and the console reports back. Why not a modified `fscopilot-bridge`, and the one rule that keeps the result portable. |
 | [09-environment](09-environment.md) | **Read before writing injected code.** Coherent GT is Chrome 49: no `PointerEvent`, no optional chaining, no `??`. What is missing, what is present, and how to read the simulator's own source instead of guessing at it. |
 | [06-open-questions](06-open-questions.md) | The register. Ten questions grouped by what they gate, each with the probe that would settle it and what the answer changes. Updated in place. |
+| [11-fsc-implementation-plan](11-fsc-implementation-plan.md) | **The adopted production plan.** How pointer forwarding lands inside FS Copilot itself: WebSocket sidecar on ports 9020–9024, `PointerPress`/`PointerDrag` peer packets with sequence numbers, the `pointer:` profile key, gap-replay with a two-mode history buffer, and the blue-lock/red-warning overlay policy. Supersedes parts of 04 and 05, called out inside. |
 
 ## Probes
 

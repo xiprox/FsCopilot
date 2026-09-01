@@ -67,7 +67,7 @@ document with nothing in between.
 designed for, and there is no second idea behind it.
 
 ### Q04 · Do the two machines agree on the instrument element's bounding rect?
-**Status:** DEFERRED, assumed yes · no second machine available
+**Status:** DEFERRED, assumed yes · no second machine available · **answer path set:** the FS Copilot PR ([11-fsc-implementation-plan](11-fsc-implementation-plan.md)) includes the rect in the panel's hello and logs it app-side, so one remote-tester session yields both machines' rects to diff. See "production design" in [build/log.md](build/log.md).
 
 The measured DisplayUnits rect is exactly `7410 x 1110`, which is the `pixel_size` line
 from the aircraft's `panel.cfg`. If the rect is panel.cfg-derived it is identical on any
@@ -128,7 +128,7 @@ Whether two `SetClientData` calls in one frame both arrive, or coalesce.
 ## Gate E — fidelity
 
 ### Q10 · Why do replayed drags drift from the original gesture?
-**Status:** open, deliberately deferred · **Probe:** none yet
+**Status:** open, deliberately deferred · **Probe:** none yet · **answer path set:** the FS Copilot PR ([11-fsc-implementation-plan](11-fsc-implementation-plan.md)) ships Session/Seq counters and a scripted two-machine checklist (presses + map pans + forced disconnect); `missed > 0` on the receiver separates a rect disagreement from a transport gap in one session.
 
 Drag works, but a replayed drag sometimes does not land where the captured one did. Deferred
 on the reading that single-machine replay — the same rect, the same panel, capture and replay
