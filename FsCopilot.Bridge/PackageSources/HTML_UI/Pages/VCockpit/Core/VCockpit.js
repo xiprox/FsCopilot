@@ -65,7 +65,7 @@ Include.addImports(['/FsCopilot/hook.js'], () => {
         try { hook = new Hook(templatesToLoad.shift()); }
         catch (error) { console.error(error); }
     }
-})))))));
+}))))))));
 /* End of FS Copilot Integration */
 
 class VCockpitPanel extends HTMLElement {
