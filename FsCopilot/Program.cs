@@ -72,6 +72,7 @@ sealed class Program
             .UseReactiveUIWithMicrosoftDependencyResolver(
                 services =>
                 {
+                    services.AddSingleton(Settings.Load());
                     services.AddSingleton(new SimClient(!isDev ? "FS Copilot" : "FS Copilot DEV"));
                     services.AddSingleton(new SimTraffic(!isDev ? "FS Copilot (Traffic)" : "FS Copilot DEV (Traffic)"));
                     services.AddSingleton<SetupViewModel>();

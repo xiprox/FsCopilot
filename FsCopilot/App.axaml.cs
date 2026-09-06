@@ -38,6 +38,7 @@ public class App : Application
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
                 // Closing the traffic connection removes every AI object it created.
                 Locator.Current.GetService<SimTraffic>()?.Dispose();
+                Locator.Current.GetService<Settings>()?.Flush();
             };
             
             var args = desktop.Args ?? [];
