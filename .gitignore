@@ -272,3 +272,11 @@ __pycache__/
 FsCopilot.Bridge/_PackageInt
 FsCopilot.Bridge/Packages
 FsCopilot.Bridge/PackageSources/Modules
+
+# Aircraft definitions are pulled from the profile server at runtime and moved
+# around by hand to match whichever build is being flown - they are data, not
+# source. Top level only: Definitions/modules/ is shared and stays tracked.
+/Definitions/*.yaml
+
+# Visual Studio per-user launch configuration
+/FsCopilot/Properties/launchSettings.json
