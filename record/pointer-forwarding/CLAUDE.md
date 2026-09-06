@@ -1,5 +1,19 @@
 # fsc-pointer-playground
 
+> **Amended 2026-09-06.** This repository was retired and imported here as a record; the file
+> below is kept as written rather than rewritten. Two parts of it no longer hold from inside
+> the fork: the **related-repositories table** (it describes `../fscopilot` as a separate
+> project to read and not modify — that is the repository this file now sits in), and
+> everything about **`module/`, `module:build`, `module:derive` and the `fscopilot-bridge`
+> conflict**, which concerned the standalone prototype the production implementation replaced.
+>
+> The rules that still bind live code — Chrome 49, fail-open, naming, `node --check` before
+> packaging — were promoted to [`record/conventions.md`](../conventions.md), where the naming
+> rule is **inverted**: `FSCPP_` was right for a separate package and is wrong inside FS
+> Copilot itself.
+>
+> Its record-keeping rules still hold in full for work on the record.
+
 Experiments toward pointer-forwarding interaction sync for FS Copilot. `README.md` is the
 product-level description; **[docs/index.md](docs/index.md) is the map and you should read it
 before working here.** This file is for working in the repo.
