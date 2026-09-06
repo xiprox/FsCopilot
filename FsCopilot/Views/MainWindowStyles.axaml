@@ -229,14 +229,32 @@
     <Style Selector="TextBlock.ShareStatus">
         <Setter Property="Foreground" Value="#94a3b8"></Setter>
         <Setter Property="FontSize" Value="11"></Setter>
+        <Setter Property="VerticalAlignment" Value="Center"></Setter>
+    </Style>
+
+    <!-- The warning is the one status that stacks under the label instead of sitting beside it. -->
+    <Style Selector="TextBlock.ShareStatus.Warning">
+        <Setter Property="Foreground" Value="#FFC107"></Setter>
         <Setter Property="Margin" Value="0,2,0,0"></Setter>
+    </Style>
+
+    <!-- A feature's name and its status read as one line. -->
+    <Style Selector="StackPanel.ShareHeading">
+        <Setter Property="Orientation" Value="Horizontal"></Setter>
+        <Setter Property="Spacing" Value="6"></Setter>
+    </Style>
+
+    <!-- A feature row is the height of its toggle whether or not the toggle is shown. -->
+    <Style Selector="DockPanel.ShareRow">
+        <Setter Property="MinHeight" Value="32"></Setter>
     </Style>
 
     <Style Selector="ToggleSwitch.Share">
         <Setter Property="OnContent" Value=""></Setter>
         <Setter Property="OffContent" Value=""></Setter>
         <Setter Property="MinWidth" Value="0"></Setter>
-        <Setter Property="Margin" Value="10,0,0,0"></Setter>
+        <!-- The theme keeps a 12 px content gap after the switch; swallow it so the switch sits flush right. -->
+        <Setter Property="Margin" Value="10,0,-12,0"></Setter>
         <Setter Property="VerticalAlignment" Value="Center"></Setter>
         <Style.Resources>
             <SolidColorBrush x:Key="ToggleSwitchFillOn">#8ec6ff</SolidColorBrush>
@@ -264,18 +282,49 @@
         <Setter Property="Opacity" Value="0.4"></Setter>
     </Style>
 
+    <!-- The same box as the Client code TextBox, with the accent tint replaced by ours. -->
     <Style Selector="ComboBox.Share">
         <Setter Property="BorderThickness" Value="0"></Setter>
         <Setter Property="CornerRadius" Value="8"></Setter>
-        <Setter Property="Padding" Value="10,6"></Setter>
+        <Setter Property="Padding" Value="10"></Setter>
         <Setter Property="HorizontalAlignment" Value="Stretch"></Setter>
         <Setter Property="Background" Value="#66000000"></Setter>
+        <Style.Resources>
+            <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver">#99000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxBackgroundPressed">#99000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused">#66000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushUnfocused">Transparent</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver">#19FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed">#33FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected">#8ec6ff</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemForegroundSelected">Black</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver">Black</SolidColorBrush>
+            <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed">Black</SolidColorBrush>
+        </Style.Resources>
     </Style>
 
+    <!-- The theme paints the item text, not the presenter, so name it directly too. -->
+    <Style Selector="ComboBox.Share ComboBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Foreground" Value="Black"></Setter>
+    </Style>
+
+    <!-- Sits one content gap under the ATC row, so it is only as tall as the thumb needs. -->
+    <Style Selector="DockPanel.VolumeRow">
+        <Setter Property="Height" Value="16"></Setter>
+    </Style>
+
+    <!-- A 16 px thumb, so it lines up with the toggles above it. -->
     <Style Selector="Slider.Share">
         <Setter Property="VerticalAlignment" Value="Center"></Setter>
         <Setter Property="Margin" Value="0,0,10,0"></Setter>
         <Style.Resources>
+            <GridLength x:Key="SliderPreContentMargin">8</GridLength>
+            <GridLength x:Key="SliderPostContentMargin">8</GridLength>
+            <x:Double x:Key="SliderHorizontalThumbWidth">16</x:Double>
+            <x:Double x:Key="SliderHorizontalThumbHeight">16</x:Double>
+            <CornerRadius x:Key="SliderThumbCornerRadius">8</CornerRadius>
             <SolidColorBrush x:Key="SliderTrackValueFill">#8ec6ff</SolidColorBrush>
             <SolidColorBrush x:Key="SliderTrackValueFillPointerOver">#5facfc</SolidColorBrush>
             <SolidColorBrush x:Key="SliderTrackValueFillPressed">#5facfc</SolidColorBrush>
@@ -291,8 +340,13 @@
     <Style Selector="Button.Icon">
         <Setter Property="Background" Value="Transparent"></Setter>
         <Setter Property="BorderThickness" Value="0"></Setter>
-        <Setter Property="Padding" Value="4"></Setter>
+        <Setter Property="Padding" Value="0"></Setter>
+        <Setter Property="Width" Value="24"></Setter>
+        <Setter Property="Height" Value="16"></Setter>
+        <Setter Property="CornerRadius" Value="4"></Setter>
         <Setter Property="VerticalAlignment" Value="Center"></Setter>
+        <Setter Property="HorizontalContentAlignment" Value="Center"></Setter>
+        <Setter Property="VerticalContentAlignment" Value="Center"></Setter>
     </Style>
 
     <Style Selector="Button.Icon:pointerover /template/ ContentPresenter">
@@ -300,19 +354,8 @@
     </Style>
 
     <Style Selector="Button.Icon PathIcon">
-        <Setter Property="Width" Value="18"></Setter>
-        <Setter Property="Height" Value="18"></Setter>
+        <Setter Property="Width" Value="16"></Setter>
+        <Setter Property="Height" Value="16"></Setter>
         <Setter Property="Foreground" Value="#8ec6ff"></Setter>
-    </Style>
-
-    <Style Selector="Border.Traffic, Border.Atc">
-        <Setter Property="Background" Value="#8ec6ff"></Setter>
-        <Setter Property="CornerRadius" Value="7"></Setter>
-        <Setter Property="Padding" Value="4, 2, 4, 2"></Setter>
-    </Style>
-
-    <Style Selector="TextBlock.Traffic, TextBlock.Atc">
-        <Setter Property="Foreground" Value="Black"></Setter>
-        <Setter Property="FontSize" Value="8"></Setter>
     </Style>
 </Styles>

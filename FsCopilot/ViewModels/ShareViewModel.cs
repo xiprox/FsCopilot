@@ -169,7 +169,7 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
 
     /// <summary>In a session, the sim is up, and nobody else shares traffic.</summary>
     public bool TrafficCanHost => _sessionActive && _simConnected && (_trafficHost is null || _trafficHost == _share.SelfId);
-    public string TrafficSharedBy => _trafficHost is { } h && h != _share.SelfId ? $"Traffic · shared by {Name(h)}" : string.Empty;
+    public string TrafficSharedBy => _trafficHost is { } h && h != _share.SelfId ? $"shared by {Name(h)}" : string.Empty;
     public bool TrafficReceiving => TrafficSharedBy.Length > 0;
     public bool ForeignTrafficWarning => TrafficReceiving && _foreignTraffic;
     public string TrafficHint => _sessionActive && !_simConnected && !TrafficReceiving ? "Waiting for the simulator" : string.Empty;
@@ -193,16 +193,16 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
 
     /// <summary>In a session and nobody else shares ATC.</summary>
     public bool AtcCanHost => _sessionActive && (_atcHostPeer is null || _atcHostPeer == _share.SelfId);
-    public string AtcSharedBy => _atcHostPeer is { } h && h != _share.SelfId ? $"ATC audio · shared by {Name(h)}" : string.Empty;
+    public string AtcSharedBy => _atcHostPeer is { } h && h != _share.SelfId ? $"shared by {Name(h)}" : string.Empty;
     public bool AtcReceiving => AtcSharedBy.Length > 0;
 
     public string AtcStatus => _atcStatus.Phase switch
     {
-        AtcHost.Phase.Capturing when _atcStatus.MixerMuted => $"● Capturing {_atcStatus.App} — muted in the volume mixer",
-        AtcHost.Phase.Capturing => $"● Capturing {_atcStatus.App}",
-        AtcHost.Phase.Closed => $"○ {_atcStatus.App} closed",
-        AtcHost.Phase.Unsupported => "○ Audio capture needs Windows 10 2004 or later",
-        _ => "○ Waiting for an ATC app…"
+        AtcHost.Phase.Capturing when _atcStatus.MixerMuted => "Capturing — muted in the volume mixer",
+        AtcHost.Phase.Capturing => "Capturing",
+        AtcHost.Phase.Closed => "Not running",
+        AtcHost.Phase.Unsupported => "Audio capture needs Windows 10 2004 or later",
+        _ => "Waiting for an ATC app…"
     };
 
     public ObservableCollection<AtcAppItem> AtcApps { get; } = [];
@@ -287,9 +287,6 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
 
     /// <summary>The requirements line, only while something is being shared either way.</summary>
     public bool ShowNote => _trafficOn || _atcOn || TrafficReceiving || AtcReceiving;
-
-    public string? TrafficHostId => _trafficHost;
-    public string? AtcHostId => _atcHostPeer;
 
     private string Name(string? peerId) => peerId is null ? "someone" : _peerNames.GetValueOrDefault(peerId, peerId);
 }

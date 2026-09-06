@@ -177,9 +177,7 @@ public class MainViewModel : ReactiveObject, IDisposable
                     Name: string.IsNullOrWhiteSpace(peer.Name) ? "Unknown" : peer.Name,
                     Ping: peer.Ping,
                     IsDirect: peer.Transport == Peer.TransportKind.Direct,
-                    HasSeparatorAfter: i++ < peers.Count - 1,
-                    HostsTraffic: peer.PeerId == share.TrafficHostId,
-                    HostsAtc: peer.PeerId == share.AtcHostId
+                    HasSeparatorAfter: i++ < peers.Count - 1
                 ));
                 Connected = Connections.Any();
             })
@@ -270,7 +268,7 @@ public class MainViewModel : ReactiveObject, IDisposable
         BridgeMismatch  = 0b_0100_0000
     }
 
-    public record Connection(string PeerId, string Name, int Ping, bool IsDirect, bool HasSeparatorAfter, bool HostsTraffic, bool HostsAtc)
+    public record Connection(string PeerId, string Name, int Ping, bool IsDirect, bool HasSeparatorAfter)
     {
         public int QualityLevel
         {

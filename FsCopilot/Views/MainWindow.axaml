@@ -159,69 +159,72 @@
                     </DockPanel>
 
                     <!-- Traffic: our toggle, or who shares it -->
-                    <DockPanel>
+                    <DockPanel Classes="ShareRow">
                         <ToggleSwitch DockPanel.Dock="Right"
                                       Classes="Share"
                                       IsChecked="{Binding Share.TrafficOn}"
                                       IsEnabled="{Binding Share.TrafficCanHost}"
                                       IsVisible="{Binding Share.TrafficSharedBy, Converter={StaticResource Empty}}" />
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Classes="ShareLabel"
-                                       Text="Traffic"
-                                       IsVisible="{Binding Share.TrafficSharedBy, Converter={StaticResource Empty}}" />
-                            <TextBlock Classes="ShareLabel"
-                                       Text="{Binding Share.TrafficSharedBy}"
-                                       IsVisible="{Binding Share.TrafficSharedBy, Converter={StaticResource NotEmpty}}" />
-                            <TextBlock Classes="ShareStatus"
-                                       Text="{Binding Share.TrafficHint}"
-                                       IsVisible="{Binding Share.TrafficHint, Converter={StaticResource NotEmpty}}" />
-                            <TextBlock Classes="ShareStatus ErrorNote"
+                            <StackPanel Classes="ShareHeading">
+                                <TextBlock Classes="ShareLabel"
+                                           Text="Traffic" />
+                                <TextBlock Classes="ShareStatus"
+                                           Text="{Binding Share.TrafficHint}"
+                                           IsVisible="{Binding Share.TrafficHint, Converter={StaticResource NotEmpty}}" />
+                                <TextBlock Classes="ShareStatus"
+                                           Text="{Binding Share.TrafficSharedBy}"
+                                           IsVisible="{Binding Share.TrafficSharedBy, Converter={StaticResource NotEmpty}}" />
+                            </StackPanel>
+                            <TextBlock Classes="ShareStatus Warning"
                                        Text="Detected existing AI traffic in your sim. Disable to avoid duplicates."
                                        IsVisible="{Binding Share.ForeignTrafficWarning}" />
                         </StackPanel>
                     </DockPanel>
 
                     <!-- ATC audio: our toggle and app, or who shares it and our volume -->
-                    <DockPanel>
-                        <ToggleSwitch DockPanel.Dock="Right"
-                                      Classes="Share"
-                                      IsChecked="{Binding Share.AtcOn}"
-                                      IsEnabled="{Binding Share.AtcCanHost}"
-                                      IsVisible="{Binding Share.AtcSharedBy, Converter={StaticResource Empty}}" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Classes="ShareLabel"
-                                       Text="ATC audio"
-                                       IsVisible="{Binding Share.AtcSharedBy, Converter={StaticResource Empty}}" />
-                            <TextBlock Classes="ShareLabel"
-                                       Text="{Binding Share.AtcSharedBy}"
-                                       IsVisible="{Binding Share.AtcSharedBy, Converter={StaticResource NotEmpty}}" />
-                            <TextBlock Classes="ShareStatus"
-                                       Text="{Binding Share.AtcStatus}"
-                                       IsVisible="{Binding Share.AtcOn}" />
-                        </StackPanel>
-                    </DockPanel>
+                    <StackPanel Spacing="6">
+                        <DockPanel Classes="ShareRow">
+                            <ToggleSwitch DockPanel.Dock="Right"
+                                          Classes="Share"
+                                          IsChecked="{Binding Share.AtcOn}"
+                                          IsEnabled="{Binding Share.AtcCanHost}"
+                                          IsVisible="{Binding Share.AtcSharedBy, Converter={StaticResource Empty}}" />
+                            <StackPanel Classes="ShareHeading" VerticalAlignment="Center">
+                                <TextBlock Classes="ShareLabel"
+                                           Text="ATC Audio" />
+                                <TextBlock Classes="ShareStatus"
+                                           Text="{Binding Share.AtcStatus}"
+                                           IsVisible="{Binding Share.AtcOn}" />
+                                <TextBlock Classes="ShareStatus"
+                                           Text="{Binding Share.AtcSharedBy}"
+                                           IsVisible="{Binding Share.AtcSharedBy, Converter={StaticResource NotEmpty}}" />
+                            </StackPanel>
+                        </DockPanel>
 
-                    <ComboBox Classes="Share"
-                              IsVisible="{Binding Share.AtcOn}"
-                              ItemsSource="{Binding Share.AtcApps}"
-                              SelectedItem="{Binding Share.SelectedAtcApp}" />
+                        <ComboBox Classes="Share"
+                                  IsVisible="{Binding Share.AtcOn}"
+                                  ItemsSource="{Binding Share.AtcApps}"
+                                  SelectedItem="{Binding Share.SelectedAtcApp}" />
 
-                    <DockPanel IsVisible="{Binding Share.AtcReceiving}">
-                        <Button DockPanel.Dock="Right"
-                                Classes="Icon"
-                                Command="{Binding Share.ToggleMute}">
-                            <Panel>
-                                <PathIcon Data="{StaticResource speaker_2_regular}"
-                                          IsVisible="{Binding Share.AtcMuted, Converter={StaticResource Inverse}}" />
-                                <PathIcon Data="{StaticResource speaker_mute_regular}"
-                                          IsVisible="{Binding Share.AtcMuted}" />
-                            </Panel>
-                        </Button>
-                        <Slider Classes="Share"
-                                Minimum="0"
-                                Maximum="1"
-                                Value="{Binding Share.AtcVolume}" />
-                    </DockPanel>
+                        <DockPanel Classes="VolumeRow"
+                                   IsVisible="{Binding Share.AtcReceiving}">
+                            <Button DockPanel.Dock="Right"
+                                    Classes="Icon"
+                                    Command="{Binding Share.ToggleMute}">
+                                <Panel>
+                                    <PathIcon Data="{StaticResource speaker_2_regular}"
+                                              IsVisible="{Binding Share.AtcMuted, Converter={StaticResource Inverse}}" />
+                                    <PathIcon Data="{StaticResource speaker_mute_regular}"
+                                              IsVisible="{Binding Share.AtcMuted}" />
+                                </Panel>
+                            </Button>
+                            <Slider Classes="Share"
+                                    Minimum="0"
+                                    Maximum="1"
+                                    Value="{Binding Share.AtcVolume}" />
+                        </DockPanel>
+                    </StackPanel>
 
                     <TextBlock Classes="Note ErrorNote"
                                Text="{Binding Share.Notice}"
@@ -233,7 +236,7 @@
 
                     <TextBlock Classes="Note"
                                TextWrapping="Wrap"
-                               Text="Make sure everyone is on the same traffic pack and scenery to avoid traffic sync issues."
+                               Text="Make sure everyone is on the same traffic pack and scenery to avoid traffic issues."
                                IsVisible="{Binding Share.ShowNote}" />
                 </StackPanel>
             </Border>
@@ -316,16 +319,6 @@
                                                                 IsVisible="{Binding IsDirect, Converter={StaticResource Inverse}}">
                                                             <TextBlock Classes="Relay"
                                                                        Text="relay" />
-                                                        </Border>
-                                                        <Border Classes="Traffic"
-                                                                IsVisible="{Binding HostsTraffic}">
-                                                            <TextBlock Classes="Traffic"
-                                                                       Text="Traffic" />
-                                                        </Border>
-                                                        <Border Classes="Atc"
-                                                                IsVisible="{Binding HostsAtc}">
-                                                            <TextBlock Classes="Atc"
-                                                                       Text="ATC" />
                                                         </Border>
                                                     </StackPanel>
                                                 </StackPanel>
