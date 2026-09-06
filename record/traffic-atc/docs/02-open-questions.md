@@ -1,0 +1,27 @@
+# 02 · Open questions
+
+    Purpose:  Every assumption the design rests on that has not been tested.
+    Status:   Register. Updated in place; each entry names the stage that settles it.
+              Renumbered 2026-09-06 after the design moved to polling and a single host;
+              the log entry of that date says what was dropped and why.
+
+| # | Question | Why it matters | Settled by |
+| --- | --- | --- | --- |
+| Q01 | ~~What does one poll at 200 km cost with 100–200 objects?~~ **Settled 2026-09-06:** 13 ms average, 30 ms max per type per poll with 110 objects at 2 Hz, 0.1 % CPU. 5 Hz not measured but arithmetic says ~7 % of sim message time. | Sets the poll rate. | Log 2026-09-06 |
+| Q02 | Does the 200 km enumeration see everything the ATC add-on injected that matters — the airport, the pattern, the arrivals — or does the add-on hold traffic further out that a pilot is told about? At the gate everything was within 25 nm; the cruise case is unseen. | Decides whether 108 nm is "far enough", as assumed. | Stage 0, a capture in cruise |
+| Q03 | ~~Is the livery readable from the host?~~ **Settled yes, 2026-09-06:** `LIVERY NAME` is a simvar on 2024 and returned the user aircraft's livery. Read through its own definition so 2020 can skip it. | The receiver's `_EX1` create gets the real livery. | Log 2026-09-06 |
+| Q04 | What update rate makes a taxiing aircraft look right with velocities set? **2 Hz taxi is smooth, 2 Hz pushback jitters** (2026-09-06). 1 Hz and `--interp` unjudged. | Sets the poll rate from the other side, and the bandwidth ceiling. | Stage 1, visual |
+| Q05 | ~~FPS cost on the receiver of N injected aircraft, vs the add-on's own.~~ **Settled 2026-09-06:** empty 44.7 fps; BeyondATC's 73 objects 38.0; our 132 injected 32.5. Same per-object price. | No receiver cap needed beyond what the host already pays. | Log 2026-09-06 |
+| Q06 | ~~Does a replicated aircraft trigger crash detection on the receiver?~~ **Closed 2026-09-06 by assumption:** no collision expected from frozen objects; the host already lives with the add-on's own traffic. Revisit only if it bites in production. | — | Assumed |
+| Q07 | Ground vehicles: ~~do GSX vehicles enumerate and spawn~~ — **they do, 2026-09-06**: 11 enumerated, 11 spawned, no appearance datums accepted. Still open: do they look acceptable posed and static, driven at 2 Hz? | Decides whether ground goes into v1 or waits. | Stage 1, visual |
+| Q16 | ~~Does `--interp` cure the pushback jitter?~~ **Settled 2026-09-06, by measurement and by eye:** interpolation alone does not; freezing the object (`FREEZE_*_SET` events) and writing an interpolated pose every sim frame does — jitter 0.17 vs 0.50 ours, 0.56 BeyondATC's own; worst equals median; pushback confirmed smooth visually. | The receiver freezes and writes per frame; the sim is not trusted between samples. | Log 2026-09-06 |
+| Q17 | ~~How low can the host's sample rate go?~~ **Settled 2026-09-06:** 2 Hz uniform, 1 Hz with occasional boundary holds, 0.5 Hz stalls and lags 2 s. Default 2 Hz, 1 Hz as a low-bandwidth option. | Sets the bandwidth floor: ~8 KB/s at 2 Hz, ~4 KB/s at 1 Hz for 130 aircraft. | Log 2026-09-06 |
+| Q08 | ~~Does SimConnect remove a client's AI objects when that client disconnects?~~ **Settled yes, 2026-09-06:** the injector was killed mid-run twice; a fresh read found none of its objects. | A receiver restart cleans up for free, and no tail marker is needed. | Log 2026-09-06 |
+| Q09 | Does process loopback work on Windows 10 2004–22H2 (builds 19041–19045)? Microsoft documents build 20348+; OBS ships it for 2004+. | Whether Windows 10 hosts can host audio at all — there is no fallback by decision. | Deferred; a Windows 10 machine, maybe later |
+| Q10 | ~~Is the per-app mixer volume applied before the tap?~~ **Settled yes, 2026-09-06:** session at 25 % → captured peak −12 dB. The host reads the session volume back and compensates. | No user instruction needed; one division. | Log 2026-09-06 |
+| Q11 | ~~Does process loopback capture the ATC app's speech?~~ **Settled yes, 2026-09-06:** `AtcAudio --process BeyondATC` in a live flight — "works well". SayIntentions untested but is the same call with a different name. | Process loopback is the capture; no fallback, by decision. | Log 2026-09-06 |
+| Q18 | ~~Does audio cross the integrity boundary from an elevated ATC app?~~ **Settled yes, 2026-09-06:** BeyondATC started as administrator, captured from a normal process at −9 dBFS peak for 45 s. No note needed; elevation detection stays as a diagnostic only. | The picker treats elevated apps like any other. | Log 2026-09-06 |
+| Q12 | ~~End-to-end audio latency on one machine.~~ **Settled 2026-09-06:** ~130 ms capture-to-speaker (60 ms jitter buffer, 50 ms output), plus the network. | Well inside the 300 ms that matters. | Log 2026-09-06 |
+| Q13 | ~~Concentus CPU cost.~~ **Settled 2026-09-06:** 0.1–0.2 %. Pure managed Opus stays. | Single self-contained exe, no native dependency. | Log 2026-09-06 |
+| Q14 | Bandwidth of the traffic stream at the chosen poll rate with a real BATC session, over relay. Arithmetic from the capture says ~8 KB/s at 2 Hz for 130 aircraft; the measured figure comes with the FSC packets. | Whether the send-side "far objects every Nth poll" filter is needed at all. Almost certainly not. | Stage 4 |
+| Q15 | Does the receiver need the host's `TimeMs` clock for traffic at all, given dead reckoning from velocities? | If no, the packet loses 4 bytes and a dependency on the master's clock. | Stage 2 |
