@@ -3,7 +3,7 @@ namespace FsCopilot.Audio;
 using NAudio.CoreAudioApi;
 
 /// <summary>
-/// Which process is the ATC app. Known apps are found by exe name; the "Choose another" list
+/// Which process is the ATC app. Known apps are found by exe name; the "Other…" list
 /// is every process that owns an audio session on a render device, i.e. things that make
 /// sound, rather than every process on the machine. The mixer level of a process is readable
 /// through the same sessions, which is how the host compensates for it.

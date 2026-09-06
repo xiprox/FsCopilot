@@ -34,7 +34,7 @@ public sealed class AtcHost : IDisposable
 
     /// <summary>Exe name the user picked, or null for whichever known app is running. A preference, not a lock.</summary>
     public string? PreferredApp { get; set; }
-    /// <summary>While true, <see cref="Sessions"/> is refreshed: the "Choose another" list is open.</summary>
+    /// <summary>While true, <see cref="Sessions"/> is refreshed: the "Other…" list is open.</summary>
     public bool ShowSessions { get; set; }
 
     public IObservable<Status> CurrentStatus => _status.DistinctUntilChanged();

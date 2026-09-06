@@ -198,11 +198,11 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
 
     public string AtcStatus => _atcStatus.Phase switch
     {
-        AtcHost.Phase.Capturing when _atcStatus.MixerMuted => $"● capturing {_atcStatus.App} — muted in the volume mixer",
-        AtcHost.Phase.Capturing => $"● capturing {_atcStatus.App}",
+        AtcHost.Phase.Capturing when _atcStatus.MixerMuted => $"● Capturing {_atcStatus.App} — muted in the volume mixer",
+        AtcHost.Phase.Capturing => $"● Capturing {_atcStatus.App}",
         AtcHost.Phase.Closed => $"○ {_atcStatus.App} closed",
-        AtcHost.Phase.Unsupported => "○ audio capture needs Windows 10 2004 or later",
-        _ => "○ waiting for an ATC app…"
+        AtcHost.Phase.Unsupported => "○ Audio capture needs Windows 10 2004 or later",
+        _ => "○ Waiting for an ATC app…"
     };
 
     public ObservableCollection<AtcAppItem> AtcApps { get; } = [];

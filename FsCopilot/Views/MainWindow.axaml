@@ -176,7 +176,7 @@
                                        Text="{Binding Share.TrafficHint}"
                                        IsVisible="{Binding Share.TrafficHint, Converter={StaticResource NotEmpty}}" />
                             <TextBlock Classes="ShareStatus ErrorNote"
-                                       Text="Other AI traffic is in your sim — switch it off to avoid duplicates."
+                                       Text="Detected existing AI traffic in your sim. Disable to avoid duplicates."
                                        IsVisible="{Binding Share.ForeignTrafficWarning}" />
                         </StackPanel>
                     </DockPanel>
@@ -233,7 +233,7 @@
 
                     <TextBlock Classes="Note"
                                TextWrapping="Wrap"
-                               Text="Everyone: same traffic pack and scenery, own AI traffic switched off."
+                               Text="Make sure everyone is on the same traffic pack and scenery to avoid traffic sync issues."
                                IsVisible="{Binding Share.ShowNote}" />
                 </StackPanel>
             </Border>
@@ -320,7 +320,7 @@
                                                         <Border Classes="Traffic"
                                                                 IsVisible="{Binding HostsTraffic}">
                                                             <TextBlock Classes="Traffic"
-                                                                       Text="traffic" />
+                                                                       Text="Traffic" />
                                                         </Border>
                                                         <Border Classes="Atc"
                                                                 IsVisible="{Binding HostsAtc}">
