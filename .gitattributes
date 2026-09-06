@@ -1,0 +1,6 @@
+# Shell scripts must stay LF on checkout. core.autocrlf is true on this machine,
+# and a CRLF shebang line makes the script unrunnable: bash reads the trailing
+# \r as part of the interpreter path and reports "bash\r: No such file or
+# directory". Scoped to *.sh deliberately - a repo-wide text=auto would
+# renormalise every tracked file at once.
+*.sh text eol=lf
