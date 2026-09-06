@@ -18,7 +18,7 @@
         <SelfContained>true</SelfContained>
         <PublishTrimmed>true</PublishTrimmed>     <!-- try to trim later -->
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-        <DebugType>none</DebugType>
+        <DebugType Condition="'$(Configuration)' != 'Debug'">none</DebugType>     <!-- keep symbols in Debug so breakpoints bind -->
         <ErrorReport>none</ErrorReport>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
