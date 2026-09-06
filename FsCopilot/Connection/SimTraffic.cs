@@ -55,8 +55,10 @@ public sealed class SimTraffic : IDisposable
     public event Action<SimConnect, SIMCONNECT_RECV_SIMOBJECT_DATA>? ObjectData;
     public event Action<SimConnect, SIMCONNECT_RECV_ASSIGNED_OBJECT_ID>? Assigned;
     public event Action<SimConnect, SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST>? Liveries;
-    /// <summary>Once per sim frame.</summary>
-    public event Action<SimConnect>? Frame;
+    /// <summary>Once per sim frame, with the sim's frame rate. Events can arrive in batches when
+    /// the sim outpaces this thread, so a handler pacing motion per frame should count frames
+    /// rather than read the clock.</summary>
+    public event Action<SimConnect, float>? Frame;
     /// <summary>(name given to <see cref="Call"/>, the exception, the datum index the sim blamed).</summary>
     public event Action<string, SIMCONNECT_EXCEPTION, uint>? Exception;
     /// <summary>The connection is gone; every object it created went with it.</summary>
@@ -162,7 +164,7 @@ public sealed class SimTraffic : IDisposable
             sim.OnRecvEnumerateSimobjectAndLiveryList += (s, l) => Liveries?.Invoke(s, l);
             sim.OnRecvEventFrame += (s, f) =>
             {
-                if (f.uEventID == (uint)EVT.Frame) Frame?.Invoke(s);
+                if (f.uEventID == (uint)EVT.Frame) Frame?.Invoke(s, f.fFrameRate);
             };
 
             // The Open reply is the first message; the version in it is needed before
@@ -192,20 +194,33 @@ public sealed class SimTraffic : IDisposable
                 }
             }
 
+            var stallWatch = Stopwatch.StartNew();
+            var lastLoop = stallWatch.ElapsedMilliseconds;
             while (!ct.IsCancellationRequested && !_quit)
             {
                 while (_jobs.Reader.TryRead(out var job))
                 {
+                    var t0 = stallWatch.ElapsedMilliseconds;
                     try { job(sim); }
                     catch (COMException) { return; }
                     catch (System.Exception e) { Log.Error(e, "[Traffic] Job error"); }
+                    var took = stallWatch.ElapsedMilliseconds - t0;
+                    if (took > 15) Log.Debug("[Traffic] slow job {Job} took {Ms} ms", job.Method.Name, took);
                 }
 
-                if (!evt.WaitOne(5)) continue;
+                var waited = stallWatch.ElapsedMilliseconds;
+                if (waited - lastLoop > 50) Log.Debug("[Traffic] thread stalled {Ms} ms between loops", waited - lastLoop);
+                lastLoop = waited;
 
+                if (!evt.WaitOne(5)) { lastLoop = stallWatch.ElapsedMilliseconds; continue; }
+
+                var r0 = stallWatch.ElapsedMilliseconds;
                 try { sim.ReceiveMessage(); }
                 catch (COMException) { return; }
                 catch (System.Exception e) { Log.Error(e, "[Traffic] Handler error"); }
+                var rTook = stallWatch.ElapsedMilliseconds - r0;
+                if (rTook > 15) Log.Debug("[Traffic] slow ReceiveMessage took {Ms} ms", rTook);
+                lastLoop = stallWatch.ElapsedMilliseconds;
             }
         }
         finally

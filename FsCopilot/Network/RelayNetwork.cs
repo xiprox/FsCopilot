@@ -197,7 +197,10 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     public void Disconnect() => DisconnectAllVirtual();
 
-    public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
+    public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull =>
+        SendAll(packet, unreliable ? Delivery.Sequenced : Delivery.Reliable);
+
+    public void SendAll<TPacket>(TPacket packet, Delivery delivery) where TPacket : notnull
     {
         try
         {
@@ -208,8 +211,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
             var data = _codecs.Encode(packet);
             if (data.Length == 0) return;
 
-            var method = unreliable ? DeliveryMethod.Sequenced : DeliveryMethod.ReliableOrdered;
-            peer.Send(data, DataChannel, method);
+            peer.Send(data, DataChannel, P2PNetwork.Method(delivery));
         }
         catch (Exception e)
         {

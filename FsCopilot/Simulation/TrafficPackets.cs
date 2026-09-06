@@ -164,10 +164,12 @@ public readonly record struct TrafficState(
 
 /// <summary>
 /// A batch of states from one host. Unreliable, so it must stay under the MTU: at most
-/// <see cref="MaxPerPacket"/> states, which with the header is ~445 bytes against LiteNetLib's
-/// initial 508. <see cref="Seq"/> lets the receiver count gaps.
+/// <see cref="MaxPerPacket"/> states, which with the header is ~450 bytes against LiteNetLib's
+/// initial 508. <see cref="Seq"/> lets the receiver count gaps. <see cref="HostMs"/> is the
+/// host's clock at send time: the receiver estimates its offset from the least-delayed
+/// packets, so sample times are exact and network jitter only decides which packets are late.
 /// </summary>
-public record TrafficStates(string Host, uint Seq, TrafficState[] States)
+public record TrafficStates(string Host, uint Seq, uint HostMs, TrafficState[] States)
 {
     public const int MaxPerPacket = 10;
 
@@ -178,6 +180,7 @@ public record TrafficStates(string Host, uint Seq, TrafficState[] States)
             if (p.States.Length > MaxPerPacket) throw new InvalidDataException($"{p.States.Length} states in one packet");
             bw.Write(p.Host);
             bw.Write(p.Seq);
+            bw.Write(p.HostMs);
             bw.Write((byte)p.States.Length);
             foreach (ref readonly var s in p.States.AsSpan()) TrafficState.Write(bw, in s);
         }
@@ -186,11 +189,12 @@ public record TrafficStates(string Host, uint Seq, TrafficState[] States)
         {
             var host = br.ReadString();
             var seq = br.ReadUInt32();
+            var hostMs = br.ReadUInt32();
             var count = br.ReadByte();
             if (count > MaxPerPacket) throw new InvalidDataException($"{count} states in one packet");
             var states = new TrafficState[count];
             for (var i = 0; i < count; i++) states[i] = TrafficState.Read(br);
-            return new(host, seq, states);
+            return new(host, seq, hostMs, states);
         }
     }
 }

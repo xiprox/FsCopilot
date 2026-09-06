@@ -358,13 +358,22 @@ public sealed class P2PNetwork : INetwork, IDisposable
 
     public void Disconnect() => _net.DisconnectAll();
 
-    public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
+    public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull =>
+        SendAll(packet, unreliable ? Delivery.Sequenced : Delivery.Reliable);
+
+    public void SendAll<TPacket>(TPacket packet, Delivery delivery) where TPacket : notnull
     {
         var data = _codecs.Encode(packet);
         if (data.Length == 0) return;
-        var method = unreliable ? DeliveryMethod.Sequenced : DeliveryMethod.ReliableOrdered;
-        _net.SendToAll(data, method);
+        _net.SendToAll(data, Method(delivery));
     }
+
+    internal static DeliveryMethod Method(Delivery delivery) => delivery switch
+    {
+        Delivery.Sequenced => DeliveryMethod.Sequenced,
+        Delivery.Unreliable => DeliveryMethod.Unreliable,
+        _ => DeliveryMethod.ReliableOrdered
+    };
 
     public IObservable<TPacket> Stream<TPacket>() =>
         ((IObservable<TPacket>)_streams.GetOrAdd(typeof(TPacket), _ => new Subject<TPacket>()))

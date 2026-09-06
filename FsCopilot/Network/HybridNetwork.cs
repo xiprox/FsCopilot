@@ -68,12 +68,15 @@ public sealed class HybridNetwork : INetwork, IDisposable
         _relay.Disconnect();
     }
 
-    public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
+    public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull =>
+        SendAll(packet, unreliable ? Delivery.Sequenced : Delivery.Reliable);
+
+    public void SendAll<TPacket>(TPacket packet, Delivery delivery) where TPacket : notnull
     {
         // Assumption: peers won't be connected via both transports simultaneously.
         // If that can happen, you'd need per-peer routing (not possible with current INetwork API).
-        _p2p.SendAll(packet, unreliable);
-        _relay.SendAll(packet, unreliable);
+        _p2p.SendAll(packet, delivery);
+        _relay.SendAll(packet, delivery);
     }
 
     public void RegisterPacket<TPacket, TCodec>()

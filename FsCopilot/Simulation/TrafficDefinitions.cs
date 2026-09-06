@@ -15,6 +15,7 @@ internal enum TrafficDef : uint
     Identity,
     Livery,
     Foreign,
+    Measure,
     Drive = 10,
     Appearance,
     Eng1,
@@ -35,7 +36,26 @@ internal enum TrafficReq : uint
     // Per-object requests carry the host's u16 object index above these bases.
     CreateBase = 1000,
     ReleaseBase = 70000,
-    RemoveBase = 140000
+    RemoveBase = 140000,
+    MeasureBase = 210000
+}
+
+/// <summary>Per-frame read-back of an injected object's position; the debug smoothness score.</summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct MeasureProbe
+{
+    public double Lat, Lon;
+    public int FreezeLatLon, FreezeAlt, FreezeAtt;
+
+    public static void Define(SimConnect sim, Enum def)
+    {
+        ObjectState.Add(sim, def, "PLANE LATITUDE", "Degrees");
+        ObjectState.Add(sim, def, "PLANE LONGITUDE", "Degrees");
+        ObjectState.AddInt(sim, def, "IS LATITUDE LONGITUDE FREEZE ON", "Bool");
+        ObjectState.AddInt(sim, def, "IS ALTITUDE FREEZE ON", "Bool");
+        ObjectState.AddInt(sim, def, "IS ATTITUDE FREEZE ON", "Bool");
+        sim.RegisterDataDefineStruct<MeasureProbe>(def);
+    }
 }
 
 /// <summary>

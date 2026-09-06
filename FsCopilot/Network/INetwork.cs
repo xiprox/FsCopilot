@@ -10,6 +10,8 @@ public interface INetwork
 
     void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull;
 
+    void SendAll<TPacket>(TPacket packet, Delivery delivery) where TPacket : notnull;
+
     void RegisterPacket<TPacket, TCodec>() 
         where TPacket : notnull
         where TCodec : IPacketCodec<TPacket>, new();

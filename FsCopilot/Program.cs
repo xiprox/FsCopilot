@@ -66,6 +66,7 @@ sealed class Program
         // var isExperimental = args.Any(a => string.Equals(a, "--experimental", StringComparison.OrdinalIgnoreCase));
         var peerId = Random.String(8);
         var name = Environment.UserName;
+        var trafficOptions = TrafficOptions.Parse(args);
 
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
@@ -73,6 +74,7 @@ sealed class Program
                 services =>
                 {
                     services.AddSingleton(Settings.Load());
+                    services.AddSingleton(trafficOptions);
                     services.AddSingleton(new SimClient(!isDev ? "FS Copilot" : "FS Copilot DEV"));
                     services.AddSingleton(new SimTraffic(!isDev ? "FS Copilot (Traffic)" : "FS Copilot DEV (Traffic)"));
                     services.AddSingleton<SetupViewModel>();
@@ -93,9 +95,18 @@ sealed class Program
                             sp.GetRequiredService<Coordinator>();
                             return new ShareSwitch(peerId, sp.GetRequiredService<INetwork>());
                         });
+                        services.AddSingleton<TrafficReceiver>();
+                        services.AddSingleton<TrafficHost>();
                         services.AddSingleton(sp =>
                         {
-                            sp.GetRequiredService<ShareSwitch>();
+                            var share = sp.GetRequiredService<ShareSwitch>();
+                            sp.GetRequiredService<TrafficHost>();
+                            // Until the sharing card exists: host traffic from the persisted
+                            // setting, for as long as the traffic connection is up.
+                            if (sp.GetRequiredService<Settings>().ShareTraffic)
+                                sp.GetRequiredService<SimTraffic>().Connected
+                                    .DistinctUntilChanged()
+                                    .Subscribe(connected => share.Request(ShareSwitch.Feature.Traffic, connected));
                             return new MainViewModel(
                                 peerId,
                                 name,
