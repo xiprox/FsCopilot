@@ -4,6 +4,12 @@
     Depends on: 02-approach, 04-transport, 05-integration, 09-environment, 10-module
     Decides:    transport, peer wire format, profile key, session/lock policy, gap-replay, PR shape
 
+> **Amended 2026-09-05** by the log entry *"Two overlay bugs closed: a deliberate quit says
+> goodbye, and the red warning retracts"*. The red warning below is described as standing
+> while the app link is down. It no longer does: it warns **once per outage and retracts
+> after 10s**, and a **deliberate app shutdown announces itself** (`{t:"bye"}`) so the panel
+> clears instead of warning at all. The blue/amber lock policy is unchanged.
+
 Decided 2026-09-01. This is the graduation plan [05-integration](05-integration.md) said
 would be its own piece of work. Where this file and `01-10` disagree, this file wins — the
 disagreements are called out below and pointered from the docs they amend. TDS, Fenix and

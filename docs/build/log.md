@@ -36,6 +36,137 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-05 - Two overlay bugs closed: a deliberate quit says goodbye, and the red warning retracts
+
+    Question:  none - bug fixing on the built implementation. Amends the overlay
+               policy recorded in 11-fsc-implementation-plan.
+    Stage:     graduation; does not gate stage 6
+    Expected:  The overlay policy as written: red SYNC BROKEN whenever the panel
+               channel closes, non-blocking, standing until the app comes back.
+    Found:     Two faults in that policy, both reported from use.
+
+               1. Closing the desktop app deliberately paints every pointer-mode
+               panel red and leaves it there. hook.js called linkLost() on every
+               channel close; linkLost() zeroed _lastState (disarming the deadman)
+               and applied 'lost', and nothing removed it short of a fresh
+               {t:"state"} or window.fscUnlock(). The panel cannot tell a quit from
+               a crash - **a socket close carries no intent**, and neither does the
+               close code, since a crash and a kill both give 1006 while a clean
+               1000 depends on the closing handshake completing during process
+               exit, exactly when it is least reliable. So the app has to say so
+               *before* the socket drops, at application level.
+
+               2. The warning never timed out. Making it time out needs a latch,
+               not just a timer: the channel retries every 0.5-4s while the app is
+               down and dispatches a close each time, and apply()'s idempotence
+               guard (_el && _name === name) stops holding the moment a timeout
+               nulls _el - so the next retry would repaint it and the linger would
+               never win. That latch is the load-bearing part of the fix, not the
+               timer.
+
+               Also found, contradicting CLAUDE.md: **the .NET SDK is installed on
+               this machine** (9.0.313 and 9.0.317) and `dotnet build` on
+               FsCopilot.csproj succeeds - 0 errors, 32 warnings, all pre-existing
+               and none in the touched files. The app side no longer has to be
+               compiled in Visual Studio with errors coming back by hand.
+    Changed:   Implemented in ../fscopilot-pointer, uncommitted:
+               - PanelServer.Shutdown() broadcasts {t:"bye"}, then CloseOutputAsync
+                 (NormalClosure) so the frame is flushed rather than discarded by
+                 the abort in Dispose, bounded at 750ms because it runs on the way
+                 out of the process. Called from desktop.Exit in App.axaml.cs.
+                 Only the app's own exit path reaches it - a kill or a crash does
+                 not, which is precisely what leaves the warning for the cases
+                 that deserve it. The sends go through Task.Run before the Wait:
+                 desktop.Exit runs on the UI thread, and awaiting a socket write
+                 there posts the continuation back to the thread the Wait is
+                 blocking - the goodbye would be the thing the fix loses.
+               - channel.js sets _deliberate = (msg.t === 'bye') on **every**
+                 reply, so one assignment both arms the flag on shutdown and
+                 spends it on any other traffic: a stale goodbye cannot silence a
+                 later real break, and a wrong server that accepts the socket and
+                 says nothing cannot inherit it either. The close event carries
+                 {deliberate}.
+               - pointer.js: linkLost() -> linkClosed(deliberate). Deliberate
+                 removes the overlay outright, blue lock included - same rule as
+                 ever, no live app means no block. Otherwise _showLost(): warn once
+                 per outage (_warned latch, cleared by any state renewal) and
+                 retract after LOST_LINGER_MS = 10s, and only ever retract its own
+                 state - Overlay.showing() is new for that.
+               - A dismiss button was considered and dropped: the red overlay is
+                 pointer-events:none, so a button would need an exception to that
+                 and would eat a real click over the instrument. With a 10s linger
+                 it buys little.
+
+               Raised but NOT changed, pending a decision: channel.js retries
+               forever at one attempt per ~4s per document once the backoff tops
+               out, in every pointer panel (14 on the A220). Cheap per attempt -
+               a loopback SYN to a closed port - but unbounded, and 11-fsc's
+               stated backoff is [500..15000]ms while the code caps at 4000 (the
+               cap was deliberate, from the 80s-rediscovery fix on 09-01).
+    Affects:   11-fsc-implementation-plan (overlay policy, pointered)
+    Evidence:  none - offline change; `node --check` clean over all 8 files under
+               PackageSources/HTML_UI, no Chrome-49 traps, dotnet build clean
+               (0 errors, the 32 warnings all pre-existing and elsewhere). The
+               changed JS is mirrored into Packages/; the sim's Community copy is
+               NOT - that is still to do before testing.
+               In-sim verification still owed: kill the app mid-lock and confirm
+               red retracts at 10s, and quit it cleanly and confirm nothing shows.
+
+---
+
+## 2026-09-02 - The branch's VCockpit.js was unparseable; caught before any panel loaded it
+
+    Question:  none - a readiness check before handing a test build to the remote
+               tester. Closes the "pending one in-sim load check" caveat from the
+               entry below, negatively.
+    Stage:     graduation; gates stage 6
+    Expected:  The pointer-forwarding branch was believed shippable as-is: the
+               package built at 22:50 the night before was installed in the sim
+               and only the overlay.js split still wanted an in-sim look.
+    Found:     `node --check` on the branch's VCockpit.js fails: "missing ) after
+               argument list" at the end of the FS Copilot Include chain. The
+               overlay split added an eighth `Include.addImports(...)` to the
+               nested chain but not its closing paren - seven `)` for eight
+               calls. Upstream's file parses; ours did not. A syntax error takes
+               out the whole file (09-environment), and this file is the one
+               loaded into every cockpit panel, so this package would have killed
+               every instrument on any machine it was installed on - including
+               this one, where it had been sitting in Community since 22:50
+               without the sim having been started.
+
+               The cockpit validation below is not invalidated: it ran against
+               the pre-split package, and the split landed after the sim closed.
+
+               Also verified while checking readiness, all fine: the built
+               Packages/ tree equals PackageSources (line endings aside - the
+               22:52 commit rewrite renormalised CRLF, which is why sizes
+               differed); every other panel JS file passes `node --check` and a
+               grep for the Chrome-49 traps; the worktree is clean on
+               `pointer-forwarding`, five commits ahead of upstream/main; the
+               served profile pack (79 files) carries no A220, and the first-run
+               setup only downloads profiles when the shipped Definitions/ has no
+               YAML, so the bundled `pointer:`-bearing synaptic_a220.yaml
+               survives the friend's first launch; the per-aircraft update check
+               returns exists:false for synaptic_a220, so the "new profile"
+               button cannot overwrite it either; upstream's latest release is
+               still v1.2.1, so the update dialog stays quiet, and a
+               `1.2.1-pointer.N` InformationalVersion compares equal to 1.2.1
+               (the updater strips the suffix) while still naming the build in
+               the log's first line.
+    Changed:   Fixed - one `)` on the last line of the chain, in the worktree,
+               uncommitted. Package rebuilt and reinstalled to the sim (Packages/,
+               bin output and Community all mirror the fixed file; the installed
+               copy parses). The syntax check is now part of readiness: run
+               `node --check` over every file under PackageSources/HTML_UI before
+               building the package. The build script that does the packaging
+               still lives only in a session scratchpad and should move into a
+               repo.
+    Affects:   none
+    Evidence:  `node --check` output, reproducible from the branch at ae87e62;
+               fixed file in ../fscopilot-pointer
+
+---
+
 ## 2026-09-01 - Single-machine cockpit validation: the production pipeline works
 
     Question:  none directly - first in-sim exercise of the built implementation.
