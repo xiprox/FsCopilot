@@ -2,6 +2,33 @@
 
 Newest first. A negative result is a result.
 
+## 2026-09-06 · Stage 4, audio and the card
+
+Commits 5–7 on `ahead-traffic-atc`: audio (f24c9ca), the ATC & Traffic card (6508a74),
+copy edits (0f6a6bf). A layout pass is uncommitted; see handoff.md.
+
+- **Audio works in the app as it did in the tool**, with one trap: the trimmed publish
+  crashed at capture start because the linker removed the process-loopback COM interop.
+  `ILLink.Descriptors.xml` (a `TrimmerRootDescriptor`) preserves the nested COM types and
+  the NAudio assemblies. Verified with a trimmed publish, not just Debug.
+- **Arming was removed.** The first card let a toggle be switched on before a session, to
+  host once one existed, and persisted that. The user found the half-state confusing and
+  chose: controls disabled until a peer is connected, whoever shares first hosts, hosting
+  ends with the session, toggles not persisted. `Settings` keeps only the ATC app, volume
+  and mute.
+- **The card, verified on the two-instance bed**: no session (toggles disabled, "Join a
+  session to share."); A hosting both (status line, app dropdown); B receiving ("shared by
+  wayne" rows, amber other-AI-traffic warning because BeyondATC was in the sim, slider and
+  mute, Traffic/ATC badges on A in Onboard); B leaves → A's shares switch off and hosting
+  stops, B clears, both cards disabled.
+- **Fluent theme details that cost time**: `StringEmptyToBool` treats null as not-empty, so
+  every "hidden when empty" string must return `string.Empty`; the ToggleSwitch template
+  keeps a 12 px content column after the switch even with no content (negative right
+  margin fixes the alignment); the ComboBox tints itself with the system accent when
+  focused (`ComboBoxBackgroundUnfocused`) and for the selected item — override the brushes
+  in `Style.Resources`, which in Avalonia resolve window-wide, not per selector.
+- Icon: Fluent has no radio tower; a hand-drawn one was rejected in favour of the headset.
+
 ## 2026-09-06 · Stage 4, traffic: what the app needed that the prototype did not
 
 Commits 1–4 on `ahead-traffic-atc`: the traffic connection, settings, packets and election,
