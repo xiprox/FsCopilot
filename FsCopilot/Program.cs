@@ -100,22 +100,11 @@ sealed class Program
                         services.AddSingleton<TrafficHost>();
                         services.AddSingleton<AtcHost>();
                         services.AddSingleton<AtcReceiver>();
+                        services.AddSingleton<ShareViewModel>();
                         services.AddSingleton(sp =>
                         {
-                            var share = sp.GetRequiredService<ShareSwitch>();
+                            sp.GetRequiredService<ShareSwitch>();
                             sp.GetRequiredService<TrafficHost>();
-                            sp.GetRequiredService<AtcHost>();
-                            sp.GetRequiredService<AtcReceiver>();
-                            // Until the sharing card exists: host from the persisted settings -
-                            // traffic for as long as the traffic connection is up, ATC if a known
-                            // app is running.
-                            var settings = sp.GetRequiredService<Settings>();
-                            if (settings.ShareTraffic)
-                                sp.GetRequiredService<SimTraffic>().Connected
-                                    .DistinctUntilChanged()
-                                    .Subscribe(connected => share.Request(ShareSwitch.Feature.Traffic, connected));
-                            if (settings.ShareAtc && AtcApps.DetectedKnown().Count > 0)
-                                share.Request(ShareSwitch.Feature.Atc, true);
                             return new MainViewModel(
                                 peerId,
                                 name,
@@ -123,7 +112,8 @@ sealed class Program
                                 sp.GetRequiredService<SimClient>(),
                                 sp.GetRequiredService<MasterSwitch>(),
                                 sp.GetRequiredService<Coordinator>(),
-                                sp.GetRequiredService<Updater>()
+                                sp.GetRequiredService<Updater>(),
+                                sp.GetRequiredService<ShareViewModel>()
                             );
                         });
                     }

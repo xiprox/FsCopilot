@@ -86,6 +86,7 @@ public class MainViewModel : ReactiveObject, IDisposable
         string.Empty;
 
     public ObservableCollection<Connection> Connections { get; set; } = [];
+    public ShareViewModel Share { get; }
     public ReactiveCommand<Unit, Unit> JoinCommand { get; }
     public ReactiveCommand<Unit, Unit> LeaveCommand { get; }
     public ReactiveCommand<Unit, Unit> TakeControlCommand { get; }
@@ -97,10 +98,12 @@ public class MainViewModel : ReactiveObject, IDisposable
         SimClient sim,
         MasterSwitch masterSwitch,
         Coordinator coordinator,
-        Updater updater)
+        Updater updater,
+        ShareViewModel share)
     {
         ClientName = name;
         PeerId = peerId;
+        Share = share;
 
         sim.Aircraft
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -174,7 +177,9 @@ public class MainViewModel : ReactiveObject, IDisposable
                     Name: string.IsNullOrWhiteSpace(peer.Name) ? "Unknown" : peer.Name,
                     Ping: peer.Ping,
                     IsDirect: peer.Transport == Peer.TransportKind.Direct,
-                    HasSeparatorAfter: i++ < peers.Count - 1
+                    HasSeparatorAfter: i++ < peers.Count - 1,
+                    HostsTraffic: peer.PeerId == share.TrafficHostId,
+                    HostsAtc: peer.PeerId == share.AtcHostId
                 ));
                 Connected = Connections.Any();
             })
@@ -265,7 +270,7 @@ public class MainViewModel : ReactiveObject, IDisposable
         BridgeMismatch  = 0b_0100_0000
     }
 
-    public record Connection(string PeerId, string Name, int Ping, bool IsDirect, bool HasSeparatorAfter)
+    public record Connection(string PeerId, string Name, int Ping, bool IsDirect, bool HasSeparatorAfter, bool HostsTraffic, bool HostsAtc)
     {
         public int QualityLevel
         {

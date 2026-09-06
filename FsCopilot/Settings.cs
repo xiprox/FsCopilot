@@ -18,8 +18,6 @@ public sealed class Settings
     private readonly Lock _lock = new();
     private Timer? _pending;
 
-    public bool ShareTraffic { get; set; }
-    public bool ShareAtc { get; set; }
     /// <summary>Exe name of the ATC app the user picked, or null for whichever known app is running.</summary>
     public string? AtcApp { get; set; }
     public double AtcVolume { get; set; } = 1.0;

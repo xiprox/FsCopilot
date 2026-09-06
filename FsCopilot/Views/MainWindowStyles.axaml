@@ -217,4 +217,102 @@
         <Setter Property="Foreground" Value="#3b82f6"/>
         <Setter Property="Padding" Value="0"/>
     </Style>
+
+    <!-- The ATC & Traffic card -->
+
+    <Style Selector="TextBlock.ShareLabel">
+        <Setter Property="Foreground" Value="AliceBlue"></Setter>
+        <Setter Property="FontSize" Value="14"></Setter>
+        <Setter Property="VerticalAlignment" Value="Center"></Setter>
+    </Style>
+
+    <Style Selector="TextBlock.ShareStatus">
+        <Setter Property="Foreground" Value="#94a3b8"></Setter>
+        <Setter Property="FontSize" Value="11"></Setter>
+        <Setter Property="Margin" Value="0,2,0,0"></Setter>
+    </Style>
+
+    <Style Selector="ToggleSwitch.Share">
+        <Setter Property="OnContent" Value=""></Setter>
+        <Setter Property="OffContent" Value=""></Setter>
+        <Setter Property="MinWidth" Value="0"></Setter>
+        <Setter Property="Margin" Value="10,0,0,0"></Setter>
+        <Setter Property="VerticalAlignment" Value="Center"></Setter>
+        <Style.Resources>
+            <SolidColorBrush x:Key="ToggleSwitchFillOn">#8ec6ff</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn">#8ec6ff</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn">Black</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver">Black</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed">Black</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchFillOff">#66000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver">#88000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchFillOffPressed">#88000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOff">#94a3b8</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOffPointerOver">AliceBlue</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOffPressed">AliceBlue</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOff">#94a3b8</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver">AliceBlue</SolidColorBrush>
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPressed">AliceBlue</SolidColorBrush>
+        </Style.Resources>
+    </Style>
+
+    <Style Selector="ToggleSwitch.Share:disabled">
+        <Setter Property="Opacity" Value="0.4"></Setter>
+    </Style>
+
+    <Style Selector="ComboBox.Share">
+        <Setter Property="BorderThickness" Value="0"></Setter>
+        <Setter Property="CornerRadius" Value="8"></Setter>
+        <Setter Property="Padding" Value="10,6"></Setter>
+        <Setter Property="HorizontalAlignment" Value="Stretch"></Setter>
+        <Setter Property="Background" Value="#66000000"></Setter>
+    </Style>
+
+    <Style Selector="Slider.Share">
+        <Setter Property="VerticalAlignment" Value="Center"></Setter>
+        <Setter Property="Margin" Value="0,0,10,0"></Setter>
+        <Style.Resources>
+            <SolidColorBrush x:Key="SliderTrackValueFill">#8ec6ff</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderTrackValueFillPointerOver">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderTrackValueFillPressed">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderTrackFill">#66000000</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderTrackFillPointerOver">#88000000</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderTrackFillPressed">#88000000</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderThumbBackground">#8ec6ff</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver">#5facfc</SolidColorBrush>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPressed">#5facfc</SolidColorBrush>
+        </Style.Resources>
+    </Style>
+
+    <Style Selector="Button.Icon">
+        <Setter Property="Background" Value="Transparent"></Setter>
+        <Setter Property="BorderThickness" Value="0"></Setter>
+        <Setter Property="Padding" Value="4"></Setter>
+        <Setter Property="VerticalAlignment" Value="Center"></Setter>
+    </Style>
+
+    <Style Selector="Button.Icon:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#33FFFFFF"></Setter>
+    </Style>
+
+    <Style Selector="Button.Icon PathIcon">
+        <Setter Property="Width" Value="18"></Setter>
+        <Setter Property="Height" Value="18"></Setter>
+        <Setter Property="Foreground" Value="#8ec6ff"></Setter>
+    </Style>
+
+    <Style Selector="Border.Traffic, Border.Atc">
+        <Setter Property="Background" Value="#8ec6ff"></Setter>
+        <Setter Property="CornerRadius" Value="7"></Setter>
+        <Setter Property="Padding" Value="4, 2, 4, 2"></Setter>
+    </Style>
+
+    <Style Selector="TextBlock.Traffic, TextBlock.Atc">
+        <Setter Property="Foreground" Value="Black"></Setter>
+        <Setter Property="FontSize" Value="8"></Setter>
+    </Style>
 </Styles>
