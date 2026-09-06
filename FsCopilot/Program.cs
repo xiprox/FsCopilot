@@ -73,6 +73,7 @@ sealed class Program
                 services =>
                 {
                     services.AddSingleton(new SimClient(!isDev ? "FS Copilot" : "FS Copilot DEV"));
+                    services.AddSingleton(new SimTraffic(!isDev ? "FS Copilot (Traffic)" : "FS Copilot DEV (Traffic)"));
                     services.AddSingleton<SetupViewModel>();
                     services.AddSingleton(new Updater("http://p2p.fscopilot.com:2320"));
                     

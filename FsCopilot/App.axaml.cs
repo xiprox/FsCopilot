@@ -4,6 +4,7 @@ using System.Reflection;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Connection;
 using Network;
 using Simulation;
 using Splat;
@@ -35,6 +36,8 @@ public class App : Application
 
                 Locator.Current.GetService<INetwork>()?.Disconnect();
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
+                // Closing the traffic connection removes every AI object it created.
+                Locator.Current.GetService<SimTraffic>()?.Dispose();
             };
             
             var args = desktop.Args ?? [];
