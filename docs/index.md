@@ -80,6 +80,14 @@ panel is its own document and they see different things.
 Raw output goes in `results/`, committed. `build/log.md` is the reading of it; `results/` is
 the evidence, and a later session will want to re-read rather than trust a summary.
 
+## Tools
+
+`tools/` is for scripts that operate on the *other* repositories rather than on this one.
+
+| Script | What it does |
+| --- | --- |
+| [tools/ahead-rebuild.sh](../tools/ahead-rebuild.sh) | Rebuilds the FS Copilot fork's `ahead` integration branch: reset to `main`, then merge every `ahead-*` topic branch in name order. `ahead` is derived and is never committed to directly — see the 2026-09-06 log entry for why, and for the two failure modes that do not announce themselves. It lives here rather than in the fork because resetting `ahead` to `main` would delete it from the working tree mid-run. |
+
 ## Names
 
 Settled, because the surrounding projects have already claimed several obvious words

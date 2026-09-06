@@ -60,9 +60,10 @@ any other way.
 
 **Bridge JS needs no build.** Files under
 `%APPDATA%/Microsoft Flight Simulator 2024/Packages/Community/fscopilot-bridge/html_ui/` are
-loaded as-is; edit, reload the panel, done. There is no .NET SDK on this machine — the FS
-Copilot desktop app is compiled in Visual Studio and errors come back by hand — so put as much
-of the work as possible in JS.
+loaded as-is; edit, reload the panel, done — so put as much of the work as possible in JS.
+The .NET SDK **is** installed (9.0.313 and 9.0.317; this file claimed otherwise until
+2026-09-06), so `dotnet build FsCopilot/FsCopilot.csproj` runs from here and desktop-app
+errors no longer have to come back from Visual Studio by hand.
 
 **The prototype is a real Community package** — `module/`, installed by
 `npm run module:build`. See [docs/10-module.md](docs/10-module.md). It overrides

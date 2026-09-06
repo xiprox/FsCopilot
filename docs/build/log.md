@@ -36,6 +36,102 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-06 - The fork gets a trunk: `ahead`, rebuilt from topic branches, never edited
+    Question:  none - repository structure for the graduation work. Not a probe;
+               recorded because the next session would otherwise re-derive it,
+               and because two of the mistakes cost real time.
+    Stage:     graduation; clears the way to hand a build to a remote tester
+    Expected:  A branch to collect the fork's changes on, so there is something
+               to build releases from while upstream stays unresponsive
+               (yury-sch/FsCopilot last moved 2026-04-16, five months).
+    Found:     Three things about the starting state, none of them expected.
+
+               1. **The pointer work existed only on this disk.** Five commits,
+               never pushed, in a worktree - and its VCockpit.js fix from the
+               09-02 entry below was still uncommitted, so the branch as
+               committed could not parse. A machine failure would have taken the
+               work and left a branch that looked complete and was dead.
+
+               2. **`Definitions/*.yaml` is not source.** Upstream tracks eight
+               files, all under `Definitions/modules/`. The 55 loose top-level
+               ones are runtime data - the app writes them there itself
+               (`Definitions.Save`, from the profile server) and they get moved
+               around by hand to match whichever build is being flown. 42 of the
+               55 share one mtime to the second, which is what a bulk download
+               looks like. Committing them would have put the profile server's
+               output in the repo and made every future upstream merge noisy.
+               Three files under `modules/` were the opposite case - hand-written,
+               distinct mtimes, upstream's own idiom - and are now committed.
+
+               3. **The update check points at upstream.** `Updater.cs` hardcodes
+               `api.github.com/repos/yury-sch/FsCopilot/releases/latest`, so any
+               build from this fork tells its users to go install upstream's
+               release the moment upstream publishes a higher version. It is only
+               a dialog, not a self-installer, but it had to be repointed before
+               anything ships. MIT licence, so redistributing builds is fine.
+    Changed:   The fork is now: `main` a pristine mirror of `upstream/main`, never
+               committed to; `ahead-*` topic branches, one per shippable idea;
+               `ahead` **built** from `main` plus a `--no-ff` merge of every
+               topic, in name order, and never committed to directly.
+
+               `main` stays pristine rather than becoming the trunk because every
+               upstream PR has to be cut from `upstream/main` regardless - so a
+               trunk on `main` buys nothing and costs the one ref that makes
+               "what have I actually changed" answerable as `main..ahead`, and
+               keeps `git push fork main` a fast-forward forever.
+
+               `ahead` is rebuilt from scratch rather than accumulated, which is
+               what keeps each topic independently PR-able for a maintainer who
+               may yet come back. That only works because of `rerere`
+               (`rerere.enabled` **and** `rerere.autoupdate`, both required): it
+               records each conflict resolution at **commit** time - `git add`
+               alone writes only the preimage and teaches it nothing - and
+               replays it on later rebuilds, so each distinct conflict is
+               hand-resolved once, ever. Work that will never be a PR (the
+               updater repoint, the ignore rules) still gets its own `ahead-*`
+               branch; nothing is exempt from the rule.
+
+               Topics: `ahead-pointer-forwarding` (7, including the 09-02 paren
+               fix and the 09-05 overlay work, both now committed - the entries
+               below saying "uncommitted" are closed), `ahead-dev-var-replay`,
+               `ahead-modules`, `ahead-debug-symbols` (conditional `DebugType`,
+               so Debug builds keep symbols), `ahead-devex` (the ignore rules),
+               `ahead-updater`. Deleted: `master` and
+               `feature/dev-var-record-replay` (both identical to upstream/main),
+               `xiprox/dev-var-record-replay` (a duplicate of dev-var-replay under
+               a second SHA; still on the fork remote).
+
+               `ahead` has its own worktree, `../fscopilot-ahead`, so a rebuild
+               never yanks the branch out from under wherever editing is
+               happening - and it is the only checkout carrying every topic at
+               once, so it is also where to build and run from.
+
+               The rebuild is `tools/ahead-rebuild.sh`, **in this repo** rather
+               than the fork: resetting `ahead` to `main` would delete the script
+               from the working tree mid-run. Two bugs in it, both worth knowing
+               because neither announces itself:
+
+               - The dirty-tree guard counted untracked files, which would have
+                 blocked every rebuild forever: the ignore rules live on
+                 `ahead-devex` and are not in effect while the rebuild is sitting
+                 on `main`. It checks tracked changes only now.
+               - A merge git **refuses to start** - an untracked file standing
+                 where a tracked one would land - leaves no `MERGE_HEAD` and no
+                 unmerged paths, which is byte-for-byte the signature of a clean
+                 rerere replay. The script read the refusal as success and tried
+                 to commit nothing. `MERGE_HEAD` is the discriminator, and git's
+                 own stderr is now printed instead of swallowed.
+
+               First full rebuild: six topics, no conflicts, `dotnet build -c
+               Release` clean at 0 errors. `Coordinator.cs` and `Definitions.cs`
+               are touched by two topics and merged without asking, which is the
+               case worth re-checking after any upstream move.
+    Affects:   none - CLAUDE.md corrected in place (the .NET SDK claim, per the
+               entry below), not a design doc
+    Evidence:  none - repository work, verifiable from the fork itself
+
+---
+
 ## 2026-09-05 - Two overlay bugs closed: a deliberate quit says goodbye, and the red warning retracts
 
     Question:  none - bug fixing on the built implementation. Amends the overlay
