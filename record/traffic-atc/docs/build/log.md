@@ -4,8 +4,8 @@ Newest first. A negative result is a result.
 
 ## 2026-09-06 · Stage 4, the card laid out and verified against a live sim
 
-Commits 8–9 on `ahead-traffic-atc`: the layout pass (581af52, committed unbuilt as WIP) and
-the round that followed review (af8fefc). The card is now what ships.
+Commit 8 on `ahead-traffic-atc`: the card's layout (62a61a2), the pass and the round that
+followed review squashed together. The card is now what ships.
 
 **The layout pass built and ran clean the first time.** Feature rows pinned to 32 px so the
 card does not change height when a toggle is replaced by a "shared by" line; the amber

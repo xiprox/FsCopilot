@@ -6,17 +6,11 @@ list is done and the log has absorbed anything worth keeping.
 ## Branch `ahead-traffic-atc` (worktree `C:\Users\wayne\dev\fsc\ahead-traffic-atc`)
 
 Commits: d9d3c14 SimTraffic · aaa0a30 Settings · 74b99c2 packets + election · 62ecb93
-traffic · f24c9ca audio · 6508a74 the ATC & Traffic card · 0f6a6bf copy edits · 581af52
-layout pass (committed as WIP, before it was built) · af8fefc the layout round that
-followed review.
+traffic · f24c9ca audio · 6508a74 the ATC & Traffic card · 0f6a6bf copy edits · 62a61a2
+the card's layout.
 
 **Tree is clean and the card is done.** Built, run on the two-instance bed against a live
 sim, and reviewed by hand. Nothing about the card is outstanding.
-
-581af52 is still labelled `WIP: ... (unbuilt, unverified)` and is no longer true — it was
-built and verified by af8fefc. Squashing the two needs a history rewrite, which is fine on
-a disposable implementation branch but was not done. The PR branch is cut fresh from `main`
-anyway, so this only matters if someone reads this branch's history.
 
 ## What is left
 

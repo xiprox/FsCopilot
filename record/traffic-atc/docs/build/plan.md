@@ -9,7 +9,7 @@
                 Q06 closed by assumption. Deferred by decision: TCAS (no reason it should
                 not work), vehicles (Q07, not v1), Windows 10 (Q09, maybe later). The ATC-app
                 picker's mechanics are proven (sessions list, attach-while-silent, silent
-                exit). **Stage 4 built**: commits 1–9 on `ahead-traffic-atc` (traffic, audio,
+                exit). **Stage 4 built**: commits 1–8 on `ahead-traffic-atc` (traffic, audio,
                 card, copy, layout) proven on the one-machine bed and reviewed by hand. What
                 is left is the readme note, the `ahead` rebuild, and the two-machine test,
                 which needs a second tester. See handoff.md.
