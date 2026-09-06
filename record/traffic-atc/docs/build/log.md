@@ -2,6 +2,51 @@
 
 Newest first. A negative result is a result.
 
+## 2026-09-06 · Stage 4, traffic: what the app needed that the prototype did not
+
+Commits 1–4 on `ahead-traffic-atc`: the traffic connection, settings, packets and election,
+then the host and receiver. Tested on one machine with two instances of the app on one sim,
+the receiver started with `--traffic-offset 2,90` (later `--traffic-shadow 80`, each copy
+80 m behind its original along its heading — the most direct comparison there is). Five
+things the prototype's file replay could never have shown, each found by measurement:
+
+1. **Echo.** The host's poll sees the copies the other instance injects into the same sim
+   and announces them; the receiver copies the copies. 850 tracked, 1020 injected in a
+   minute. Only the same-sim test bed has this; in production the host's own-object set
+   covers it. Fix for the bed: a receiver in offset mode prefixes tails with `~` and every
+   host skips such tails.
+2. **The shared Sequenced channel drops a quarter of the state batches over the relay** —
+   30–40 gaps per 30 s, 0 after switching states to LiteNetLib `Unreliable` with our own
+   sequence numbers. The risk named in the plan, measured, and worse than estimated; the
+   user reversed the "no network changes" decision on the number. `INetwork.SendAll` gained a
+   `Delivery` overload; the bool overload and physics are untouched.
+3. **A render delay tied to the current pair of samples jumps on every arrival.** The
+   receiver keeps a playout buffer of recent samples and a slowly slewed delay (smoothed
+   spacing + 200 ms), interpolating between whichever two bracket the render point;
+   extrapolates up to 600 ms past the newest before holding. The two-sample interpolator
+   was fine for a file with metronome timestamps and wrong for a network.
+4. **Sample times must not be arrival times.** Batches carry the host's clock; the receiver
+   estimates its offset from the least-delayed packets. And samples must be aged from the
+   moment they were *read*, not the batch's send time.
+5. **Duplicates.** When NAT punch succeeds on both the LAN and the hairpin address, the two
+   peers hold two P2P connections and every packet is sent on both; the relay does the same
+   for two link directions. A zero-spacing duplicate pulled the delay estimate below the
+   sample spacing and the receiver extrapolated into every sample — "a stutter as the
+   aircraft interpolates ahead". A 64-wide replay window by sequence drops duplicates and
+   stragglers before the interpolator.
+
+Two dead ends worth recording so nobody repeats them: a render clock stepped by the sim's
+*reported* frame rate drifts from real time and snaps on re-sync (rhythmic, grows with
+speed); and GC pauses were suspected and measured at 0–3 ms per 30 s — not it.
+
+Instrumentation that stays behind `--debug`: the receiver reads its movers back every frame
+and reports the same smoothness score the prototype used, the spacing of the sim's frame
+events, GC counts and pause time, packet gaps and duplicates; the traffic connection logs
+any job or `ReceiveMessage` over 15 ms. The prototype injector run alongside the two app
+instances scored 0.24, the reference the app is judged against.
+
+End state, by eye and by the shadow test: "works perfectly".
+
 ## 2026-09-06 · Elevated ATC app: detectable, and it does not matter — Q18 settled
 
 BeyondATC restarted as administrator. From a normal process: the session list reads
