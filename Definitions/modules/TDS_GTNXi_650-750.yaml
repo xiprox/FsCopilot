@@ -1,0 +1,92 @@
+# TDS GTNXi 650/750 Module
+# Version: 0.0.1
+# Updated: 2026-04-26 hh:mm:ss
+
+shared:
+  # 750
+  - get: L:TDSGTNXI750U1_LKnobCRSR
+  - get: L:TDSGTNXI750U1_HomeKey
+  - get: L:TDSGTNXI750U1_DTOKey
+  - get: L:TDSGTNXI750U1_RKnobCRSR
+  - get: L:TDSGTNXI750U1_RKnobInnerInc
+  - get: L:TDSGTNXI750U1_RKnobInnerDec
+  - get: L:TDSGTNXI750U1_RKnobOuterInc
+  - get: L:TDSGTNXI750U1_RKnobOuterDec
+
+  # 650
+  - get: L:TDSGTNXI650U2_LKnobCRSR
+  - get: L:TDSGTNXI650U2_HomeKey
+  - get: L:TDSGTNXI650U2_DTOKey
+  - get: L:TDSGTNXI650U2_RKnobCRSR
+  - get: L:TDSGTNXI650U2_RKnobInnerInc
+  - get: L:TDSGTNXI650U2_RKnobInnerDec
+  - get: L:TDSGTNXI650U2_RKnobOuterInc
+  - get: L:TDSGTNXI650U2_RKnobOuterDec
+
+  ############## COMMON RADIO SETTINGS ################
+  - get: A:NAV VOLUME:1, Percent # VOL
+    set: "`${value} (>K:NAV1_VOLUME_SET_EX1)`"
+  - get: A:NAV VOLUME:2, Percent # VOL
+    set: "`${value} (>K:NAV2_VOLUME_SET_EX1)`"
+  - get: A:NAV ACTIVE FREQUENCY:1, Hz # NAV1 ACTIVE
+    set: (>K:NAV1_RADIO_SET_HZ)
+  - get: A:NAV ACTIVE FREQUENCY:2, Hz # NAV2 ACTIVE
+    set: (>K:NAV2_RADIO_SET_HZ)
+  - get: A:NAV STANDBY FREQUENCY:1, Hz # NAV1 STANDBY
+    set: (>K:NAV1_STBY_SET_HZ)
+  - get: A:NAV STANDBY FREQUENCY:2, Hz # NAV2 STANDBY
+    set: (>K:NAV2_STBY_SET_HZ)
+  - get: A:ADF ACTIVE FREQUENCY:1, Frequency ADF BCD32 # ADF ACTIVE
+    set: (>K:ADF_ACTIVE_SET)
+  - get: A:ADF STANDBY FREQUENCY:1, Frequency ADF BCD32 # ADF STANDBY
+    set: (>K:ADF_STBY_SET)
+  - get: A:ADF SOUND:1, Bool # ADF SOUND
+    set: (>K:RADIO_ADF_IDENT_SET)
+  - get: A:TRANSPONDER STATE:1, Enum # XPDR StandBy/On/Alt
+  - get: A:TRANSPONDER CODE:1, BCO16 # XPDR Code
+    set: (>K:XPNDR_SET)
+  - get: A:TRANSPONDER IDENT:1, Bool # Ident
+    set: "value ? '1 (>K:XPNDR_IDENT_ON)' : '1 (>K:XPNDR_IDENT_OFF)'"
+  - get: A:COM VOLUME:1, Percent # VOL
+    set: "`${value} (>K:COM1_VOLUME_SET)`"
+  - get: A:COM VOLUME:2, Percent # VOL
+    set: "`${value} (>K:COM2_VOLUME_SET)`"
+  ############ Commented out until H:Events can be SKP'd
+  # - get: A:COM ACTIVE FREQUENCY:1, Hz # COM1 ACTIVE
+  #   set: (>K:COM_RADIO_SET_HZ)
+  # - get: A:COM ACTIVE FREQUENCY:2, Hz # COM2 ACTIVE
+  #   set: (>K:COM2_RADIO_SET_HZ)
+  # - get: A:GPS DRIVES NAV1, Bool # CDI
+  ############ Commented out until H:Events can be SKP'd
+  - get: A:COM STANDBY FREQUENCY:1, Hz # COM1 STANDBY
+    set: (>K:COM_STBY_RADIO_SET_HZ)
+  - get: A:COM STANDBY FREQUENCY:2, Hz # COM2 STANDBY
+    set: (>K:COM2_STBY_RADIO_SET_HZ)
+  - get: A:KOHLSMAN SETTING MB:0, Millibars # BARO
+    set: "`0 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+  - get: A:GPS OBS ACTIVE, Bool # CRS CTR
+    set: (>K:GPS_OBS)
+  - get: A:GPS OBS VALUE, Degrees # CRS CTR
+    set: (>K:GPS_OBS_SET)
+  - get: A:NAV OBS:1, Degrees # CRS CTR
+    set: (>K:VOR1_SET)
+  - get: A:NAV OBS:2, Degrees # CRS CTR
+    set: (>K:VOR2_SET)
+  - get: A:COM TRANSMIT:1, Bool # COM1 MIC
+    set: "value ? '0 (>K:PILOT_TRANSMITTER_SET)' : '1 (>K:PILOT_TRANSMITTER_SET)'"
+  - get: A:COM TRANSMIT:1, Bool # COM1 MIC
+    set: "value ? '0 (>K:COPILOT_TRANSMITTER_SET)' : '1 (>K:COPILOT_TRANSMITTER_SET)'"
+  - get: A:COM RECEIVE:1, Bool # COM1
+    set: (>K:COM1_RECEIVE_SELECT)
+  - get: A:COM RECEIVE:2, Bool # COM2
+    set: (>K:COM2_RECEIVE_SELECT)
+  - get: A:DME SOUND, Bool # DME
+    set: (>K:RADIO_DME1_IDENT_TOGGLE)
+  - get: A:NAV SOUND:1, Bool # NAV1
+    set: (>K:RADIO_VOR1_IDENT_TOGGLE)
+  - get: A:NAV SOUND:2, Bool # NAV2
+    set: (>K:RADIO_VOR2_IDENT_TOGGLE)
+  - get: A:ADF SOUND, Bool # ADF
+    set: (>K:RADIO_ADF_IDENT_TOGGLE)
+  - get: A:NAV SOUND:2, Bool # NAV2
+    set: (>K:RADIO_VOR2_IDENT_TOGGLE)

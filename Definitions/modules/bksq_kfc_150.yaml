@@ -1,0 +1,67 @@
+shared:
+  # AP Flight Director button — K:TOGGLE_FLIGHT_DIRECTOR is a toggle.
+  - get: A:AUTOPILOT FLIGHT DIRECTOR ACTIVE, Bool
+    set: >
+      value
+        ? '(A:AUTOPILOT FLIGHT DIRECTOR ACTIVE, Bool) 0 == if{ (>K:TOGGLE_FLIGHT_DIRECTOR) }'
+        : '(A:AUTOPILOT FLIGHT DIRECTOR ACTIVE, Bool) 1 == if{ (>K:TOGGLE_FLIGHT_DIRECTOR) }'
+
+  - get: A:AUTOPILOT ALTITUDE LOCK, Bool
+    set: >
+      value
+        ? '(A:AUTOPILOT ALTITUDE LOCK, Bool) 0 == if{ (>K:AP_ALT_HOLD) }'
+        : '(A:AUTOPILOT ALTITUDE LOCK, Bool) 1 == if{ (>K:AP_PITCH_LEVELER_ON) }'
+
+  - get: A:AUTOPILOT HEADING LOCK, Bool
+    set: >
+      value
+        ? '(A:AUTOPILOT HEADING LOCK, Bool) 0 == if{ (>K:AP_PANEL_HEADING_HOLD) }'
+        : '(A:AUTOPILOT HEADING LOCK, Bool) 1 == if{ (>K:AP_PANEL_HEADING_HOLD) }'
+
+  - get: A:AUTOPILOT NAV1 LOCK, Bool
+    set: >
+      value
+        ? '(A:AUTOPILOT NAV1 LOCK, Bool) 0 == if{ (>K:AP_NAV1_HOLD) }'
+        : '(A:AUTOPILOT NAV1 LOCK, Bool) 1 == if{ (>K:AP_NAV1_HOLD) }'
+
+  - get: A:AUTOPILOT APPROACH HOLD, Bool
+    set: >
+      value
+        ? '(A:AUTOPILOT APPROACH HOLD, Bool) 0 == if{ (>K:AP_APR_HOLD) }'
+        : '(A:AUTOPILOT APPROACH HOLD, Bool) 1 == if{ (>K:AP_APR_HOLD) }'
+
+  - get: A:AUTOPILOT BACKCOURSE HOLD, Bool
+    set: >
+      value
+        ? '(A:AUTOPILOT BACKCOURSE HOLD, Bool) 0 == if{ (>K:AP_BC_HOLD) }'
+        : '(A:AUTOPILOT BACKCOURSE HOLD, Bool) 1 == if{ (>K:AP_BC_HOLD) }'
+
+  # AP Test button — sets startup counter to 20, disengages AP/YD/FD if active,
+  # then fires OFF events for all AP modes. L:var_AutopilotTest (the annunciator
+  # test flag) is driven by the counter: >0 = test active. Counter decrements at
+  # 1Hz back to 0 automatically. Guard on current===0 so we fire only on the
+  # rising edge (fresh press), not on every decrement tick thereafter.
+  - get: L:var_AutopilotStartupCounter, number
+    set: >
+      (() => {
+        if (value > 0 && current === 0) {
+          return '20 (>L:var_AutopilotStartupCounter, number) (A:AUTOPILOT MASTER, Bool) if{ (>K:AP_MASTER) } (A:AUTOPILOT YAW DAMPER, Bool) if{ (>K:YAW_DAMPER_TOGGLE) } (A:AUTOPILOT FLIGHT DIRECTOR ACTIVE, Bool) if{ (>K:TOGGLE_FLIGHT_DIRECTOR) } (>K:AP_HDG_HOLD_OFF) (>K:AP_NAV1_HOLD_OFF) (>K:AP_APR_HOLD_OFF) (>K:AP_ALT_HOLD_OFF) (>K:AP_LOC_HOLD_OFF) (>K:AP_FLIGHT_LEVEL_CHANGE_OFF)';
+        }
+        return '';
+      })()
+
+  # AP Master button — engages or disengages the autopilot.
+  # On engage: fires K:AP_MASTER then enables FD if not already active.
+  # On disengage: fires K:AP_MASTER, then disables YD and FD (if active),
+  # and fires OFF for all AP modes — same full cleanup as the test button.
+  # K:AP_MASTER is a toggle, so guard value !== current to avoid double-toggling.
+  - get: A:AUTOPILOT MASTER, bool
+    set: >
+      (() => {
+        if (value === current) return '';
+        if (value) {
+          return '(>K:AP_MASTER) (A:AUTOPILOT FLIGHT DIRECTOR ACTIVE, Bool) ! if{ (>K:TOGGLE_FLIGHT_DIRECTOR) }';
+        } else {
+          return '(>K:AP_MASTER) (A:AUTOPILOT YAW DAMPER, Bool) if{ (>K:YAW_DAMPER_TOGGLE) } (A:AUTOPILOT FLIGHT DIRECTOR ACTIVE, Bool) if{ (>K:TOGGLE_FLIGHT_DIRECTOR) } (>K:AP_HDG_HOLD_OFF) (>K:AP_NAV1_HOLD_OFF) (>K:AP_APR_HOLD_OFF) (>K:AP_ALT_HOLD_OFF) (>K:AP_LOC_HOLD_OFF) (>K:AP_FLIGHT_LEVEL_CHANGE_OFF)';
+        }
+      })()

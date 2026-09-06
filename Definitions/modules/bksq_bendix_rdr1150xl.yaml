@@ -1,0 +1,52 @@
+# Bendix RDR1150XL weather radar.
+
+shared:
+  - get: L:var_RadarBrightness
+  - get: L:var_radarMode
+  - get: L:var_RadarGain
+  - get: L:var_RadarTilt
+
+  # The below are pure JS-internal state in bksq_wradar1_MapElement; no Lvars exposed.
+  # Blind-mirror: detect pilot's H: event fire, replay it on copilot.
+  # If ever desynched, won't self-resync.
+  # skp: true prevents the copilot's own replayed H: event from triggering a second set.
+
+  # Radar Alert (Wx/WxA) button
+  - get: H:bksq_wradar1_radarAlertToggle
+    set: "(>H:bksq_wradar1_radarAlertToggle)"
+    skp: true
+
+  # Radar Vertical Profile button
+  - get: H:bksq_wradar1_radarProfile
+    set: "(>H:bksq_wradar1_radarProfile)"
+    skp: true
+
+  # Radar Map button
+  - get: H:bksq_wradar1_radarMap
+    set: "(>H:bksq_wradar1_radarMap)"
+    skp: true
+
+  # Radar Hold button
+  - get: H:bksq_wradar1_radarHold
+    set: "(>H:bksq_wradar1_radarHold)"
+    skp: true
+
+  # Radar Range Increase
+  - get: H:bksq_wradar1_radarRangeInc
+    set: "(>H:bksq_wradar1_radarRangeInc)"
+    skp: true
+
+  # Radar Range Decrease
+  - get: H:bksq_wradar1_radarRangeDec
+    set: "(>H:bksq_wradar1_radarRangeDec)"
+    skp: true
+
+  # Radar Track Left
+  - get: H:bksq_wradar1_radarTrackLeft
+    set: "(>H:bksq_wradar1_radarTrackLeft)"
+    skp: true
+
+  # Radar Track Right
+  - get: H:bksq_wradar1_radarTrackRight
+    set: "(>H:bksq_wradar1_radarTrackRight)"
+    skp: true
