@@ -1,0 +1,18 @@
+<!--
+  What the trimmer must keep although no managed code appears to use it. The process-loopback
+  capture is built-in COM interop: the runtime builds the vtables for these interfaces and calls
+  the completion handler from native code, which the trimmer cannot see. Without this the
+  published build crashes the moment ATC capture starts.
+-->
+<linker>
+  <assembly fullname="FsCopilot">
+    <type fullname="FsCopilot.Audio.ProcessLoopback" preserve="all" />
+    <type fullname="FsCopilot.Audio.ProcessLoopback/IActivateAudioInterfaceCompletionHandler" preserve="all" />
+    <type fullname="FsCopilot.Audio.ProcessLoopback/IActivateAudioInterfaceAsyncOperation" preserve="all" />
+    <type fullname="FsCopilot.Audio.ProcessLoopback/IAudioCaptureClient" preserve="all" />
+    <type fullname="FsCopilot.Audio.ProcessLoopback/Completion" preserve="all" />
+    <type fullname="FsCopilot.Audio.ProcessLoopback/ActivationParams" preserve="all" />
+  </assembly>
+  <assembly fullname="NAudio.Wasapi" preserve="all" />
+  <assembly fullname="NAudio.Core" preserve="all" />
+</linker>

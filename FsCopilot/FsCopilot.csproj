@@ -34,12 +34,19 @@
         <EmbeddedResource Include="Assets\disconnect.wav" />
     </ItemGroup>
 
+    <!-- COM interop for ATC audio capture is invisible to the trimmer; see the descriptor. -->
+    <ItemGroup>
+        <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.9" />
         <PackageReference Include="Avalonia.Desktop" Version="11.3.9" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.9" />
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.9" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+        <PackageReference Include="Concentus" Version="2.2.2" />
+        <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
         <PackageReference Include="Avalonia.Diagnostics" Version="11.3.9">
             <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
             <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>

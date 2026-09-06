@@ -2,6 +2,7 @@
 
 using System.Globalization;
 using System.Reflection;
+using Audio;
 using Connection;
 using Microsoft.Extensions.DependencyInjection;
 using Network;
@@ -97,16 +98,24 @@ sealed class Program
                         });
                         services.AddSingleton<TrafficReceiver>();
                         services.AddSingleton<TrafficHost>();
+                        services.AddSingleton<AtcHost>();
+                        services.AddSingleton<AtcReceiver>();
                         services.AddSingleton(sp =>
                         {
                             var share = sp.GetRequiredService<ShareSwitch>();
                             sp.GetRequiredService<TrafficHost>();
-                            // Until the sharing card exists: host traffic from the persisted
-                            // setting, for as long as the traffic connection is up.
-                            if (sp.GetRequiredService<Settings>().ShareTraffic)
+                            sp.GetRequiredService<AtcHost>();
+                            sp.GetRequiredService<AtcReceiver>();
+                            // Until the sharing card exists: host from the persisted settings -
+                            // traffic for as long as the traffic connection is up, ATC if a known
+                            // app is running.
+                            var settings = sp.GetRequiredService<Settings>();
+                            if (settings.ShareTraffic)
                                 sp.GetRequiredService<SimTraffic>().Connected
                                     .DistinctUntilChanged()
                                     .Subscribe(connected => share.Request(ShareSwitch.Feature.Traffic, connected));
+                            if (settings.ShareAtc && AtcApps.DetectedKnown().Count > 0)
+                                share.Request(ShareSwitch.Feature.Atc, true);
                             return new MainViewModel(
                                 peerId,
                                 name,
