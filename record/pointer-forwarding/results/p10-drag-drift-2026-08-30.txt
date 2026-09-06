@@ -1,0 +1,11 @@
+# 1  pts= 28  captured= 1760ms  replay= 1747ms  lost=   13ms (1%)  gaps>250ms=1  maxgap=263ms  span=0.527
+# 2  pts= 27  captured= 1534ms  replay= 1348ms  lost=  186ms (12%)  gaps>250ms=1  maxgap=436ms  span=0.154
+# 3  pts= 25  captured= 1183ms  replay= 1183ms  lost=    0ms   gaps>250ms=0  maxgap=167ms  span=0.506
+# 4  pts= 22  captured= 1292ms  replay= 1189ms  lost=  103ms (8%)  gaps>250ms=1  maxgap=353ms  span=0.386
+# 5  pts= 26  captured= 1505ms  replay= 1367ms  lost=  138ms (9%)  gaps>250ms=1  maxgap=388ms  span=0.115
+# 6  pts= 25  captured= 1147ms  replay= 1147ms  lost=    0ms   gaps>250ms=0  maxgap=147ms  span=0.424
+# 7  pts= 28  captured= 1585ms  replay= 1520ms  lost=   65ms (4%)  gaps>250ms=1  maxgap=315ms  span=0.061
+# 8  pts=107  captured= 5203ms  replay= 5183ms  lost=   20ms (0%)  gaps>250ms=1  maxgap=270ms  span=2.978
+# 9  pts= 79  captured= 3882ms  replay= 3857ms  lost=   25ms (1%)  gaps>250ms=1  maxgap=275ms  span=3.326
+
+9 drags examined

@@ -1,0 +1,45 @@
+page 31  VCockpit10 - iniEfbA350
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p04-iframe.js   settle 1500ms
+2026-08-30T11:02:10.521Z
+========================================================================
+=========================================================
+P04  panel composition and iframe reach
+=========================================================
+title      VCockpit10 - iniEfbA350
+href       coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+origin     coui://html_UI
+
+--- instruments ---
+  <ini-efb-a350>  id=iniEfbA350  interactive=true
+      url  coui://html_ui/Pages/VCockpit/Instruments/ini-efb-a350/ini-efb-a350-fo.html
+      data-input-group  INI-EFB-A350
+
+--- composition ---
+  2843 elements   svg=0  canvas=0  img=46  iframe=1
+  -> looks like: external iframe
+
+--- iframes ---
+  window.frames.length = 1
+
+  [0] iframe#docDisplay
+      src        about:blank
+      origin     about:blank  (CROSS-ORIGIN)
+      contentDocument  REACHABLE
+        readyState complete
+        title      
+        elements   3   svg=0  canvas=0
+        body       body
+        listeners  attachable — capture could run inside this frame
+      contentWindow    non-null  (postMessage available: true)
+
+--- read this as ---
+  no iframe                     -> this panel's clicks land in this document;
+     Q06 is irrelevant here and P02/P03 are the probes that matter.
+  iframe, contentDocument null  -> same-origin policy is enforced. A
+     cross-origin child needs the addon developer's cooperation; there is
+     no unilateral route in.
+  iframe, REACHABLE + attachable-> we can run capture and replay inside the
+     child. Note this is required even for a same-origin child: a real click
+     inside an iframe never reaches the parent's listeners.
+  live-view <img> and no iframe -> WASM gauge. Q05 decides it, not this.

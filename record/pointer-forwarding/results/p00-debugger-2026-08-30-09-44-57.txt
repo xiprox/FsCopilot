@@ -1,0 +1,43 @@
+========================================================================
+P00  Coherent GT debugger reachability
+     127.0.0.1:19999   2026-08-30T09:44:03.659Z
+========================================================================
+
+--- listening in 19000-21000 ---
+0.0.0.0:19999 pid=33168
+
+--- does it speak first? ---
+  silence  (0 bytes)
+
+--- HTTP ---
+  silence                   0B  /
+  silence                   0B  /json
+  silence                   0B  /json/list
+  silence                   0B  /json/version
+  silence                   0B  /list
+  silence                   0B  /list.json
+  silence                   0B  /index.html
+  silence                   0B  /inspector
+  silence                   0B  /views
+  silence                   0B  /pages
+  silence                   0B  /debug
+
+--- WebSocket upgrade ---
+  silence                   0B  /
+  silence                   0B  /devtools/page/1
+  silence                   0B  /inspector
+  silence                   0B  /socket
+  silence                   0B  /ws
+  silence                   0B  /debug
+
+--- a few non-HTTP openers ---
+  silence                   0B  bare CRLF
+  silence                   0B  JSON-RPC line
+  silence                   0B  COHERENT token
+
+--- read this as ---
+  an HTTP response listing views  -> inspector backend; drive it and automate everything
+  a 101 Switching Protocols       -> WebSocket inspector; same conclusion
+  silence on everything           -> 19999 is the debugger UI's own port, not a backend.
+                                     Next: find the port the SIM listens on (the debugger
+                                     connects to it), or accept the manual console loop.

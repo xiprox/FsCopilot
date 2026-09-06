@@ -1,0 +1,924 @@
+
+> eval
+> node probes/run.mjs eval 79 __P02.report()
+
+=========================================================
+P02  input delivery to a panel document
+=========================================================
+title      VCockpit02 - DisplayUnits
+href       coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+instrument a22x-displayunits
+             id=DisplayUnits  interactive=true
+             rect  x=0 y=0 w=7410 h=1110
+viewport   7410 x 1110   dpr=1
+
+--- what arrived ---
+  mouseover            x86
+  mouseenter           x263
+  mousedown            x16
+  mousemove            x1380
+  mouseup              x18
+  mouseout             x80
+  mouseleave           x216
+  click                x16
+  keydown              x17
+  keypress             x11
+  keyup                x14
+  not seen: pointerdown, pointerup, pointermove
+
+--- trust ---
+  792 of 880 trusted
+
+--- sequence ---
+  ms     type              at    tr  x     y     nx     ny     btn btns ptype  target
+  55306  mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  55306  mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  55306  mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  55306  mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  55457  mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  55457  mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  55457  mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  55457  mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  56314  keydown           doc   y                                             body.contentLoaded
+  56315  keydown           doc   y                                             body.contentLoaded
+  56315  keypress          doc   y                                             body.contentLoaded
+  56315  keydown           doc   y                                             body.contentLoaded
+  56316  keypress          doc   y                                             body.contentLoaded
+  56628  keyup             doc   y                                             body.contentLoaded
+  56716  keydown           doc   y                                             body.contentLoaded
+  56716  keypress          doc   y                                             body.contentLoaded
+  57072  keyup             doc   y                                             body.contentLoaded
+  57218  keyup             doc   y                                             body.contentLoaded
+  57384  keydown           doc   y                                             body.contentLoaded
+  57384  keypress          doc   y                                             body.contentLoaded
+  57561  keyup             doc   y                                             body.contentLoaded
+  57596  keydown           doc   y                                             body.contentLoaded
+  57596  keypress          doc   y                                             body.contentLoaded
+  57784  keydown           doc   y                                             body.contentLoaded
+  57784  keypress          doc   y                                             body.contentLoaded
+  57834  keyup             doc   y                                             body.contentLoaded
+  57954  keyup             doc   y                                             body.contentLoaded
+  58391  keydown           doc   y                                             body.contentLoaded
+  58391  keypress          doc   y                                             body.contentLoaded
+  58410  keydown           doc   y                                             body.contentLoaded
+  58410  keypress          doc   y                                             body.contentLoaded
+  58440  keyup             doc   y                                             body.contentLoaded
+  58504  keyup             doc   y                                             body.contentLoaded
+  58504  keyup             doc   y                                             body.contentLoaded
+  58941  mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  58941  mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  58941  mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  58941  mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  58945  mouseout          doc   y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseout          instr y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               g#PFD_1_MOUNT <svg-ns>
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               g#PFD_1_MOUNT <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               svg <svg-ns>
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               svg <svg-ns>
+  58945  mouseleave        doc   y   3214  943   0.4337 0.8495 0               div
+  58945  mouseleave        instr y   3214  943   0.4337 0.8495 0               div
+  58945  mouseover         doc   y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseover         instr y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseenter        doc   y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseenter        instr y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mouseenter        doc   y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseenter        instr y   3214  943   0.4337 0.8495 0               g <svg-ns>
+  58945  mouseenter        doc   y   3214  943   0.4337 0.8495 0               svg <svg-ns>
+  58945  mouseenter        instr y   3214  943   0.4337 0.8495 0               svg <svg-ns>
+  58945  mouseenter        doc   y   3214  943   0.4337 0.8495 0               div
+  58945  mouseenter        instr y   3214  943   0.4337 0.8495 0               div
+  58945  mousemove         doc   y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58945  mousemove         instr y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  58962  mousemove         doc   y   3214  944   0.4337 0.8505 0               rect <svg-ns>
+  58962  mousemove         instr y   3214  944   0.4337 0.8505 0               rect <svg-ns>
+  58978  mousemove         doc   y   3214  943   0.4337 0.8495 0               rect <svg-ns>
+  59007  mousemove         instr y   3216  944   0.4340 0.8505 0               rect <svg-ns>
+  59050  keydown           doc   y                                             body.contentLoaded
+  59095  mousemove         instr y   3214  945   0.4337 0.8514 0               rect <svg-ns>
+  59126  keyup             doc   y                                             body.contentLoaded
+  59172  mousemove         instr y   3213  946   0.4336 0.8523 0               rect <svg-ns>
+  59260  mousemove         instr y   3212  946   0.4335 0.8523 0               rect <svg-ns>
+  59332  mousemove         instr y   3211  946   0.4333 0.8523 0               rect <svg-ns>
+  59412  mousemove         instr y   3210  939   0.4332 0.8459 0               rect <svg-ns>
+  59485  mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  59485  mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  59486  mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  59486  mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  59716  keydown           doc   y                                             body.contentLoaded
+  60265  mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  60265  mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  60265  mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  60265  mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  60381  mousemove         instr y   3120  778   0.4211 0.7009 0               rect <svg-ns>
+  60471  mousemove         instr y   3120  778   0.4211 0.7009 0               rect <svg-ns>
+  60554  mousemove         instr y   3120  778   0.4211 0.7009 0               rect <svg-ns>
+  60640  mousemove         instr y   3120  778   0.4211 0.7009 0               rect <svg-ns>
+  60723  mousemove         instr y   3120  778   0.4211 0.7009 0               rect <svg-ns>
+  60771  mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  60771  mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  60771  mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  60771  mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  66173  mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  66173  mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  66173  mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  66173  mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  66176  mouseout          doc   y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseout          instr y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseleave        doc   y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseleave        instr y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseleave        doc   y   3887  934   0.5246 0.8414 0               g <svg-ns>
+  66176  mouseleave        instr y   3887  934   0.5246 0.8414 0               g <svg-ns>
+  66176  mouseover         doc   y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseover         instr y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseenter        doc   y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseenter        instr y   3887  934   0.5246 0.8414 0               rect <svg-ns>
+  66176  mouseenter        doc   y   3887  934   0.5246 0.8414 0               g <svg-ns>
+  66176  mouseenter        instr y   3887  934   0.5246 0.8414 0               g <svg-ns>
+  66219  mousemove         instr y   3887  944   0.5246 0.8505 0               rect <svg-ns>
+  66304  mousemove         instr y   3904  944   0.5269 0.8505 0               rect <svg-ns>
+  66388  mousemove         instr y   3949  894   0.5329 0.8054 0               rect <svg-ns>
+  66471  mousemove         instr y   3962  785   0.5347 0.7072 0               rect <svg-ns>
+  66555  mousemove         instr y   3962  785   0.5347 0.7072 0               rect <svg-ns>
+  66640  mousemove         instr y   3921  819   0.5291 0.7378 0               rect <svg-ns>
+  66723  mousemove         instr y   3827  854   0.5165 0.7694 0               rect <svg-ns>
+  66761  mouseout          doc   y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseout          instr y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseleave        doc   y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseleave        instr y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseleave        doc   y   3645  843   0.4919 0.7595 0               g <svg-ns>
+  66761  mouseleave        instr y   3645  843   0.4919 0.7595 0               g <svg-ns>
+  66761  mouseover         doc   y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseover         instr y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseenter        doc   y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseenter        instr y   3645  843   0.4919 0.7595 0               rect <svg-ns>
+  66761  mouseenter        doc   y   3645  843   0.4919 0.7595 0               g <svg-ns>
+  66761  mouseenter        instr y   3645  843   0.4919 0.7595 0               g <svg-ns>
+  66814  mousemove         instr y   3392  846   0.4578 0.7622 0               rect <svg-ns>
+  66893  mousemove         instr y   3361  835   0.4536 0.7523 0               rect <svg-ns>
+  66975  mousemove         instr y   3376  826   0.4556 0.7441 0               rect <svg-ns>
+  67067  mousemove         instr y   3521  798   0.4752 0.7189 0               rect <svg-ns>
+  67147  mousemove         instr y   3612  781   0.4874 0.7036 0               rect <svg-ns>
+  67200  mouseout          doc   y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseout          instr y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseleave        doc   y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseleave        instr y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseleave        doc   y   3704  782   0.4999 0.7045 0               g <svg-ns>
+  67200  mouseleave        instr y   3704  782   0.4999 0.7045 0               g <svg-ns>
+  67200  mouseover         doc   y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseover         instr y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseenter        doc   y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseenter        instr y   3704  782   0.4999 0.7045 0               rect <svg-ns>
+  67200  mouseenter        doc   y   3704  782   0.4999 0.7045 0               g <svg-ns>
+  67200  mouseenter        instr y   3704  782   0.4999 0.7045 0               g <svg-ns>
+  67235  mousemove         instr y   3750  781   0.5061 0.7036 0               rect <svg-ns>
+  67322  mousemove         instr y   3812  767   0.5144 0.6910 0               rect <svg-ns>
+  67408  mousemove         instr y   3815  725   0.5148 0.6532 0               rect <svg-ns>
+  67425  mouseout          doc   y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseout          instr y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseleave        doc   y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseleave        instr y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseover         doc   y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseover         instr y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseenter        doc   y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseenter        instr y   3818  706   0.5152 0.6360 0               rect <svg-ns>
+  67425  mouseenter        doc   y   3818  706   0.5152 0.6360 0               g <svg-ns>
+  67425  mouseenter        instr y   3818  706   0.5152 0.6360 0               g <svg-ns>
+  67425  mouseenter        doc   y   3818  706   0.5152 0.6360 0               g <svg-ns>
+  67425  mouseenter        instr y   3818  706   0.5152 0.6360 0               g <svg-ns>
+  67425  mouseenter        doc   y   3818  706   0.5152 0.6360 0               g <svg-ns>
+  67425  mouseenter        instr y   3818  706   0.5152 0.6360 0               g <svg-ns>
+  67475  mouseout          doc   y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseout          instr y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseleave        doc   y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseleave        instr y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseleave        doc   y   3834  666   0.5174 0.6000 0               g <svg-ns>
+  67475  mouseleave        instr y   3834  666   0.5174 0.6000 0               g <svg-ns>
+  67475  mouseleave        doc   y   3834  666   0.5174 0.6000 0               g <svg-ns>
+  67475  mouseleave        instr y   3834  666   0.5174 0.6000 0               g <svg-ns>
+  67475  mouseleave        doc   y   3834  666   0.5174 0.6000 0               g <svg-ns>
+  67475  mouseleave        instr y   3834  666   0.5174 0.6000 0               g <svg-ns>
+  67475  mouseover         doc   y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseover         instr y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseenter        doc   y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67475  mouseenter        instr y   3834  666   0.5174 0.6000 0               rect <svg-ns>
+  67489  mouseout          doc   y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseout          instr y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseleave        doc   y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseleave        instr y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseover         doc   y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseover         instr y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseenter        doc   y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseenter        instr y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67489  mouseenter        doc   y   3846  641   0.5190 0.5775 0               g <svg-ns>
+  67490  mouseenter        instr y   3846  641   0.5190 0.5775 0               g <svg-ns>
+  67490  mouseenter        doc   y   3846  641   0.5190 0.5775 0               g <svg-ns>
+  67490  mouseenter        instr y   3846  641   0.5190 0.5775 0               g <svg-ns>
+  67490  mouseenter        doc   y   3846  641   0.5190 0.5775 0               g <svg-ns>
+  67490  mouseenter        instr y   3846  641   0.5190 0.5775 0               g <svg-ns>
+  67490  mousemove         instr y   3846  641   0.5190 0.5775 0               rect <svg-ns>
+  67507  mouseout          doc   y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseout          instr y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseleave        doc   y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseleave        instr y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseleave        doc   y   3857  620   0.5205 0.5586 0               g <svg-ns>
+  67507  mouseleave        instr y   3857  620   0.5205 0.5586 0               g <svg-ns>
+  67507  mouseleave        doc   y   3857  620   0.5205 0.5586 0               g <svg-ns>
+  67507  mouseleave        instr y   3857  620   0.5205 0.5586 0               g <svg-ns>
+  67507  mouseleave        doc   y   3857  620   0.5205 0.5586 0               g <svg-ns>
+  67507  mouseleave        instr y   3857  620   0.5205 0.5586 0               g <svg-ns>
+  67507  mouseover         doc   y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseover         instr y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseenter        doc   y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67507  mouseenter        instr y   3857  620   0.5205 0.5586 0               rect <svg-ns>
+  67524  mouseout          doc   y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67524  mouseout          instr y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67524  mouseleave        doc   y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67524  mouseleave        instr y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67524  mouseover         doc   y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67524  mouseover         instr y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67524  mouseenter        doc   y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67525  mouseenter        instr y   3889  579   0.5248 0.5216 0               rect <svg-ns>
+  67525  mouseenter        doc   y   3889  579   0.5248 0.5216 0               g <svg-ns>
+  67525  mouseenter        instr y   3889  579   0.5248 0.5216 0               g <svg-ns>
+  67525  mouseenter        doc   y   3889  579   0.5248 0.5216 0               g <svg-ns>
+  67525  mouseenter        instr y   3889  579   0.5248 0.5216 0               g <svg-ns>
+  67525  mouseenter        doc   y   3889  579   0.5248 0.5216 0               g <svg-ns>
+  67525  mouseenter        instr y   3889  579   0.5248 0.5216 0               g <svg-ns>
+  67542  mouseout          doc   y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseout          instr y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseleave        doc   y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseleave        instr y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseleave        doc   y   3926  543   0.5298 0.4892 0               g <svg-ns>
+  67542  mouseleave        instr y   3926  543   0.5298 0.4892 0               g <svg-ns>
+  67542  mouseleave        doc   y   3926  543   0.5298 0.4892 0               g <svg-ns>
+  67542  mouseleave        instr y   3926  543   0.5298 0.4892 0               g <svg-ns>
+  67542  mouseleave        doc   y   3926  543   0.5298 0.4892 0               g <svg-ns>
+  67542  mouseleave        instr y   3926  543   0.5298 0.4892 0               g <svg-ns>
+  67542  mouseover         doc   y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseover         instr y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseenter        doc   y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67542  mouseenter        instr y   3926  543   0.5298 0.4892 0               rect <svg-ns>
+  67576  mousemove         instr y   4021  468   0.5426 0.4216 0               rect <svg-ns>
+  67660  mousemove         instr y   4197  408   0.5664 0.3676 0               rect <svg-ns>
+  67750  mouseout          doc   y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseout          instr y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseleave        doc   y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseleave        instr y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseover         doc   y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseover         instr y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseenter        doc   y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseenter        instr y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67750  mouseenter        doc   y   4230  315   0.5709 0.2838 0               g <svg-ns>
+  67750  mouseenter        instr y   4230  315   0.5709 0.2838 0               g <svg-ns>
+  67750  mouseenter        doc   y   4230  315   0.5709 0.2838 0               g <svg-ns>
+  67750  mouseenter        instr y   4230  315   0.5709 0.2838 0               g <svg-ns>
+  67750  mouseenter        doc   y   4230  315   0.5709 0.2838 0               g <svg-ns>
+  67750  mouseenter        instr y   4230  315   0.5709 0.2838 0               g <svg-ns>
+  67750  mousemove         instr y   4230  315   0.5709 0.2838 0               rect <svg-ns>
+  67766  mouseout          doc   y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseout          instr y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseleave        doc   y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseleave        instr y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseleave        doc   y   4226  300   0.5703 0.2703 0               g <svg-ns>
+  67766  mouseleave        instr y   4226  300   0.5703 0.2703 0               g <svg-ns>
+  67766  mouseleave        doc   y   4226  300   0.5703 0.2703 0               g <svg-ns>
+  67766  mouseleave        instr y   4226  300   0.5703 0.2703 0               g <svg-ns>
+  67766  mouseleave        doc   y   4226  300   0.5703 0.2703 0               g <svg-ns>
+  67766  mouseleave        instr y   4226  300   0.5703 0.2703 0               g <svg-ns>
+  67766  mouseover         doc   y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseover         instr y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseenter        doc   y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67766  mouseenter        instr y   4226  300   0.5703 0.2703 0               rect <svg-ns>
+  67801  mouseout          doc   y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67801  mouseout          instr y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseleave        doc   y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseleave        instr y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseover         doc   y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseover         instr y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseenter        doc   y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseenter        instr y   4219  270   0.5694 0.2432 0               rect <svg-ns>
+  67802  mouseenter        doc   y   4219  270   0.5694 0.2432 0               g <svg-ns>
+  67802  mouseenter        instr y   4219  270   0.5694 0.2432 0               g <svg-ns>
+  67802  mouseenter        doc   y   4219  270   0.5694 0.2432 0               g <svg-ns>
+  67802  mouseenter        instr y   4219  270   0.5694 0.2432 0               g <svg-ns>
+  67802  mouseenter        doc   y   4219  270   0.5694 0.2432 0               g <svg-ns>
+  67802  mouseenter        instr y   4219  270   0.5694 0.2432 0               g <svg-ns>
+  67833  mouseout          doc   y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseout          instr y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseleave        doc   y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseleave        instr y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseleave        doc   y   4186  231   0.5649 0.2081 0               g <svg-ns>
+  67833  mouseleave        instr y   4186  231   0.5649 0.2081 0               g <svg-ns>
+  67833  mouseleave        doc   y   4186  231   0.5649 0.2081 0               g <svg-ns>
+  67833  mouseleave        instr y   4186  231   0.5649 0.2081 0               g <svg-ns>
+  67833  mouseleave        doc   y   4186  231   0.5649 0.2081 0               g <svg-ns>
+  67833  mouseleave        instr y   4186  231   0.5649 0.2081 0               g <svg-ns>
+  67833  mouseover         doc   y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseover         instr y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseenter        doc   y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mouseenter        instr y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67833  mousemove         instr y   4186  231   0.5649 0.2081 0               rect <svg-ns>
+  67849  mouseout          doc   y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseout          instr y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseleave        doc   y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseleave        instr y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseover         doc   y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseover         instr y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseenter        doc   y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseenter        instr y   4157  215   0.5610 0.1937 0               rect <svg-ns>
+  67849  mouseenter        doc   y   4157  215   0.5610 0.1937 0               g <svg-ns>
+  67849  mouseenter        instr y   4157  215   0.5610 0.1937 0               g <svg-ns>
+  67849  mouseenter        doc   y   4157  215   0.5610 0.1937 0               g <svg-ns>
+  67849  mouseenter        instr y   4157  215   0.5610 0.1937 0               g <svg-ns>
+  67849  mouseenter        doc   y   4157  215   0.5610 0.1937 0               g <svg-ns>
+  67849  mouseenter        instr y   4157  215   0.5610 0.1937 0               g <svg-ns>
+  67899  mouseout          doc   y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67899  mouseout          instr y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67899  mouseleave        doc   y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67899  mouseleave        instr y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67900  mouseleave        doc   y   4059  186   0.5478 0.1676 0               g <svg-ns>
+  67900  mouseleave        instr y   4059  186   0.5478 0.1676 0               g <svg-ns>
+  67900  mouseleave        doc   y   4059  186   0.5478 0.1676 0               g <svg-ns>
+  67900  mouseleave        instr y   4059  186   0.5478 0.1676 0               g <svg-ns>
+  67900  mouseleave        doc   y   4059  186   0.5478 0.1676 0               g <svg-ns>
+  67900  mouseleave        instr y   4059  186   0.5478 0.1676 0               g <svg-ns>
+  67900  mouseover         doc   y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67900  mouseover         instr y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67900  mouseenter        doc   y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67900  mouseenter        instr y   4059  186   0.5478 0.1676 0               rect <svg-ns>
+  67917  mousemove         instr y   4014  180   0.5417 0.1622 0               rect <svg-ns>
+  67983  mouseout          doc   y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseout          instr y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseleave        doc   y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseleave        instr y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseover         doc   y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseover         instr y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseenter        doc   y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseenter        instr y   3921  191   0.5291 0.1721 0               rect <svg-ns>
+  67983  mouseenter        doc   y   3921  191   0.5291 0.1721 0               g <svg-ns>
+  67983  mouseenter        instr y   3921  191   0.5291 0.1721 0               g <svg-ns>
+  67983  mouseenter        doc   y   3921  191   0.5291 0.1721 0               g <svg-ns>
+  67983  mouseenter        instr y   3921  191   0.5291 0.1721 0               g <svg-ns>
+  67983  mouseenter        doc   y   3921  191   0.5291 0.1721 0               g <svg-ns>
+  67983  mouseenter        instr y   3921  191   0.5291 0.1721 0               g <svg-ns>
+  68000  mousemove         instr y   3900  199   0.5263 0.1793 0               rect <svg-ns>
+  68034  mouseout          doc   y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseout          instr y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseleave        doc   y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseleave        instr y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseleave        doc   y   3840  228   0.5182 0.2054 0               g <svg-ns>
+  68034  mouseleave        instr y   3840  228   0.5182 0.2054 0               g <svg-ns>
+  68034  mouseleave        doc   y   3840  228   0.5182 0.2054 0               g <svg-ns>
+  68034  mouseleave        instr y   3840  228   0.5182 0.2054 0               g <svg-ns>
+  68034  mouseleave        doc   y   3840  228   0.5182 0.2054 0               g <svg-ns>
+  68034  mouseleave        instr y   3840  228   0.5182 0.2054 0               g <svg-ns>
+  68034  mouseover         doc   y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseover         instr y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseenter        doc   y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68034  mouseenter        instr y   3840  228   0.5182 0.2054 0               rect <svg-ns>
+  68070  mouseout          doc   y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseout          instr y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseleave        doc   y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseleave        instr y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseleave        doc   y   3696  328   0.4988 0.2955 0               g <svg-ns>
+  68071  mouseleave        instr y   3696  328   0.4988 0.2955 0               g <svg-ns>
+  68071  mouseover         doc   y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseover         instr y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseenter        doc   y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseenter        instr y   3696  328   0.4988 0.2955 0               rect <svg-ns>
+  68071  mouseenter        doc   y   3696  328   0.4988 0.2955 0               g <svg-ns>
+  68071  mouseenter        instr y   3696  328   0.4988 0.2955 0               g <svg-ns>
+  68087  mousemove         instr y   3595  404   0.4852 0.3640 0               rect <svg-ns>
+  68137  mouseout          doc   y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseout          instr y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseleave        doc   y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseleave        instr y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseover         doc   y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseover         instr y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseenter        doc   y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseenter        instr y   3310  610   0.4467 0.5495 0               rect <svg-ns>
+  68137  mouseenter        doc   y   3310  610   0.4467 0.5495 0               g <svg-ns>
+  68137  mouseenter        instr y   3310  610   0.4467 0.5495 0               g <svg-ns>
+  68137  mouseenter        doc   y   3310  610   0.4467 0.5495 0               g <svg-ns>
+  68137  mouseenter        instr y   3310  610   0.4467 0.5495 0               g <svg-ns>
+  68137  mouseenter        doc   y   3310  610   0.4467 0.5495 0               g <svg-ns>
+  68137  mouseenter        instr y   3310  610   0.4467 0.5495 0               g <svg-ns>
+  68153  mouseout          doc   y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseout          instr y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseleave        doc   y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseleave        instr y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseleave        doc   y   3256  649   0.4394 0.5847 0               g <svg-ns>
+  68154  mouseleave        instr y   3256  649   0.4394 0.5847 0               g <svg-ns>
+  68154  mouseleave        doc   y   3256  649   0.4394 0.5847 0               g <svg-ns>
+  68154  mouseleave        instr y   3256  649   0.4394 0.5847 0               g <svg-ns>
+  68154  mouseleave        doc   y   3256  649   0.4394 0.5847 0               g <svg-ns>
+  68154  mouseleave        instr y   3256  649   0.4394 0.5847 0               g <svg-ns>
+  68154  mouseover         doc   y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseover         instr y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseenter        doc   y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68154  mouseenter        instr y   3256  649   0.4394 0.5847 0               rect <svg-ns>
+  68172  mousemove         instr y   3195  691   0.4312 0.6225 0               rect <svg-ns>
+  68199  mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  68199  mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  68199  mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  68199  mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  70041  mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  70041  mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  70041  mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  70041  mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  83909  mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  83909  mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  83909  mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  83909  mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  83926  mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  83926  mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  83926  mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  83926  mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  84226  mousemove         instr y   3462  438   0.4672 0.3946 0               rect <svg-ns>
+  84306  mousemove         instr y   3462  439   0.4672 0.3955 0               rect <svg-ns>
+  84390  mousemove         instr y   3430  375   0.4629 0.3378 0               rect <svg-ns>
+  84471  mousemove         instr y   3306  240   0.4462 0.2162 0               rect <svg-ns>
+  84552  mousemove         instr y   3280  171   0.4426 0.1541 0               rect <svg-ns>
+  84631  mousemove         instr y   3281  136   0.4428 0.1225 0               rect <svg-ns>
+  84648  mouseout          doc   y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84648  mouseout          instr y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84648  mouseleave        doc   y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84648  mouseleave        instr y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84648  mouseover         doc   y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84648  mouseover         instr y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84648  mouseenter        doc   y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84649  mouseenter        instr y   3282  126   0.4429 0.1135 0               rect <svg-ns>
+  84649  mouseenter        doc   y   3282  126   0.4429 0.1135 0               g <svg-ns>
+  84649  mouseenter        instr y   3282  126   0.4429 0.1135 0               g <svg-ns>
+  84649  mouseenter        doc   y   3282  126   0.4429 0.1135 0               g <svg-ns>
+  84649  mouseenter        instr y   3282  126   0.4429 0.1135 0               g <svg-ns>
+  84669  mouseout          doc   y   3284  115   0.4432 0.1036 0               rect <svg-ns>
+  84669  mouseout          instr y   3284  115   0.4432 0.1036 0               rect <svg-ns>
+  84669  mouseleave        doc   y   3284  115   0.4432 0.1036 0               rect <svg-ns>
+  84669  mouseleave        instr y   3284  115   0.4432 0.1036 0               rect <svg-ns>
+  84669  mouseover         doc   y   3284  115   0.4432 0.1036 0               path <svg-ns>
+  84669  mouseover         instr y   3284  115   0.4432 0.1036 0               path <svg-ns>
+  84669  mouseenter        doc   y   3284  115   0.4432 0.1036 0               path <svg-ns>
+  84669  mouseenter        instr y   3284  115   0.4432 0.1036 0               path <svg-ns>
+  84719  mousemove         instr y   3286  100   0.4435 0.0901 0               path <svg-ns>
+  84796  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  84869  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  84946  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85023  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85108  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85182  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85260  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85321  mousedown         doc   y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85321  mousedown         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85339  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85419  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85494  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85574  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85648  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85727  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85798  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85876  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  85952  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86051  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86284  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86301  mouseup           doc   y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86301  mouseup           instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86307  click             doc   y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86307  click             instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86318  mouseover         doc   y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86318  mouseover         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               g <svg-ns>
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               g <svg-ns>
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               g <svg-ns>
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               g <svg-ns>
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               g <svg-ns>
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               g <svg-ns>
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               svg <svg-ns>
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               svg <svg-ns>
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               div
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               div
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               div#MSFS_REACT_MOUNT
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               div#MSFS_REACT_MOUNT
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               a22x-displayunits
+  86319  mouseenter        instr y   3287  94    0.4436 0.0847 0               a22x-displayunits
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               vcockpit-panel#panel
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               body.contentLoaded
+  86319  mouseenter        doc   y   3287  94    0.4436 0.0847 0               html.animationsEnabled
+  86386  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86461  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86539  mousemove         instr y   3287  94    0.4436 0.0847 0               path <svg-ns>
+  86628  mousemove         instr y   3347  127   0.4517 0.1144 0               path <svg-ns>
+  86704  mouseout          doc   y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseout          instr y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseleave        doc   y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseleave        instr y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseleave        doc   y   3459  111   0.4668 0.1000 0               g <svg-ns>
+  86704  mouseleave        instr y   3459  111   0.4668 0.1000 0               g <svg-ns>
+  86704  mouseover         doc   y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseover         instr y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseenter        doc   y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseenter        instr y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86704  mouseenter        doc   y   3459  111   0.4668 0.1000 0               g <svg-ns>
+  86704  mouseenter        instr y   3459  111   0.4668 0.1000 0               g <svg-ns>
+  86704  mousemove         instr y   3459  111   0.4668 0.1000 0               path <svg-ns>
+  86721  mouseout          doc   y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseout          instr y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseleave        doc   y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseleave        instr y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseover         doc   y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseover         instr y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseenter        doc   y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86721  mouseenter        instr y   3463  108   0.4673 0.0973 0               path <svg-ns>
+  86784  mousemove         instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  86860  mousemove         instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  86949  mousedown         doc   y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  86949  mousedown         instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  86953  mousemove         instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87011  mouseup           doc   y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87011  mouseup           instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87011  click             doc   y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87011  click             instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87043  mouseover         doc   y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87043  mouseover         instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               g <svg-ns>
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               g <svg-ns>
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               g <svg-ns>
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               g <svg-ns>
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               g <svg-ns>
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               g <svg-ns>
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               svg <svg-ns>
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               svg <svg-ns>
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               div
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               div
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               div#MSFS_REACT_MOUNT
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               div#MSFS_REACT_MOUNT
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               a22x-displayunits
+  87043  mouseenter        instr y   3472  107   0.4686 0.0964 0               a22x-displayunits
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               vcockpit-panel#panel
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               body.contentLoaded
+  87043  mouseenter        doc   y   3472  107   0.4686 0.0964 0               html.animationsEnabled
+  87055  mousemove         instr y   3472  107   0.4686 0.0964 0               path <svg-ns>
+  87135  mouseout          doc   y   3454  113   0.4661 0.1018 0               path <svg-ns>
+  87135  mouseout          instr y   3454  113   0.4661 0.1018 0               path <svg-ns>
+  87135  mouseleave        doc   y   3454  113   0.4661 0.1018 0               path <svg-ns>
+  87135  mouseleave        instr y   3454  113   0.4661 0.1018 0               path <svg-ns>
+  87135  mouseleave        doc   y   3454  113   0.4661 0.1018 0               g <svg-ns>
+  87135  mouseleave        instr y   3454  113   0.4661 0.1018 0               g <svg-ns>
+  87135  mouseleave        doc   y   3454  113   0.4661 0.1018 0               g <svg-ns>
+  87135  mouseleave        instr y   3454  113   0.4661 0.1018 0               g <svg-ns>
+  87135  mouseover         doc   y   3454  113   0.4661 0.1018 0               rect <svg-ns>
+  87135  mouseover         instr y   3454  113   0.4661 0.1018 0               rect <svg-ns>
+  87135  mouseenter        doc   y   3454  113   0.4661 0.1018 0               rect <svg-ns>
+  87135  mouseenter        instr y   3454  113   0.4661 0.1018 0               rect <svg-ns>
+  87135  mousemove         instr y   3454  113   0.4661 0.1018 0               rect <svg-ns>
+  87158  mouseout          doc   y   3424  118   0.4621 0.1063 0               rect <svg-ns>
+  87158  mouseout          instr y   3424  118   0.4621 0.1063 0               rect <svg-ns>
+  87158  mouseleave        doc   y   3424  118   0.4621 0.1063 0               rect <svg-ns>
+  87158  mouseleave        instr y   3424  118   0.4621 0.1063 0               rect <svg-ns>
+  87158  mouseover         doc   y   3424  118   0.4621 0.1063 0               path <svg-ns>
+  87158  mouseover         instr y   3424  118   0.4621 0.1063 0               path <svg-ns>
+  87158  mouseenter        doc   y   3424  118   0.4621 0.1063 0               path <svg-ns>
+  87158  mouseenter        instr y   3424  118   0.4621 0.1063 0               path <svg-ns>
+  87158  mouseenter        doc   y   3424  118   0.4621 0.1063 0               g <svg-ns>
+  87158  mouseenter        instr y   3424  118   0.4621 0.1063 0               g <svg-ns>
+  87158  mouseenter        doc   y   3424  118   0.4621 0.1063 0               g <svg-ns>
+  87158  mouseenter        instr y   3424  118   0.4621 0.1063 0               g <svg-ns>
+  87222  mousemove         instr y   3349  118   0.4520 0.1063 0               path <svg-ns>
+  87308  mousemove         instr y   3329  120   0.4493 0.1081 0               path <svg-ns>
+  87391  mousemove         instr y   3276  114   0.4421 0.1027 0               path <svg-ns>
+  87454  mouseout          doc   y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseout          instr y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseleave        doc   y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseleave        instr y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseover         doc   y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseover         instr y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseenter        doc   y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87454  mouseenter        instr y   3218  111   0.4343 0.1000 0               path <svg-ns>
+  87473  mouseout          doc   y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87473  mouseout          instr y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87473  mouseleave        doc   y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87473  mouseleave        instr y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87473  mouseleave        doc   y   3199  113   0.4317 0.1018 0               g <svg-ns>
+  87473  mouseleave        instr y   3199  113   0.4317 0.1018 0               g <svg-ns>
+  87474  mouseover         doc   y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87474  mouseover         instr y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87474  mouseenter        doc   y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87474  mouseenter        instr y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87474  mouseenter        doc   y   3199  113   0.4317 0.1018 0               g <svg-ns>
+  87474  mouseenter        instr y   3199  113   0.4317 0.1018 0               g <svg-ns>
+  87474  mousemove         instr y   3199  113   0.4317 0.1018 0               path <svg-ns>
+  87554  mouseout          doc   y   3077  134   0.4152 0.1207 0               path <svg-ns>
+  87554  mouseout          instr y   3077  134   0.4152 0.1207 0               path <svg-ns>
+  87554  mouseleave        doc   y   3077  134   0.4152 0.1207 0               path <svg-ns>
+  87554  mouseleave        instr y   3077  134   0.4152 0.1207 0               path <svg-ns>
+  87554  mouseleave        doc   y   3077  134   0.4152 0.1207 0               g <svg-ns>
+  87554  mouseleave        instr y   3077  134   0.4152 0.1207 0               g <svg-ns>
+  87554  mouseleave        doc   y   3077  134   0.4152 0.1207 0               g <svg-ns>
+  87554  mouseleave        instr y   3077  134   0.4152 0.1207 0               g <svg-ns>
+  87554  mouseover         doc   y   3077  134   0.4152 0.1207 0               rect <svg-ns>
+  87554  mouseover         instr y   3077  134   0.4152 0.1207 0               rect <svg-ns>
+  87554  mouseenter        doc   y   3077  134   0.4152 0.1207 0               rect <svg-ns>
+  87554  mouseenter        instr y   3077  134   0.4152 0.1207 0               rect <svg-ns>
+  87554  mousemove         instr y   3077  134   0.4152 0.1207 0               rect <svg-ns>
+  87600  mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  87600  mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  87600  mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  87600  mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  87604  mouseup           doc   y   2984  170   0.4027 0.1532 0               rect <svg-ns>
+  87604  mouseup           instr y   2984  170   0.4027 0.1532 0               rect <svg-ns>
+  114236 mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  114236 mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  114236 mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  114236 mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  114698 mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  114698 mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  114698 mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  114698 mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  116352 keydown           doc   y                                             body.contentLoaded
+  116491 keydown           doc   y                                             body.contentLoaded
+  116491 keypress          doc   y                                             body.contentLoaded
+  116593 keyup             doc   y                                             body.contentLoaded
+  116844 keydown           doc   y                                             body.contentLoaded
+  116844 keypress          doc   y                                             body.contentLoaded
+  116861 keydown           doc   y                                             body.contentLoaded
+  116862 keypress          doc   y                                             body.contentLoaded
+  116906 keyup             doc   y                                             body.contentLoaded
+  116906 keyup             doc   y                                             body.contentLoaded
+  117295 keyup             doc   y                                             body.contentLoaded
+  117511 keydown           doc   y                                             body.contentLoaded
+  177746 mousedown         doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  177746 mousedown         instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  177746 mouseup           doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  177746 mouseup           instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  177747 click             doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  177747 click             instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  252488 mousedown         doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  252488 mousedown         instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  252488 mouseup           doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  252488 mouseup           instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  252488 click             doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  252488 click             instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  278599 mousedown         doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  278599 mousedown         instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  278599 mouseup           doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  278599 mouseup           instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  278599 click             doc   n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  278599 click             instr n   3472  107   0.4686 0.0964 0               path <svg-ns>
+  342935 mouseenter        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  342935 mouseenter        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  342935 mouseenter        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  342935 mouseenter        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  342973 mousemove         instr y   3013  434   0.4066 0.3910 0               rect <svg-ns>
+  343057 mousemove         instr y   3073  364   0.4147 0.3279 0               rect <svg-ns>
+  343138 mousemove         instr y   3103  296   0.4188 0.2667 0               rect <svg-ns>
+  343228 mousemove         instr y   3116  250   0.4205 0.2252 0               rect <svg-ns>
+  343312 mouseout          doc   y   3123  211   0.4215 0.1901 0               rect <svg-ns>
+  343312 mouseout          instr y   3123  211   0.4215 0.1901 0               rect <svg-ns>
+  343313 mouseleave        doc   y   3123  211   0.4215 0.1901 0               rect <svg-ns>
+  343313 mouseleave        instr y   3123  211   0.4215 0.1901 0               rect <svg-ns>
+  343313 mouseover         doc   y   3123  211   0.4215 0.1901 0               polygon <svg-ns>
+  343313 mouseover         instr y   3123  211   0.4215 0.1901 0               polygon <svg-ns>
+  343313 mouseenter        doc   y   3123  211   0.4215 0.1901 0               polygon <svg-ns>
+  343313 mouseenter        instr y   3123  211   0.4215 0.1901 0               polygon <svg-ns>
+  343313 mouseenter        doc   y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        instr y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        doc   y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        instr y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        doc   y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        instr y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        doc   y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mouseenter        instr y   3123  211   0.4215 0.1901 0               g <svg-ns>
+  343313 mousemove         instr y   3123  211   0.4215 0.1901 0               polygon <svg-ns>
+  343326 mouseout          doc   y   3124  205   0.4216 0.1847 0               polygon <svg-ns>
+  343326 mouseout          instr y   3124  205   0.4216 0.1847 0               polygon <svg-ns>
+  343327 mouseleave        doc   y   3124  205   0.4216 0.1847 0               polygon <svg-ns>
+  343327 mouseleave        instr y   3124  205   0.4216 0.1847 0               polygon <svg-ns>
+  343327 mouseover         doc   y   3124  205   0.4216 0.1847 0               rect <svg-ns>
+  343327 mouseover         instr y   3124  205   0.4216 0.1847 0               rect <svg-ns>
+  343327 mouseenter        doc   y   3124  205   0.4216 0.1847 0               rect <svg-ns>
+  343327 mouseenter        instr y   3124  205   0.4216 0.1847 0               rect <svg-ns>
+  343389 mousemove         instr y   3127  199   0.4220 0.1793 0               rect <svg-ns>
+  343464 mousemove         instr y   3127  199   0.4220 0.1793 0               rect <svg-ns>
+  343540 mousemove         instr y   3127  199   0.4220 0.1793 0               rect <svg-ns>
+  343621 mousemove         instr y   3127  199   0.4220 0.1793 0               rect <svg-ns>
+  343693 mousemove         instr y   3127  199   0.4220 0.1793 0               rect <svg-ns>
+  343773 mousemove         instr y   3127  199   0.4220 0.1793 0               rect <svg-ns>
+  343854 mousemove         instr y   3141  184   0.4239 0.1658 0               rect <svg-ns>
+  343942 mousemove         instr y   3148  178   0.4248 0.1604 0               rect <svg-ns>
+  344004 mouseout          doc   y   3156  167   0.4259 0.1505 0               rect <svg-ns>
+  344004 mouseout          instr y   3156  167   0.4259 0.1505 0               rect <svg-ns>
+  344005 mouseleave        doc   y   3156  167   0.4259 0.1505 0               rect <svg-ns>
+  344005 mouseleave        instr y   3156  167   0.4259 0.1505 0               rect <svg-ns>
+  344005 mouseover         doc   y   3156  167   0.4259 0.1505 0               polygon <svg-ns>
+  344005 mouseover         instr y   3156  167   0.4259 0.1505 0               polygon <svg-ns>
+  344005 mouseenter        doc   y   3156  167   0.4259 0.1505 0               polygon <svg-ns>
+  344005 mouseenter        instr y   3156  167   0.4259 0.1505 0               polygon <svg-ns>
+  344021 mouseout          doc   y   3157  162   0.4260 0.1459 0               polygon <svg-ns>
+  344021 mouseout          instr y   3157  162   0.4260 0.1459 0               polygon <svg-ns>
+  344021 mouseleave        doc   y   3157  162   0.4260 0.1459 0               polygon <svg-ns>
+  344021 mouseleave        instr y   3157  162   0.4260 0.1459 0               polygon <svg-ns>
+  344021 mouseleave        doc   y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        instr y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        doc   y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        instr y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        doc   y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        instr y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        doc   y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseleave        instr y   3157  162   0.4260 0.1459 0               g <svg-ns>
+  344021 mouseover         doc   y   3157  162   0.4260 0.1459 0               rect <svg-ns>
+  344021 mouseover         instr y   3157  162   0.4260 0.1459 0               rect <svg-ns>
+  344021 mouseenter        doc   y   3157  162   0.4260 0.1459 0               rect <svg-ns>
+  344021 mouseenter        instr y   3157  162   0.4260 0.1459 0               rect <svg-ns>
+  344021 mousemove         instr y   3157  162   0.4260 0.1459 0               rect <svg-ns>
+  344104 mousemove         instr y   3154  133   0.4256 0.1198 0               rect <svg-ns>
+  344182 mousemove         instr y   3153  130   0.4255 0.1171 0               rect <svg-ns>
+  344261 mousemove         instr y   3153  129   0.4255 0.1162 0               rect <svg-ns>
+  344339 mousemove         instr y   3153  129   0.4255 0.1162 0               rect <svg-ns>
+  344420 mousemove         instr y   3157  135   0.4260 0.1216 0               rect <svg-ns>
+  344488 mouseout          doc   y   3184  164   0.4297 0.1477 0               rect <svg-ns>
+  344488 mouseout          instr y   3184  164   0.4297 0.1477 0               rect <svg-ns>
+  344488 mouseleave        doc   y   3184  164   0.4297 0.1477 0               rect <svg-ns>
+  344489 mouseleave        instr y   3184  164   0.4297 0.1477 0               rect <svg-ns>
+  344489 mouseover         doc   y   3184  164   0.4297 0.1477 0               polygon <svg-ns>
+  344489 mouseover         instr y   3184  164   0.4297 0.1477 0               polygon <svg-ns>
+  344489 mouseenter        doc   y   3184  164   0.4297 0.1477 0               polygon <svg-ns>
+  344489 mouseenter        instr y   3184  164   0.4297 0.1477 0               polygon <svg-ns>
+  344489 mouseenter        doc   y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        instr y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        doc   y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        instr y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        doc   y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        instr y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        doc   y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344489 mouseenter        instr y   3184  164   0.4297 0.1477 0               g <svg-ns>
+  344503 mouseout          doc   y   3191  170   0.4306 0.1532 0               polygon <svg-ns>
+  344503 mouseout          instr y   3191  170   0.4306 0.1532 0               polygon <svg-ns>
+  344504 mouseleave        doc   y   3191  170   0.4306 0.1532 0               polygon <svg-ns>
+  344504 mouseleave        instr y   3191  170   0.4306 0.1532 0               polygon <svg-ns>
+  344504 mouseover         doc   y   3191  170   0.4306 0.1532 0               rect <svg-ns>
+  344504 mouseover         instr y   3191  170   0.4306 0.1532 0               rect <svg-ns>
+  344504 mouseenter        doc   y   3191  170   0.4306 0.1532 0               rect <svg-ns>
+  344504 mouseenter        instr y   3191  170   0.4306 0.1532 0               rect <svg-ns>
+  344504 mousemove         instr y   3191  170   0.4306 0.1532 0               rect <svg-ns>
+  344519 mouseout          doc   y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344519 mouseout          instr y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344520 mouseleave        doc   y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344520 mouseleave        instr y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344520 mouseover         doc   y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344520 mouseover         instr y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344520 mouseenter        doc   y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344520 mouseenter        instr y   3197  173   0.4314 0.1559 0               rect <svg-ns>
+  344583 mousemove         instr y   3204  178   0.4324 0.1604 0               rect <svg-ns>
+  344657 mousemove         instr y   3204  178   0.4324 0.1604 0               rect <svg-ns>
+  344736 mousemove         instr y   3205  178   0.4325 0.1604 0               rect <svg-ns>
+  344817 mousemove         instr y   3219  188   0.4344 0.1694 0               rect <svg-ns>
+  344899 mousemove         instr y   3228  191   0.4356 0.1721 0               rect <svg-ns>
+  344974 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345051 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345132 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345203 mousemove         instr y   3228  191   0.4356 0.1721 0               rect <svg-ns>
+  345279 mousemove         instr y   3228  191   0.4356 0.1721 0               rect <svg-ns>
+  345355 mousemove         instr y   3228  191   0.4356 0.1721 0               rect <svg-ns>
+  345423 mousedown         doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345424 mousedown         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345445 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345477 mouseup           doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345477 mouseup           instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345483 click             doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345483 click             instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseout          doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseout          instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseleave        doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseleave        instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseleave        doc   y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        instr y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        doc   y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        instr y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        doc   y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        instr y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        doc   y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseleave        instr y   3229  191   0.4358 0.1721 0               g <svg-ns>
+  345487 mouseover         doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseover         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseenter        doc   y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345487 mouseenter        instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345527 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345603 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345676 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345759 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345831 mousemove         instr y   3228  191   0.4356 0.1721 0               rect <svg-ns>
+  345907 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  345982 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  346065 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  346133 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  346208 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  346287 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  346370 mousemove         instr y   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  346443 mousemove         instr y   3231  191   0.4360 0.1721 0               rect <svg-ns>
+  346521 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  346599 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  346679 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  346755 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  346831 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  346907 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  346984 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  347070 mousemove         instr y   3233  191   0.4363 0.1721 0               rect <svg-ns>
+  347146 mousemove         instr y   3255  191   0.4393 0.1721 0               rect <svg-ns>
+  347228 mousemove         instr y   3274  191   0.4418 0.1721 0               rect <svg-ns>
+  347303 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347378 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347408 mousedown         doc   y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347409 mousedown         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347456 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347471 mouseup           doc   y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347471 mouseup           instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347471 click             doc   y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347471 click             instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347477 mouseover         doc   y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347477 mouseover         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347477 mouseenter        instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               g <svg-ns>
+  347477 mouseenter        instr y   3276  191   0.4421 0.1721 0               g <svg-ns>
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               svg <svg-ns>
+  347477 mouseenter        instr y   3276  191   0.4421 0.1721 0               svg <svg-ns>
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               div
+  347477 mouseenter        instr y   3276  191   0.4421 0.1721 0               div
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               div#MSFS_REACT_MOUNT
+  347477 mouseenter        instr y   3276  191   0.4421 0.1721 0               div#MSFS_REACT_MOUNT
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               a22x-displayunits
+  347477 mouseenter        instr y   3276  191   0.4421 0.1721 0               a22x-displayunits
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               vcockpit-panel#panel
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               body.contentLoaded
+  347477 mouseenter        doc   y   3276  191   0.4421 0.1721 0               html.animationsEnabled
+  347541 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347621 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347698 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347775 mousemove         instr y   3276  191   0.4421 0.1721 0               rect <svg-ns>
+  347808 mouseout          doc   y   3263  196   0.4404 0.1766 0               rect <svg-ns>
+  347808 mouseout          instr y   3263  196   0.4404 0.1766 0               rect <svg-ns>
+  347808 mouseleave        doc   y   3263  196   0.4404 0.1766 0               rect <svg-ns>
+  347808 mouseleave        instr y   3263  196   0.4404 0.1766 0               rect <svg-ns>
+  347808 mouseover         doc   y   3263  196   0.4404 0.1766 0               polygon <svg-ns>
+  347808 mouseover         instr y   3263  196   0.4404 0.1766 0               polygon <svg-ns>
+  347808 mouseenter        doc   y   3263  196   0.4404 0.1766 0               polygon <svg-ns>
+  347808 mouseenter        instr y   3263  196   0.4404 0.1766 0               polygon <svg-ns>
+  347808 mouseenter        doc   y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        instr y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        doc   y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        instr y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        doc   y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        instr y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        doc   y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347808 mouseenter        instr y   3263  196   0.4404 0.1766 0               g <svg-ns>
+  347824 mouseout          doc   y   3215  219   0.4339 0.1973 0               polygon <svg-ns>
+  347824 mouseout          instr y   3215  219   0.4339 0.1973 0               polygon <svg-ns>
+  347824 mouseleave        doc   y   3215  219   0.4339 0.1973 0               polygon <svg-ns>
+  347824 mouseleave        instr y   3215  219   0.4339 0.1973 0               polygon <svg-ns>
+  347824 mouseleave        doc   y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347824 mouseleave        instr y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347824 mouseleave        doc   y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347824 mouseleave        instr y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347824 mouseleave        doc   y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347824 mouseleave        instr y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347825 mouseleave        doc   y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347825 mouseleave        instr y   3215  219   0.4339 0.1973 0               g <svg-ns>
+  347825 mouseover         doc   y   3215  219   0.4339 0.1973 0               rect <svg-ns>
+  347825 mouseover         instr y   3215  219   0.4339 0.1973 0               rect <svg-ns>
+  347825 mouseenter        doc   y   3215  219   0.4339 0.1973 0               rect <svg-ns>
+  347825 mouseenter        instr y   3215  219   0.4339 0.1973 0               rect <svg-ns>
+  347856 mousemove         instr y   3013  306   0.4066 0.2757 0               rect <svg-ns>
+  347868 mouseleave        doc   n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  347868 mouseleave        instr n   0     0     0.0000 0.0000 0               rect <svg-ns>
+  347868 mouseleave        doc   n   0     0     0.0000 0.0000 0               a22x-displayunits
+  347868 mouseleave        instr n   0     0     0.0000 0.0000 0               a22x-displayunits
+  372535 keydown           doc   y                                             body.contentLoaded
+  441486 mousedown         doc   n   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  441486 mousedown         instr n   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  441486 mouseup           doc   n   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  441486 mouseup           instr n   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  441486 click             doc   n   3229  191   0.4358 0.1721 0               rect <svg-ns>
+  441486 click             instr n   3229  191   0.4358 0.1721 0               rect <svg-ns>
+
+--- read this as ---
+  pointerdown/up present  -> Q01 yes. Tiers 2 and 3 are on the table and
+     replay must dispatch real PointerEvents.
+  only mouseup            -> Q01 no. Press-only. Drag is not capturable
+     from the DOM and tier 3 is dead.
+  pointermove while down  -> drag is capturable; check the rate above.
+  target column all <svg-ns> -> confirms why element naming fails here.
+  'at' column: doc but never instr -> the event does not reach the
+     instrument element; capture must stay on document.
+919

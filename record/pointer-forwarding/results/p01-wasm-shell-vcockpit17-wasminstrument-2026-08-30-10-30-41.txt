@@ -1,0 +1,102 @@
+page 24  VCockpit17 - WasmInstrument
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p01-wasm-shell.js   settle 4000ms
+2026-08-30T10:30:37.442Z
+========================================================================
+=========================================================
+P01  WasmInstrument input routing
+=========================================================
+title    VCockpit17 - WasmInstrument
+href     coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+bridge   fscopilot-bridge IS loaded in this panel
+hook     Hook class present
+
+--- panel children ---
+  <wasm-instrument>
+      ctor              WasmInstrument
+      instrumentId      WasmInstrument
+      isInteractive     true
+      urlConfig.noEvent false
+      @ guid=105
+      @ url=coui://html_ui/Pages/VCockpit/Instruments/WasmInstrument/WasmInstrument.html?wasm_module=inibuilds-A350.wasm&wasm_gauge=…
+      @ created=true
+      @ data-input-group=WASM-INSTRUMENT
+      @ style=position: absolute; left: 0px; top: 0px; width: 1600px; height: 1280px;
+
+--- custom element prototypes ---
+  wasm-instrument (WasmInstrument):
+      CanUpdate, DecomposeEventFromPrefix, Init, Instanciate, IsGlassCockpit, Update, _getDefaultChildButton, _localgridColumn, _localgridColumnEnd, _localgridRow, _localgridRowEnd, acknowledgeInit, afterUpdate, alwaysUpdate, appendContent, applyDataInputGroup, attributeChangedCallback, autoInside, beforeUpdate, canBeSelected, canBeSelectedDisabled, canBeSelectedLocked, canBeSelectedWithKeys, canEnterKeysMode, canUpdate, canUseScreenReader, childActiveClass, clearAlwaysList, clearHighlights, clearPendingCalls, connectedCallback, constructor, convertPath, createAndPushHighlightElement, createMainLoop, deltaTime, disable, disabled, disconnectedCallback, doUpdate, enable, enabled, facilityLoader, fastGetBoundingClientRect, findHighlightElements, flightPlanManager, focus, focusByKeys, focused, forceNoKeyNavigation, frameCount, getAllFocusableChildren, getAspectRatio, getChildByChecklistAttribute, getChildById, getChildrenByClassName, getChildrenById, getDefaultButton, getDefaultChildButton, getForcedAspectRatio, getForcedScreenRatio, getGameState, getKeyNavigationDirection, getKeyNavigationStayInside, getKeyOrthogonalStayInside, getLastDefaultChildButton, getQuality, getTemplateSlot, getTimeSinceStart, globalGridColumn, globalGridColumnEnd, globalGridRow, globalGridRowEnd, hasParentHidden, highlightGetState, initTransponder, initialized, instrumentAlias, instrumentIdentifier, instrumentIndex, isAspectRatioForced, isBootProcedureComplete, isChildOf, isComputingAspectRatio, isDisabled, isElectricityAvailable, isInReversionaryMode, isInteractive, isOneParentDisabled, isOneParentHidden, isParentOf, isPrimary, isScrollable, isTransparent, isVisible, itemsToRead, killMainLoop, loadDocumentAttributes, loadURLAttributes, loadXMLConfig, loading, loadingText, localGrid, localgridColumn, localgridColumnEnd, localgridRow, localgridRowEnd, locked, mainLoop, mainLoopLoading, mustCheckCSSIsApplied, onActiveChildBlurred, onActiveChildFocused, onButtonSelected, onButtonUnselected, onEnableChange, onFlightStart, onGameStateChanged, onInteractionEvent, onKeyDown, onKeyUp, onLockedChange, onPowerOn, onQualityChanged, onShutDown, onSoundEnd, onVisibilityChange, pageSuffixName, parentLocked, parseURLAttributes, parseXMLConfig, playInstrumentSound, queryElement, querySelectorH, reboot, registerDefaultKeyEvents, removeCall, requestCall, selectDefaultButton, selectDefaultChildButton, setAnyData, setConfigFile, setInstrumentIdentifier, setJSONData, setVisible, shouldDispatchChildActive, spreadToChildren, startHighlight, stopHighlight, stopInstrumentSound, templateID, triggerEventToAllInstruments, triggerEventToInstrument, triggerEventToMultipleInstruments, unregisterDefaultKeyEvents, unspreadToChildren, updateAlwaysList, updateElectricity, updateHighlight, updateHighlightElements, updatePendingCalls, virtualScrollIntoView, wasTurnedOff
+  wasm-sim-canvas (WasmSimCanvas):
+      OnMouseDown, OnMouseEnter, OnMouseLeave, OnMouseOver, OnMouseUp, connectedCallback, constructor, disconnectedCallback, displayErrorMessage, onClick, onDblClick, onListenerRegistered, onMouseMove, onMouseWheel, onWasmGaugeNotFound, onWasmGaugeReady, onWasmModuleCrashed, onWasmModuleLoaded, onWasmModuleNotFound
+
+--- listeners ---
+  document: DOMContentLoaded, keydown, ResourceLoaded, DOMNodeInserted, mousemove, OnVCockpitPanelAttributesChanged, mouseup
+  instrument: mouseenter, mouseleave
+
+--- fetch ---
+  ok   status=200 len=379  coui://html_ui/Pages/VCockpit/Instruments/WasmInstrument/WasmInstrument.html
+  ok   status=200 len=379  /Pages/VCockpit/Instruments/WasmInstrument/WasmInstrument.html
+  ok   status=200 len=822  coui://html_ui/Pages/VCockpit/Instruments/WasmInstrument/WasmInstrument.js
+
+--- scripts referenced by the shell ---
+  /JS/WasmSimCanvas.js
+  /Pages/VCockpit/Instruments/WasmInstrument/WasmInstrument.js
+
+--- tokens in WasmInstrument.html ---
+  wasm-sim-canvas  x2
+      … <script type="text/html" id="WasmInstrument"> <div id="Mainframe"> <wasm-sim-canvas style="display: block; width:100%;height:100%;"></wasm-sim-canvas> </div> </script> …
+      … ="Mainframe"> <wasm-sim-canvas style="display: block; width:100%;height:100%;"></wasm-sim-canvas> </div> </script> <script type="text/html" import-script="/JS/WasmSimCanvas.js"> …
+
+--- tokens in WasmInstrument.html ---
+  wasm-sim-canvas  x2
+      … <script type="text/html" id="WasmInstrument"> <div id="Mainframe"> <wasm-sim-canvas style="display: block; width:100%;height:100%;"></wasm-sim-canvas> </div> </script> …
+      … ="Mainframe"> <wasm-sim-canvas style="display: block; width:100%;height:100%;"></wasm-sim-canvas> </div> </script> <script type="text/html" import-script="/JS/WasmSimCanvas.js"> …
+
+--- tokens in WasmInstrument.js ---
+  wasm-sim-canvas  x1
+      … { super.connectedCallback(); this.m_wasmSimCanvas = this.querySelector('wasm-sim-canvas'); this.m_wasmSimCanvas.m_wasmModuleName = this.urlConfig.wasmModule; t …
+
+--- referenced scripts ---
+  ok   status=200 len=6778  coui://html_ui/JS/WasmSimCanvas.js
+
+--- tokens in WasmSimCanvas.js ---
+  addEventListener  x9
+      … ent.style.width = "100%"; this.m_imgElement.style.height = "100%"; this.addEventListener("click", this.onClick.bind(this)); this.addEventListener("dblclick", this.onDblC …
+      … = "100%"; this.addEventListener("click", this.onClick.bind(this)); this.addEventListener("dblclick", this.onDblClick.bind(this)); this.addEventListener("mousemove", this …
+  mousedown  x1
+      … dEventListener("mousemove", this.onMouseMove.bind(this)); this.addEventListener("mousedown", this.OnMouseDown.bind(this)); this.addEventListener("mouseup", this.OnMouseUp. …
+  mouseup  x1
+      … dEventListener("mousedown", this.OnMouseDown.bind(this)); this.addEventListener("mouseup", this.OnMouseUp.bind(this)); this.addEventListener("mouseenter", this.OnMouseEn …
+  mousemove  x1
+      … addEventListener("dblclick", this.onDblClick.bind(this)); this.addEventListener("mousemove", this.onMouseMove.bind(this)); this.addEventListener("mousedown", this.OnMouseD …
+  click  x2
+      … "100%"; this.m_imgElement.style.height = "100%"; this.addEventListener("click", this.onClick.bind(this)); this.addEventListener("dblclick", this.onDblClick.bi …
+      … is.addEventListener("click", this.onClick.bind(this)); this.addEventListener("dblclick", this.onDblClick.bind(this)); this.addEventListener("mousemove", this.onMouseMo …
+  RegisterViewListener  x1
+      … .addEventListener("mousewheel", this.onMouseWheel.bind(this)); this.m_listener = RegisterViewListener("JS_LISTENER_WASM_MODULE", this.onListenerRegistered.bind(this)); } disconnecte …
+  Coherent.call  x10
+      … 0%"; this.m_divElement.style.height = "100%"; } onClick(_e) { Coherent.call("WASM_CLICK", parseInt(this.m_wasmInstrumentGUid), _e.clientX, _e.clientY, _e.button);  …
+      … nstrumentGUid), _e.clientX, _e.clientY, _e.button); } onDblClick(_e) { Coherent.call("WASM_DBL_CLICK", parseInt(this.m_wasmInstrumentGUid), _e.clientX, _e.clientY, _e.button) …
+  clientX  x10
+      … nClick(_e) { Coherent.call("WASM_CLICK", parseInt(this.m_wasmInstrumentGUid), _e.clientX, _e.clientY, _e.button); } onDblClick(_e) { Coherent.call("WASM_DBL_CL …
+      … ck(_e) { Coherent.call("WASM_DBL_CLICK", parseInt(this.m_wasmInstrumentGUid), _e.clientX, _e.clientY, _e.button); } onMouseMove(_e) { if ((_e.clientX != this.m …
+  MOUSE  x7
+      … X = _e.clientX; this.m_mouseY = _e.clientY; Coherent.call("WASM_MOUSE_MOVE", parseInt(this.m_wasmInstrumentGUid), _e.clientX, _e.clientY, _e.button);  …
+      … lientY, _e.button); } } OnMouseDown(_e) { Coherent.call("WASM_MOUSE_DOWN", parseInt(this.m_wasmInstrumentGUid), _e.clientX, _e.clientY, _e.button);  …
+  wasm-sim-canvas  x1
+      … rumentGUid), _e.clientX, _e.clientY, _e.deltaY); } } window.customElements.define("wasm-sim-canvas", WasmSimCanvas); //# sourceMappingURL=WasmSimCanvas.js.map …
+  ok   status=200 len=822  coui://html_ui/Pages/VCockpit/Instruments/WasmInstrument/WasmInstrument.js
+
+--- tokens in WasmInstrument.js ---
+  wasm-sim-canvas  x1
+      … { super.connectedCallback(); this.m_wasmSimCanvas = this.querySelector('wasm-sim-canvas'); this.m_wasmSimCanvas.m_wasmModuleName = this.urlConfig.wasmModule; t …
+
+--- read this as ---
+  addEventListener + clientX/offsetX in the shell  -> it takes DOM input;
+     synthetic pointer events at coordinates should reach the module.
+  CommBus/callWasm/Coherent.trigger with coordinates -> even better: we can
+     call that channel directly and skip DOM synthesis entirely.
+  neither -> the sim routes cockpit input to the gauge natively and no
+     DOM-level scheme reaches WASM instruments. A350/A400M/PMDG are out.
+
+  Full sources on window.__P01 — __P01.show('WasmInstrument'), __P01.find('mouse')

@@ -1,0 +1,6 @@
+page 79  VCockpit02 - DisplayUnits
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p02-capture.js   settle 900ms
+2026-08-30T11:30:26.623Z
+========================================================================
+[P02] listening on document + a22x-displayunits. Go click / hold / drag the panel in the cockpit, then run __P02.report()

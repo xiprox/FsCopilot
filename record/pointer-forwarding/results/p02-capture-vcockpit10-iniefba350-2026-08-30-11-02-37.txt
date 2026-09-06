@@ -1,0 +1,6 @@
+page 31  VCockpit10 - iniEfbA350
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p02-capture.js   settle 800ms
+2026-08-30T11:02:36.829Z
+========================================================================
+[P02] listening on document + ini-efb-a350. Go click / hold / drag the panel in the cockpit, then run __P02.report()

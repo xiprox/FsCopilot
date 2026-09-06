@@ -1,0 +1,67 @@
+page 79  VCockpit02 - DisplayUnits
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p08-environment.js   settle 1500ms
+2026-08-30T11:48:55.950Z
+========================================================================
+=========================================================
+P08  Coherent GT environment
+=========================================================
+document   VCockpit02 - DisplayUnits
+url        coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+userAgent  Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/604.1.38 (KHTML, like Gecko) Chrome/49.0.2623 Safari/604.1.38 CoherentGT/2.0
+platform   Win32   vendor=Apple Computer, Inc.
+viewport   7410x1110  dpr=1
+languages  en-us
+
+--- event constructors ---
+  have    Event, CustomEvent, MouseEvent, TouchEvent, WheelEvent, KeyboardEvent, InputEvent, FocusEvent, CompositionEvent, UIEvent, ProgressEvent, MessageEvent, ErrorEvent
+  MISSING PointerEvent, DragEvent
+
+--- pointer / touch support ---
+  have    document.elementFromPoint, document.hasFocus
+  MISSING navigator.maxTouchPoints, PointerEvent, document.elementsFromPoint, Element.prototype.setPointerCapture, Element.prototype.releasePointerCapture
+
+--- observers and DOM ---
+  have    MutationObserver, customElements, ShadowRoot, Element.prototype.attachShadow, Element.prototype.closest, Element.prototype.matches, Element.prototype.getBoundingClientRect, DOMRect, getComputedStyle, document.createNodeIterator, document.createTreeWalker
+  MISSING IntersectionObserver, ResizeObserver, PerformanceObserver, Node.prototype.isConnected
+
+--- network ---
+  have    fetch, XMLHttpRequest, WebSocket, EventSource, Request, Response, Headers, FormData, Blob, FileReader
+  MISSING navigator.sendBeacon, AbortController
+
+--- storage ---
+  have    localStorage, sessionStorage, document.cookie
+  MISSING indexedDB, caches
+
+--- timing and scheduling ---
+  have    requestAnimationFrame, cancelAnimationFrame, performance.now, setTimeout, setInterval, Promise, MessageChannel
+  MISSING requestIdleCallback, queueMicrotask, performance.getEntriesByType
+
+--- workers and isolation ---
+  have    postMessage
+  MISSING Worker, SharedWorker, navigator.serviceWorker, structuredClone, BroadcastChannel
+
+--- javascript builtins ---
+  have    Proxy, Reflect, Symbol, WeakMap, WeakSet, WeakRef, Map, Set, ArrayBuffer, SharedArrayBuffer, TextEncoder, TextDecoder, URL, URLSearchParams, crypto.getRandomValues, JSON.parse
+  MISSING FinalizationRegistry, BigInt, Intl
+
+--- language syntax ---
+  have    spread, arrow fn, async/await, generators, template literal, destructuring, Array.prototype.flat, globalThis
+  MISSING optional chaining a?.b, nullish ??, class fields, private fields, Array.prototype.at, Object.fromEntries, String.replaceAll, logical assignment ||=, numeric separators, Promise.allSettled
+
+--- MSFS globals ---
+  have    Coherent, SimVar, Include, RegisterViewListener, RegisterCommBusListener, Avionics, Simplane, GameState, EDITION_MODE, Utils, LaunchFlowEvent, checkAutoload, diffAndSetAttribute, diffAndSetStyle, StyleProperty
+  MISSING BaseInstrument, SimPlane, g_modelBehaviorsHelper, getIsapiUrl, DataStore
+
+--- Coherent surface ---
+  AddOrRemoveOnHandler, BindingsReady, IsAttached, RemoveOnHandler, SendMessage, TriggerEvent, _ActiveRequests, _BindingsReady, _Errors, _ForEachError, _MapErrors, _OnError, _OnReady, _OnWindowLoaded, _Register, _RequestId, _Result, _ThrowError, _TriggerError, _Unregister, _WindowLoaded, __defineGetter__, __defineSetter__, __lookupGetter__, __lookupSetter__, __proto__, _boundTypes, _createClear, _createInstance, _eventHandles, _removeEventThunk, _trigger, addModelChangeListener, attachToModel, beginEventRecording, beginProfileEvent, call, createJSModel, endEventRecording, endProfileEvent, events, eventsToDelete, extendModel, forceEnableMocking, getBoundModelForComponent, getComponent, getComponentInstance, hasOwnProperty, hideOverlay, isAttached, isPrototypeOf, isViewLoaded, merge, mock, off, on, onEventsReplayed, propertyIsEnumerable, registerComponent, reloadLocalization, removeModelChangeListener, replayEvents, saveEventRecord, showOverlay, stopReplayEvents, synchronizeModels, toLocaleString, toString, translate, trigger, triggerIterationRecDepth, unregisterComponent, updateWholeModel, valueOf
+
+--- FS Copilot bridge ---
+  fscListeners present — VCockpit.js is the patched copy
+  Hook class   present
+
+--- what this means for replay ---
+  PointerEvent MISSING -> dispatch MouseEvent only. Any framework handler
+     bound to onPointerDown is dead code in this engine.
+  TouchEvent MISSING   -> touch synthesis is not an option either.
+  elementFromPoint     -> present, which is what coordinate replay needs.

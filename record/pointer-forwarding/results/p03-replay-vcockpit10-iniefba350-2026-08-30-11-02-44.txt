@@ -1,0 +1,6 @@
+page 31  VCockpit10 - iniEfbA350
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p03-replay.js   settle 800ms
+2026-08-30T11:02:43.438Z
+========================================================================
+[P03] ready. __P03.arm() then click a control, then __P03.fire()

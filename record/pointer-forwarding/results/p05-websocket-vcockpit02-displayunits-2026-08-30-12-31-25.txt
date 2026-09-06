@@ -1,0 +1,33 @@
+page 79  VCockpit02 - DisplayUnits
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p05-websocket.js   settle 7000ms
+2026-08-30T12:31:18.329Z
+========================================================================
+=========================================================
+P05  loopback reachability from a cockpit document
+=========================================================
+document  VCockpit02 - DisplayUnits
+origin    coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+target    http://127.0.0.1:9002/ping  and  ws://127.0.0.1:9002/
+
+Make sure `npm run probe:05-server` is running, or every test below
+fails for the boring reason.
+
+[P05] WS recv  {"hello":"fsc-pointer-playground","probe":"p05"}
+  XHR      ok    status=200  body={"ok":true,"probe":"p05","at":1788093078369}
+  fetch    ok    status=200  body={"ok":true,"probe":"p05","at":1788093078378}
+  WS       OPEN — a cockpit document can hold a WebSocket to loopback
+
+--- read this as ---
+  WS OPEN                  -> Q08 yes. The 512-byte bus stops being a
+     constraint; interaction moves to a direct channel.
+  HTTP ok, WS blocked      -> loopback is allowed but sockets are not.
+     Long-poll or chunked HTTP is a fallback, but latency makes tier 3
+     doubtful. Widening the existing bus is then the better route.
+  all blocked              -> the Fenix EFB reaches localhost only
+     because it is an iframe with an http:// origin of its own; coui://
+     documents do not get the same permission. Stay on the bus.
+
+  Check the server window too — it logs an UPGRADED line on success,
+  which is proof independent of anything this side reports.
+[P05] WS recv  {"echo":"{\"probe\":\"p05\",\"from\":\"VCockpit02 - DisplayUnits\",\"at\":1788093078378}","at":1788093078396}

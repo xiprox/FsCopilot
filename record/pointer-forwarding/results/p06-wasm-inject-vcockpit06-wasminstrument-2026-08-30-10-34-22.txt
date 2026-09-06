@@ -1,0 +1,33 @@
+page 35  VCockpit06 - WasmInstrument
+url  coui://html_UI/Pages/VCockpit/Core/VCockpit.html
+probe p06-wasm-inject.js   settle 1500ms
+2026-08-30T10:34:20.780Z
+========================================================================
+=========================================================
+P06  injecting mouse events into a WASM gauge
+=========================================================
+title    VCockpit06 - WasmInstrument
+guid     94   (instrument Guid attribute)
+module   inibuilds-a350.wasm   gauge=mfd
+liveview WasmGaugeLiveView_9
+rect     x=0 y=0 w=1645 h=1028
+instr    WasmInstrument  interactive=true
+
+--- why this matters for the existing scheme ---
+  FS Copilot's replay builds `new MouseEvent(type, {bubbles, cancelable})`
+  with no clientX/clientY, so both default to 0. Those events DO reach
+  WasmSimCanvas and DO become WASM_MOUSE_DOWN — at (0, 0), the corner of
+  the screen. The A350 does not ignore FS Copilot's clicks. It receives
+  every one of them at the wrong place.
+
+--- inject at (823, 514)   dry run — suppressed
+  elementFromPoint  img  (the live-view img — events bubble to the canvas)
+  dispatched        mousedown, mouseup, click
+
+  Coherent.call intercepted:
+      WASM_MOUSE_DOWN(94, 823, 514, 0)
+      WASM_MOUSE_UP(94, 823, 514, 0)
+      WASM_CLICK(94, 823, 514, 0)
+
+      Coordinates arrived intact. This is the whole mechanism working:
+      a synthetic MouseEvent at (x, y) becomes WASM_MOUSE_DOWN(guid, x, y).
