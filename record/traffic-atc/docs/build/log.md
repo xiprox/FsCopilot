@@ -2,6 +2,57 @@
 
 Newest first. A negative result is a result.
 
+## 2026-09-06 · Stage 4, the card laid out and verified against a live sim
+
+Commits 8–9 on `ahead-traffic-atc`: the layout pass (581af52, committed unbuilt as WIP) and
+the round that followed review (af8fefc). The card is now what ships.
+
+**The layout pass built and ran clean the first time.** Feature rows pinned to 32 px so the
+card does not change height when a toggle is replaced by a "shared by" line; the amber
+other-AI-traffic warning left under the Traffic label; the ATC dropdown made to match the
+Client code TextBox; the toggle's negative right margin swallowing the Fluent content
+column. Verified on the two-instance bed against MSFS with FSLTL: A hosting 87 objects
+(poll 44–52 ms, change gate holding sends to ~20 % of samples) and capturing BeyondATC, B
+receiving all 87 with 0 failed, 0 fallback, 0 packet gaps, ATC playing out. The
+`--traffic-shadow 80` copy is what makes B show the amber warning, so that state is
+exercised rather than imagined.
+
+Then, on review, six changes — the reasoning is worth more than the diff:
+
+- **A feature is one line, not two.** The status was stacked under the label; it now sits
+  beside it. That is what let "Capturing" and "shared by wayne" share a style: once they
+  occupy the same slot, styling them differently is just noise. `ShareStatus` lost its
+  stacking top margin to the warning, which is the one status that still stacks.
+- **The status strings carried their own context and no longer need to.** "ATC audio —
+  shared by wayne" next to a label reading "ATC Audio" said it twice; the string is now
+  "shared by wayne". Likewise the capture status dropped the app name — the dropdown
+  immediately below it names the app.
+- **The 32 px row was right for features and wrong for the slider.** Centred in one, the
+  slider sat 36 px below the ATC label — measured off a screenshot, not eyeballed. It is
+  now the height of its own 16 px thumb, one 6 px content gap below the row, mute button
+  cut to match. The standard height was a real idea applied one row too far.
+- **The Onboard Traffic/ATC chips are gone.** The entry above records them as verified;
+  they were removed because the card already says who shares what. Their wiring went with
+  them — `Connection.HostsTraffic`/`HostsAtc` and `ShareViewModel.TrafficHostId`/`AtcHostId`
+  had no other readers.
+- Selected dropdown items take the switch/button blue outright instead of a 20 % tint, with
+  black text. The Fluent `ComboBoxItemForeground*` keys are set in `Style.Resources` *and*
+  a `ComboBoxItem:selected /template/ ContentPresenter` selector, because the resource key
+  names could not be confirmed against the packaged theme (its resources are compressed
+  inside the assembly — `strings` finds nothing).
+- Copy: "traffic sync issues" to "traffic issues".
+
+**The two-instance bed is scriptable, and the client code is not stable.** Rebuild, relaunch
+both, join, toggle and screenshot runs unattended, which makes a layout change roughly a
+20-second loop. One trap: the peer code is regenerated per run, not derived from the install
+directory, so a driver that pins the previous run's code silently fails to join — and the
+pair reconnected anyway, which made the failure look like success until the Onboard list
+was read. Read the code off the window each run.
+
+Settings note: a `settings.json` beside an older build can still hold `shareTraffic` /
+`shareAtc` keys. `Settings` has no such properties — they are ignored on load and dropped on
+the next write. The toggles are not persisted; a stale file is not evidence that they are.
+
 ## 2026-09-06 · Stage 4, audio and the card
 
 Commits 5–7 on `ahead-traffic-atc`: audio (f24c9ca), the ATC & Traffic card (6508a74),
