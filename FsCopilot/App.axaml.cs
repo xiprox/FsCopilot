@@ -34,6 +34,7 @@ public class App : Application
             {
                 _appCts.Cancel();
 
+                Locator.Current.GetService<ShareSwitch>()?.StopAll();
                 Locator.Current.GetService<INetwork>()?.Disconnect();
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
                 // Closing the traffic connection removes every AI object it created.

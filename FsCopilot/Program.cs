@@ -86,15 +86,26 @@ sealed class Program
                         //     : new HybridNetwork("p2p.fscopilot.com", peerId, name));
                         services.AddSingleton<MasterSwitch>();
                         services.AddSingleton<Coordinator>();
-                        services.AddSingleton(sp => new MainViewModel(
-                            peerId,
-                            name,
-                            sp.GetRequiredService<INetwork>(),
-                            sp.GetRequiredService<SimClient>(),
-                            sp.GetRequiredService<MasterSwitch>(),
-                            sp.GetRequiredService<Coordinator>(),
-                            sp.GetRequiredService<Updater>()
-                        ));
+                        // Registers the sharing packets; constructed after Coordinator so the
+                        // packet table is the same on every peer.
+                        services.AddSingleton(sp =>
+                        {
+                            sp.GetRequiredService<Coordinator>();
+                            return new ShareSwitch(peerId, sp.GetRequiredService<INetwork>());
+                        });
+                        services.AddSingleton(sp =>
+                        {
+                            sp.GetRequiredService<ShareSwitch>();
+                            return new MainViewModel(
+                                peerId,
+                                name,
+                                sp.GetRequiredService<INetwork>(),
+                                sp.GetRequiredService<SimClient>(),
+                                sp.GetRequiredService<MasterSwitch>(),
+                                sp.GetRequiredService<Coordinator>(),
+                                sp.GetRequiredService<Updater>()
+                            );
+                        });
                     }
                     else
                     {
