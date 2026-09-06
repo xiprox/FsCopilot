@@ -4,6 +4,7 @@ using System.Reflection;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Connection;
 using Network;
 using Simulation;
 using Splat;
@@ -33,6 +34,9 @@ public class App : Application
             {
                 _appCts.Cancel();
 
+                // Before the sockets drop: tell pointer-synced panels this was a quit, not
+                // a fault. They cannot tell from the close alone and would warn the pilot.
+                Locator.Current.GetService<PanelServer>()?.Shutdown();
                 Locator.Current.GetService<INetwork>()?.Disconnect();
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
             };

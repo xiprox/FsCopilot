@@ -7,6 +7,10 @@
  * Panel documents reload on view changes and the app may start after the sim, so
  * the socket reconnects on its own with backoff and re-identifies every hook.
  *
+ * A close alone cannot tell a deliberate app shutdown from a crash, so the app
+ * announces the deliberate one with a goodbye first and the close event carries
+ * which it was - the overlay policy for the two is not the same.
+ *
  * Coherent GT is Chrome 49: no optional chaining, no ??, no class fields.
  */
 class Channel extends Emitter {
@@ -21,6 +25,7 @@ class Channel extends Emitter {
         this._timer = null;
         this._confirmTimer = null;
         this._confirmed = false;
+        this._deliberate = false;  // the app said goodbye; the next close is not a fault
         this._stats = {sent: 0, received: 0, dropped: 0, reconnects: 0};
 
         this._connect();
@@ -95,6 +100,12 @@ class Channel extends Emitter {
             let msg;
             try { msg = JSON.parse(String(ev.data)); } catch (e) { return; }
             this._stats.received++;
+            // The app answers every hello, so any reply proves it is alive - and the
+            // goodbye is the last thing it ever sends. One assignment therefore both
+            // arms the flag on shutdown and spends it on any other traffic, which is
+            // what keeps a stale goodbye from silencing a later real break.
+            this._deliberate = !!msg && msg.t === 'bye';
+            if (this._deliberate) console.log('[FsCopilot] [Channel] App announced shutdown');
             this.dispatchEvent('message', msg);
         };
 
@@ -103,7 +114,7 @@ class Channel extends Emitter {
         ws.onclose = () => {
             this._ws = null;
             if (this._confirmTimer) { clearTimeout(this._confirmTimer); this._confirmTimer = null; }
-            this.dispatchEvent('close', null);
+            this.dispatchEvent('close', {deliberate: this._deliberate});
             this._portIndex++;
             this._schedule();
         };

@@ -40,8 +40,10 @@ class Hook {
                 if (this._pointerOwner && window.fscPointer && msg.msg) window.fscPointer.replay(msg.msg);
             }
         });
-        channel.addEventListener('close', () => {
-            if (this._pointerOwner && window.fscPointer) window.fscPointer.linkLost();
+        channel.addEventListener('close', (info) => {
+            if (this._pointerOwner && window.fscPointer) {
+                window.fscPointer.linkClosed(!!info && info.deliberate === true);
+            }
         });
 
         // Per-instrument sent/replayed/missed counters answer "which aircraft does

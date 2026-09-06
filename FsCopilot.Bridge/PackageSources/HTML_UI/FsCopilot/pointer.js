@@ -37,6 +37,13 @@ class Pointer {
         this._overlay = new Overlay(() => this._rect());
         this._overlayMuted = false;
         this._debugHold = false;
+        // The red warning speaks once per outage, then lingers out. Latched, because
+        // the channel keeps retrying and closes every few seconds while the app is
+        // down - without this, every retry would repaint it and the linger would
+        // never win. Cleared by a state renewal: the app is back, so a later break
+        // is a new outage and gets its own warning.
+        this._warned = false;
+        this._lostTimer = null;
         this._lastState = 0;
         this._session = 'none';
         this._role = 'master';
@@ -51,7 +58,7 @@ class Pointer {
         this._watchdog = setInterval(() => {
             if (this._debugHold || this._overlayMuted) return;
             if (this._lastState && Date.now() - this._lastState > Pointer.STATE_DEADMAN_MS) {
-                this._overlay.apply('lost');
+                this._showLost();
             }
         }, 2000);
 
@@ -60,6 +67,7 @@ class Pointer {
         window.fscUnlock = () => {
             this._overlayMuted = true;
             this._debugHold = false;
+            this._clearLostTimer();
             this._overlay.remove();
         };
 
@@ -106,6 +114,7 @@ class Pointer {
         this._replaying = 0;
         this._pendingDown = null;
         clearInterval(this._watchdog);
+        this._clearLostTimer();
         this._overlay.remove();
     }
 
@@ -115,6 +124,10 @@ class Pointer {
         this._session = session;
         this._role = role;
         this._lastState = Date.now();
+        // The app answered, so whatever outage there was is over: drop the linger and
+        // re-arm the warning for the next one.
+        this._warned = false;
+        this._clearLostTimer();
         if (this._debugHold) return; // a forced debug overlay outranks real state
         if (session === 'live' || session === 'none') this._overlayMuted = false;
 
@@ -128,11 +141,42 @@ class Pointer {
         else this._overlay.remove();
     }
 
-    /* The channel died: the app cannot lift a lock any more, so the blocking
-     * overlay must not stand. Show the non-blocking warning instead. */
-    linkLost() {
+    /* The channel closed. Either way the app can no longer lift a lock, so a
+     * blocking overlay must not stand - but the two ways it can close are not the
+     * same event. A deliberate app shutdown announces itself first (channel.js
+     * carries the flag through): that is not a fault and says nothing at all. An
+     * unannounced close is a broken link and warns, briefly. */
+    linkClosed(deliberate) {
         this._lastState = 0;
-        if (!this._overlayMuted && !this._debugHold) this._overlay.apply('lost');
+        if (this._overlayMuted || this._debugHold) return;
+        if (deliberate) {
+            this._clearLostTimer();
+            this._overlay.remove();
+            return;
+        }
+        this._showLost();
+    }
+
+    /* The red warning is a notice, not a state marker. It is non-blocking, but the
+     * veil still sits over an instrument the pilot has to read, and once it has been
+     * seen it has said everything it can: leaving it up for the rest of the flight
+     * costs more than it tells. Show it once per outage, then get out of the way. */
+    _showLost() {
+        if (this._warned) return;
+        this._warned = true;
+        this._overlay.apply('lost');
+        this._lostTimer = setTimeout(() => {
+            this._lostTimer = null;
+            // Only ever retracts its own warning: a state that arrived meanwhile
+            // (the app came back mid-linger) outranks it.
+            if (this._overlay.showing() === 'lost') this._overlay.remove();
+        }, Pointer.LOST_LINGER_MS);
+    }
+
+    _clearLostTimer() {
+        if (!this._lostTimer) return;
+        clearTimeout(this._lostTimer);
+        this._lostTimer = null;
     }
 
     /* Capture ----------------------------------------------------------------- */
@@ -389,3 +433,4 @@ Pointer.DRAG_MIN_STEP_PX = 2;   // ignore jitter between samples
 Pointer.DRAG_MAX_POINTS = 240;  // bounds the message; ~8s of dragging
 Pointer.DRAG_MAX_STEP_MS = 250; // a mid-drag pause replays as a bounded pause
 Pointer.STATE_DEADMAN_MS = 8000;
+Pointer.LOST_LINGER_MS = 10000;  // how long the red warning stands before retracting itself

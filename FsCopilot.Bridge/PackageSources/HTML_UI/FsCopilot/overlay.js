@@ -126,6 +126,10 @@ class Overlay {
     }
 
     has(name) { return Object.prototype.hasOwnProperty.call(Overlay.STATES, name); }
+
+    /* Which state is on screen, or null. Lets policy retract one specific overlay
+     * without stepping on a different one that replaced it meanwhile. */
+    showing() { return this._el ? this._name : null; }
 }
 
 /* The overlay states. block also decides the heartbeat: a live app renewing a
