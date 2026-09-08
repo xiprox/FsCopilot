@@ -22,12 +22,15 @@ sim, and reviewed by hand. Nothing about the card is outstanding.
 4. **Still untested:** fallback titles (helicopter, MSFS 2020); Tier 1 teardown beyond the
    session-end path, which is verified (leave → hosting stops on A, receiver clears on B,
    both cards disabled).
-5. **Relay (2026-09-08, see `docs/04-transport.md`).** The fork now speaks relay protocol v2,
-   which upstream's `p2p.fscopilot.com` does not: deploy `FsCopilot.Discovery` from this tree
-   to the fork's own host and put that host in `Program.RelayHost`. Until then a bed needs a
-   local relay (`dotnet run --project FsCopilot.Discovery -r win-x64 -p:SelfContained=false`)
-   and both instances started with `--relay localhost --no-direct`. Run the two-instance bed
-   that way once: traffic and ATC over the relay path have only been probed headlessly.
+5. **Relay (2026-09-08, see `docs/04-transport.md`).** The fork speaks relay protocol v2,
+   which upstream's `p2p.fscopilot.com` does not. The fork's own relay is deployed at
+   `fscrelay.ihsan.dev` (`record/self-hosted-relay/`) and is `Program.RelayHost`; a local one
+   runs with `dotnet run --project FsCopilot.Discovery -r win-x64 -p:SelfContained=false` and
+   `--relay localhost`. Run the two-instance bed once with both instances on `--no-direct`:
+   traffic and ATC over the relay path have only been probed headlessly (all four deliveries
+   100/100 through the deployed box). The relay is built from `ahead` and must be redeployed
+   when the relay protocol version changes; the packet table is checked client to client and
+   never touches the server.
 
 ## The two-instance bed
 

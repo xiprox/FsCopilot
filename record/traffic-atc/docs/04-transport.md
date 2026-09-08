@@ -59,10 +59,11 @@ events for every session on the box.
 The client has **no fallback**: against a v1 relay its framed `ConnectIntent` is read as
 control type 0, answered with one bare `PROTOCOL_ERROR`, which the client drops as frame type
 255, and no link forms. Measured: one error per intent, no storm, `NO LINK` after the 15 s
-timeout. So the fork's default relay must be one built from this tree — `Program.RelayHost`,
-still `p2p.fscopilot.com` with a TODO until the fork's own is deployed — and `--relay host`
-overrides it. `--no-direct` skips the direct attempt on every link, which is the only way two
-instances on one machine exercise the relay at all; both instances need it.
+timeout. So the fork's default relay must be one built from this tree: `Program.RelayHost`
+is `fscrelay.ihsan.dev`, deployed the same day from `ahead` `af557a1` (see
+`record/self-hosted-relay/`), and `--relay host` overrides it. `--no-direct` skips the direct
+attempt on every link, which is the only way two instances on one machine exercise the relay
+at all; both instances need it.
 
 ## Channels are ordering domains
 
@@ -177,6 +178,10 @@ server: CONNECT v=2 ×2, LINK UP, no CONTROL ?, no FRAME ?, no PROTOCOL_ERROR
 Same probe against a relay built from `main` (upstream's v1): `CONNECT` without `v`, one
 `PROTOCOL_ERROR` per intent, the client drops each as frame type 255, `NO LINK` at the 15 s
 timeout, no crash on either side.
+
+Same probe against the deployed `fscrelay.ihsan.dev` (167.99.157.219, NYC), from this machine
+over the internet: `mtu 1024` at connect, 100/100 of every delivery, 0 reordered, 8.5 s
+end to end including the 15 s-capped connect.
 
 Not yet run: the two-instance bed with `--relay localhost --no-direct` against a live sim —
 traffic objects spawning and ATC playing over the relay path — and the stop-redundancy under
