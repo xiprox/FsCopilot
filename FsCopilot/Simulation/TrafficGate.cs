@@ -8,14 +8,25 @@ namespace FsCopilot.Simulation;
 /// quiet period ended and does not stretch the first step of motion across it. At a busy gate
 /// this passes about a fifth of the samples. Each sample says whether it came from a change or
 /// from standing still, because the two mean opposite things to the receiver's playout delay.
+/// <para>
+/// The channel is unreliable, and the one loss that shows is an object's last sample: the next
+/// poll replaces a lost sample of a moving object inside the receiver's playout buffer, but a
+/// lost "stopped here" leaves the receiver extrapolating past the stop and holding there until
+/// the heartbeat. So the sample that ends a run of motion is sent again on the next
+/// <see cref="Repeats"/> polls, unchanged and marked quiet. A receiver that has it drops the
+/// copy as a duplicate of the same instant; one that lost it gets the stop where it happened.
+/// </para>
 /// </summary>
 public sealed class TrafficGate(TimeSpan heartbeat)
 {
+    public const int Repeats = 2;
+
     private readonly long _heartbeatMs = (long)heartbeat.TotalMilliseconds;
     private ObjectState? _sent;
     private long _sentAt;
     private ObjectState? _held;
     private long _heldAt;
+    private int _repeatsLeft;
 
     /// <summary>
     /// Decide what to send for this sample: nothing, the sample, or the held sample followed by
@@ -25,7 +36,7 @@ public sealed class TrafficGate(TimeSpan heartbeat)
     {
         if (_sent is not { } sent)
         {
-            Sent(sample, now);
+            Sent(sample, now, fresh: true);
             output[0] = (sample, 0, false);
             return 1;
         }
@@ -36,7 +47,11 @@ public sealed class TrafficGate(TimeSpan heartbeat)
         {
             _held = sample;
             _heldAt = now;
-            return 0;
+            if (_repeatsLeft == 0) return 0;
+            // The stop, again: the sent sample with its real age, so it lands on the same instant.
+            _repeatsLeft--;
+            output[0] = (sent, (ushort)Math.Min(now - _sentAt, ushort.MaxValue), true);
+            return 1;
         }
 
         var n = 0;
@@ -46,18 +61,20 @@ public sealed class TrafficGate(TimeSpan heartbeat)
         if (changed && _held is { } held && _heldAt > _sentAt)
             output[n++] = (held, (ushort)Math.Min(now - _heldAt, ushort.MaxValue), true);
         output[n++] = (sample, 0, !changed);
-        Sent(sample, now);
+        Sent(sample, now, fresh: changed);
         return n;
     }
 
     /// <summary>Make the next sample go out regardless; for a peer that joined late.</summary>
     public void ForceResend() => _sentAt = long.MinValue / 2;
 
-    private void Sent(in ObjectState sample, long now)
+    /// <param name="fresh">A sample the thresholds caught, or the first: the kind whose loss would show if it were the last.</param>
+    private void Sent(in ObjectState sample, long now, bool fresh)
     {
         _sent = sample;
         _sentAt = now;
         _held = null;
+        _repeatsLeft = fresh ? Repeats : 0;
     }
 
     public static bool Changed(in ObjectState a, in ObjectState b) =>

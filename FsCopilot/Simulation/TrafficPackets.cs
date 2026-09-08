@@ -171,15 +171,25 @@ public readonly record struct TrafficState(
 }
 
 /// <summary>
-/// A batch of states from one host. Unreliable, so it must stay under the MTU: at most
-/// <see cref="MaxPerPacket"/> states, which with the header is ~450 bytes against LiteNetLib's
-/// initial 508. <see cref="Seq"/> lets the receiver count gaps. <see cref="HostMs"/> is the
-/// host's clock at send time: the receiver estimates its offset from the least-delayed
-/// packets, so sample times are exact and network jitter only decides which packets are late.
+/// A batch of states from one host - everything one poll let through, split only where a packet
+/// would overrun the MTU. Unreliable, because the batches partition the objects between them:
+/// Sequenced would drop a whole batch of aircraft because a batch of *other* aircraft arrived
+/// first. Ordering is per object on the receiver, by sample time. <see cref="Seq"/> lets the
+/// receiver count gaps and drop duplicates. <see cref="HostMs"/> is the host's clock at send
+/// time: the receiver estimates its offset from the least-delayed packets, so sample times are
+/// exact and network jitter only decides which packets are late.
 /// </summary>
 public record TrafficStates(string Host, uint Seq, uint HostMs, TrafficState[] States)
 {
-    public const int MaxPerPacket = 10;
+    // Packet id, the 8-character peer id with its length byte, Seq, HostMs, count.
+    private const int HeaderBytes = 1 + 9 + 4 + 4 + 1;
+
+    /// <summary>
+    /// As many states as fit under the MTU floor: an unreliable packet is not fragmented, and
+    /// the batch is the whole poll's worth, so packet count is what this sets - and packet
+    /// count, not bytes, is what a relay pays for.
+    /// </summary>
+    public const int MaxPerPacket = (Transport.MaxUnreliablePayload - HeaderBytes) / TrafficState.Bytes;
 
     public class Codec : IPacketCodec<TrafficStates>
     {
