@@ -52,6 +52,9 @@ receiving every one with **0 failed, 0 fallback, 0 packet gaps, 0 duplicates** o
 consecutive 30 s windows, ~16 000 pose writes per window, ATC captured on A and playing on B.
 Both cards show `relay`, 150–175 ms RTT; `p2p.fscopilot.com` resolves to a different address
 and never saw a packet. The relay path that carried nothing this morning carries everything.
+By the user, at the sim: audio works; the shadow copies over the relay are "butter, better
+than BATC" — BeyondATC's own injected traffic, which is what the prototype's smoothness score
+was always measured against.
 
 Still to run: the repeated stop under injected loss.
 
