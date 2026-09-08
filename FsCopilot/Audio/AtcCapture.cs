@@ -26,7 +26,7 @@ public sealed class AtcCapture : IDisposable
     private readonly IOpusEncoder _encoder;
     private readonly short[] _frame = new short[FrameSamples];
     private readonly short[] _previous = new short[FrameSamples];
-    private readonly byte[] _encoded = new byte[1275];
+    private readonly byte[] _encoded = new byte[AtcFrame.MaxOpusBytes];
     private readonly Timer _mixer;
     private int _fill;
     private bool _havePrevious, _wasActive;

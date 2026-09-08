@@ -10,7 +10,7 @@ using System.Text.Json.Serialization;
 /// shortly after it happens. A file that cannot be read yields defaults, never a failure.
 /// Serialisation is source-generated so trimming cannot remove what it needs.
 /// </summary>
-public sealed class Settings
+public sealed class Settings : IDisposable
 {
     public static readonly string Path = System.IO.Path.Combine(AppContext.BaseDirectory, "settings.json");
     private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(500);
@@ -50,6 +50,13 @@ public sealed class Settings
             _pending ??= new Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
             _pending.Change(SaveDelay, Timeout.InfiniteTimeSpan);
         }
+    }
+
+    /// <summary>Write whatever is pending and stop the timer. For exit.</summary>
+    public void Dispose()
+    {
+        Flush();
+        lock (_lock) { _pending?.Dispose(); _pending = null; }
     }
 
     /// <summary>Write now. For exit, where a pending debounce would be lost.</summary>

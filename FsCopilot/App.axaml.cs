@@ -35,13 +35,14 @@ public class App : Application
                 _appCts.Cancel();
 
                 Locator.Current.GetService<ShareSwitch>()?.StopAll();
+                Locator.Current.GetService<ViewModels.ShareViewModel>()?.Dispose();
                 Locator.Current.GetService<Audio.AtcHost>()?.Dispose();
                 Locator.Current.GetService<Audio.AtcReceiver>()?.Dispose();
                 Locator.Current.GetService<INetwork>()?.Disconnect();
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
                 // Closing the traffic connection removes every AI object it created.
                 Locator.Current.GetService<SimTraffic>()?.Dispose();
-                Locator.Current.GetService<Settings>()?.Flush();
+                Locator.Current.GetService<Settings>()?.Dispose();
             };
             
             var args = desktop.Args ?? [];

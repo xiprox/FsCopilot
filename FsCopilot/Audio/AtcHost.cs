@@ -23,7 +23,6 @@ public sealed class AtcHost : IDisposable
     private readonly CompositeDisposable _d = new();
     private readonly BehaviorSubject<Status> _status = new(new Status(Phase.Waiting, null, false));
     private readonly BehaviorSubject<IReadOnlyList<AtcApps.App>> _detected = new([]);
-    private readonly BehaviorSubject<IReadOnlyList<AtcApps.App>> _sessions = new([]);
     private readonly Lock _lock = new();
     private AtcCapture? _capture;
     private string? _captureExe;
@@ -34,12 +33,16 @@ public sealed class AtcHost : IDisposable
 
     /// <summary>Exe name the user picked, or null for whichever known app is running. A preference, not a lock.</summary>
     public string? PreferredApp { get; set; }
-    /// <summary>While true, <see cref="Sessions"/> is refreshed: the "Other…" list is open.</summary>
-    public bool ShowSessions { get; set; }
 
     public IObservable<Status> CurrentStatus => _status.DistinctUntilChanged();
     public IObservable<IReadOnlyList<AtcApps.App>> Detected => _detected;
-    public IObservable<IReadOnlyList<AtcApps.App>> Sessions => _sessions;
+
+    /// <summary>
+    /// Every process that is making sound, for the "Other…" list. Enumerating them is expensive
+    /// enough not to want it on a timer, so it is asked for once, when the user opens the list.
+    /// Call it off the UI thread.
+    /// </summary>
+    public IReadOnlyList<AtcApps.App> ListAudioSessions() => AtcApps.AudioSessionProcesses();
 
     public AtcHost(INetwork net, ShareSwitch share, Settings settings)
     {
@@ -67,7 +70,6 @@ public sealed class AtcHost : IDisposable
         Detach();
         _status.OnCompleted();
         _detected.OnCompleted();
-        _sessions.OnCompleted();
     }
 
     /// <summary>The app that would be, or is being, captured right now.</summary>
@@ -75,8 +77,7 @@ public sealed class AtcHost : IDisposable
     {
         if (PreferredApp is { } preferred)
         {
-            var p = AtcApps.Oldest(preferred);
-            if (p is not null) return new AtcApps.App(preferred, p.Id, preferred);
+            if (AtcApps.Oldest(preferred) is { } pid) return new AtcApps.App(preferred, pid, preferred);
         }
         return detected.Count > 0 ? detected[0] : null;
     }
@@ -87,7 +88,6 @@ public sealed class AtcHost : IDisposable
         {
             var detected = AtcApps.DetectedKnown();
             _detected.OnNext(detected);
-            if (ShowSessions) _sessions.OnNext(AtcApps.AudioSessionProcesses());
 
             lock (_lock)
             {
@@ -95,9 +95,7 @@ public sealed class AtcHost : IDisposable
 
                 if (_capture is { } capture)
                 {
-                    bool exited;
-                    try { exited = Process.GetProcessById(capture.Pid).HasExited; }
-                    catch { exited = true; }
+                    var exited = !AtcApps.IsAlive(capture.Pid);
                     var target = Target(detected);
                     if (!exited && target?.Pid == capture.Pid)
                     {

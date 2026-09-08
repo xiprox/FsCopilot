@@ -18,6 +18,11 @@ public sealed class TrafficHost : IDisposable
     private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan LiveryWait = TimeSpan.FromSeconds(2);
     private const int StatsEveryMs = 30_000;
+    // A poll that has not answered inside this is not going to; until then the tick waits rather
+    // than stacking a second poll on a sim that has already said it is busy.
+    private const int PollTimeoutMs = 2000;
+    private const int PollTypes = 3;         // aircraft, helicopter, ground
+    private const int PollGenerations = 8;   // 8 x 500 ms: a reply is dropped after 4 s, not misfiled
 
     private sealed class Tracked
     {
@@ -51,6 +56,8 @@ public sealed class TrafficHost : IDisposable
     private readonly Dictionary<uint, Tracked> _tracked = new();
     private readonly HashSet<uint> _seenThisPoll = [];
     private readonly Dictionary<uint, Poll> _polls = new();
+    private int _generation;
+    private long _pollStartedAt;
     // States waiting to go out, each with the moment it was read: a batch is stamped when it
     // is sent, and the sample's age must count from the read, not from the send, or every
     // segment inherits the poll's 0-90 ms of scatter as a speed wobble.
@@ -58,7 +65,7 @@ public sealed class TrafficHost : IDisposable
     private ushort _nextIndex;
     private uint _seq;
     private long _lastStatsAt;
-    private int _samplesSeen, _samplesSent, _pollsDone, _pollsIncomplete;
+    private int _samplesSeen, _samplesSent, _pollsDone, _pollsIncomplete, _pollsSkipped;
     private double _pollMsSum, _pollMsMax;
 
     public TrafficHost(SimTraffic sim, INetwork net, ShareSwitch share, TrafficReceiver receiver, TrafficOptions opts)
@@ -109,10 +116,24 @@ public sealed class TrafficHost : IDisposable
 
     // -- polling ----------------------------------------------------------------------------
 
+    /// <summary>
+    /// One poll at a time. A poll that completes clears itself, so anything still in
+    /// <see cref="_polls"/> here is genuinely outstanding and the tick stands down instead of
+    /// asking a busy sim the same question twice.
+    /// </summary>
     private void PollTick(SimConnect sim)
     {
         var now = _clock.ElapsedMilliseconds;
-        FinishPoll(now, forced: true);
+        if (_polls.Count > 0)
+        {
+            if (now - _pollStartedAt < PollTimeoutMs) { _pollsSkipped++; return; }
+            // Abandoned. An incomplete poll says nothing about who is gone, so there is no diff;
+            // its request ids stay retired for the rest of the generation cycle, so a reply that
+            // arrives late is dropped rather than counted against its successor.
+            _pollsIncomplete++;
+            _polls.Clear();
+            Flush();
+        }
         StartPoll(sim, now);
         if (now - _lastStatsAt >= StatsEveryMs) Stats(now);
     }
@@ -121,31 +142,23 @@ public sealed class TrafficHost : IDisposable
     {
         _polls.Clear();
         _seenThisPoll.Clear();
-        Request(sim, TrafficReq.PollAircraft, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT, now);
-        Request(sim, TrafficReq.PollHelicopter, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER, now);
-        if (_opts.Ground) Request(sim, TrafficReq.PollGround, SIMCONNECT_SIMOBJECT_TYPE.GROUND, now);
+        _generation = (_generation + 1) % PollGenerations;
+        _pollStartedAt = now;
+        Request(sim, 0, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT, now);
+        Request(sim, 1, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER, now);
+        if (_opts.Ground) Request(sim, 2, SIMCONNECT_SIMOBJECT_TYPE.GROUND, now);
     }
 
-    private void Request(SimConnect sim, TrafficReq req, SIMCONNECT_SIMOBJECT_TYPE type, long now)
+    private void Request(SimConnect sim, int typeIndex, SIMCONNECT_SIMOBJECT_TYPE type, long now)
     {
+        var req = (TrafficReq)((uint)TrafficReq.PollBase + (uint)(_generation * PollTypes + typeIndex));
         _polls[(uint)req] = new Poll { StartedAt = now };
         _sim.Call(sim, $"Poll {type}", s => s.RequestDataOnSimObjectType(req, TrafficDef.State, RadiusMeters, type));
     }
 
-    /// <summary>Close the poll in flight: objects that did not appear in a complete poll are gone.</summary>
-    private void FinishPoll(long now, bool forced)
+    /// <summary>Every type has answered: objects that did not appear in it are gone.</summary>
+    private void FinishPoll(long now)
     {
-        if (_polls.Count == 0) return;
-        if (!_polls.Values.All(p => p.Complete))
-        {
-            if (!forced) return;
-            // An incomplete poll says nothing about who is gone; skip the diff.
-            _pollsIncomplete++;
-            _polls.Clear();
-            Flush();
-            return;
-        }
-
         foreach (var (id, tracked) in _tracked.ToArray())
         {
             if (_seenThisPoll.Contains(id)) continue;
@@ -193,11 +206,11 @@ public sealed class TrafficHost : IDisposable
 
         if (tracked.Identity is not null && !tracked.IsUser)
         {
-            Span<(ObjectState State, ushort AgeMs)> decided = stackalloc (ObjectState, ushort)[2];
+            Span<(ObjectState State, ushort AgeMs, bool Quiet)> decided = stackalloc (ObjectState, ushort, bool)[2];
             var n = tracked.Gate.Decide(in st, now, decided);
             for (var i = 0; i < n; i++)
             {
-                _batch.Add((TrafficState.From(in decided[i].State, decided[i].AgeMs) with { Index = tracked.Index }, now));
+                _batch.Add((TrafficState.From(in decided[i].State, decided[i].AgeMs, decided[i].Quiet) with { Index = tracked.Index }, now));
                 _samplesSent++;
                 if (_batch.Count >= TrafficStates.MaxPerPacket) Flush();
             }
@@ -214,7 +227,7 @@ public sealed class TrafficHost : IDisposable
         _pollMsSum += ms;
         _pollMsMax = Math.Max(_pollMsMax, ms);
         _pollsDone++;
-        if (_polls.Values.All(p => p.Complete)) FinishPoll(now, forced: false);
+        if (_polls.Values.All(p => p.Complete)) FinishPoll(now);
     }
 
     // -- identity ---------------------------------------------------------------------------
@@ -312,9 +325,9 @@ public sealed class TrafficHost : IDisposable
     {
         _lastStatsAt = now;
         var objects = _tracked.Values.Count(t => t.Identity is not null);
-        Log.Debug("[Traffic] host: {Objects} objects, polls {Polls} (avg {Avg:0.0} ms, max {Max:0} ms, {Incomplete} incomplete), sent {Sent}/{Seen} samples ({Pct:0}%)",
-            objects, _pollsDone, _pollsDone > 0 ? _pollMsSum / _pollsDone : 0, _pollMsMax, _pollsIncomplete,
+        Log.Debug("[Traffic] host: {Objects} objects, polls {Polls} (avg {Avg:0.0} ms, max {Max:0} ms, {Skipped} skipped, {Incomplete} abandoned), sent {Sent}/{Seen} samples ({Pct:0}%)",
+            objects, _pollsDone, _pollsDone > 0 ? _pollMsSum / _pollsDone : 0, _pollMsMax, _pollsSkipped, _pollsIncomplete,
             _samplesSent, _samplesSeen, _samplesSeen > 0 ? 100.0 * _samplesSent / _samplesSeen : 0);
-        _pollsDone = 0; _pollsIncomplete = 0; _pollMsSum = 0; _pollMsMax = 0; _samplesSeen = 0; _samplesSent = 0;
+        _pollsDone = 0; _pollsIncomplete = 0; _pollsSkipped = 0; _pollMsSum = 0; _pollMsMax = 0; _samplesSeen = 0; _samplesSent = 0;
     }
 }

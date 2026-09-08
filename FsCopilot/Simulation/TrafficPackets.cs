@@ -62,7 +62,9 @@ public record TrafficIdentity(
 /// One object's pose and animation state, in real units. <see cref="AgeMs"/> is how old the
 /// sample already was when the host sent it: 0 for a fresh one, the quiet time for the sample
 /// re-sent ahead of a change, so the receiver can place both on its own clock without ever
-/// needing the host's.
+/// needing the host's. <see cref="Quiet"/> says the sample is not evidence of motion - it is a
+/// heartbeat, or the held sample re-sent ahead of a change - so the receiver can tell the gap
+/// between two samples of a moving object from the gap either side of an object standing still.
 /// </summary>
 public readonly record struct TrafficState(
     ushort Index,
@@ -82,6 +84,7 @@ public readonly record struct TrafficState(
     double RotY,
     double RotZ,
     bool OnGround,
+    bool Quiet,
     byte GearPct,
     byte FlapsIndex,
     byte Lights,
@@ -92,11 +95,11 @@ public readonly record struct TrafficState(
     public int EngineCount => Engines >> 4 & 7;
     public int EngineMask => Engines & 0xF;
 
-    public static TrafficState From(in ObjectState s, ushort age) => new(
+    public static TrafficState From(in ObjectState s, ushort age, bool quiet) => new(
         0, age,
         s.Lat, s.Lon, s.Alt, s.HeadingTrue, s.Pitch, s.Bank, s.GroundSpeed, s.VerticalSpeed,
         s.VelBodyX, s.VelBodyY, s.VelBodyZ, s.RotX, s.RotY, s.RotZ,
-        s.OnGround != 0,
+        s.OnGround != 0, quiet,
         (byte)Math.Clamp(Math.Round(s.GearHandle * 100), 0, 100),
         (byte)Math.Clamp(s.FlapsIndex, 0, 255),
         (byte)s.LightMask,
@@ -129,35 +132,40 @@ public readonly record struct TrafficState(
         bw.Write(I16(s.RotX * 1000));
         bw.Write(I16(s.RotY * 1000));
         bw.Write(I16(s.RotZ * 1000));
-        bw.Write((byte)(s.OnGround ? 1 : 0));
+        bw.Write((byte)((s.OnGround ? 1 : 0) | (s.Quiet ? 2 : 0)));
         bw.Write(s.GearPct);
         bw.Write(s.FlapsIndex);
         bw.Write(s.Lights);
         bw.Write(s.Engines);
     }
 
-    internal static TrafficState Read(BinaryReader br) => new(
-        br.ReadUInt16(),
-        br.ReadUInt16(),
-        br.ReadInt32() / 1e7,
-        br.ReadInt32() / 1e7,
-        br.ReadSingle(),
-        br.ReadUInt16() / 100.0,
-        br.ReadInt16() / 100.0,
-        br.ReadInt16() / 100.0,
-        br.ReadInt16() / 10.0,
-        br.ReadInt16(),
-        br.ReadInt16() / 10.0,
-        br.ReadInt16() / 10.0,
-        br.ReadInt16() / 10.0,
-        br.ReadInt16() / 1000.0,
-        br.ReadInt16() / 1000.0,
-        br.ReadInt16() / 1000.0,
-        br.ReadByte() != 0,
-        br.ReadByte(),
-        br.ReadByte(),
-        br.ReadByte(),
-        br.ReadByte());
+    internal static TrafficState Read(BinaryReader br)
+    {
+        // Read in field order and only then construct: the flags byte carries two fields, and an
+        // argument list that unpacked it in place would be leaning on evaluation order to stay
+        // in step with Write.
+        var index = br.ReadUInt16();
+        var age = br.ReadUInt16();
+        var lat = br.ReadInt32() / 1e7;
+        var lon = br.ReadInt32() / 1e7;
+        var alt = (double)br.ReadSingle();
+        var hdg = br.ReadUInt16() / 100.0;
+        var pitch = br.ReadInt16() / 100.0;
+        var bank = br.ReadInt16() / 100.0;
+        var gs = br.ReadInt16() / 10.0;
+        var vs = (double)br.ReadInt16();
+        var vbX = br.ReadInt16() / 10.0;
+        var vbY = br.ReadInt16() / 10.0;
+        var vbZ = br.ReadInt16() / 10.0;
+        var rotX = br.ReadInt16() / 1000.0;
+        var rotY = br.ReadInt16() / 1000.0;
+        var rotZ = br.ReadInt16() / 1000.0;
+        var flags = br.ReadByte();
+        return new TrafficState(
+            index, age, lat, lon, alt, hdg, pitch, bank, gs, vs, vbX, vbY, vbZ, rotX, rotY, rotZ,
+            (flags & 1) != 0, (flags & 2) != 0,
+            br.ReadByte(), br.ReadByte(), br.ReadByte(), br.ReadByte());
+    }
 
     private static short I16(double v) => (short)Math.Clamp(Math.Round(v), short.MinValue, short.MaxValue);
 }

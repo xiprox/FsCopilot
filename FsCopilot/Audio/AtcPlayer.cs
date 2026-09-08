@@ -6,8 +6,8 @@ using NAudio.Wave;
 
 /// <summary>
 /// The receiver's audio pipeline: a jitter buffer ordered by the host's sequence numbers,
-/// Opus with packet-loss concealment for gaps, and WASAPI shared-mode output on the default
-/// device. A talkspurt starts playing once 60 ms is buffered and ends when the buffer runs
+/// Opus with packet-loss concealment for gaps, and WASAPI shared-mode output that follows the
+/// default device. A talkspurt starts playing once 60 ms is buffered and ends when the buffer runs
 /// dry, which is simply the host's gate having closed.
 /// </summary>
 public sealed class AtcPlayer : IDisposable
@@ -15,6 +15,7 @@ public sealed class AtcPlayer : IDisposable
     public const int BufferMs = 60;
     public const int OutputLatencyMs = 50;
     private const int FrameMs = 20;
+    private const int DeviceCheckMs = 2000;
 
     private readonly IOpusDecoder _decoder;
     private readonly short[] _pcm = new short[AtcCapture.FrameSamples];
@@ -26,6 +27,7 @@ public sealed class AtcPlayer : IDisposable
     private BufferedWaveProvider _out;
     private VolumeWaveProvider16 _volume;
     private WasapiOut? _player;
+    private string? _deviceId;      // the endpoint the current output was opened on
     private volatile bool _stop;
     private bool _playing;
     private uint _next;
@@ -88,6 +90,7 @@ public sealed class AtcPlayer : IDisposable
         {
             using var devices = new MMDeviceEnumerator();
             var device = devices.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            _deviceId = device.ID;
             _player = new WasapiOut(device, AudioClientShareMode.Shared, true, OutputLatencyMs);
             _player.Init(_volume);
             _player.Play();
@@ -104,16 +107,46 @@ public sealed class AtcPlayer : IDisposable
     {
         try { _player?.Stop(); _player?.Dispose(); } catch { /* ignore */ }
         _player = null;
+        _deviceId = null;
+    }
+
+    /// <summary>
+    /// True when the default output is no longer the endpoint we opened. Unplugging a device
+    /// raises an error and heals itself through the playback catch; merely changing which device
+    /// is default does not - WASAPI keeps rendering happily into the old one, so the only way to
+    /// find out is to look. The card has no device picker, so nobody could correct it by hand.
+    /// </summary>
+    private bool DefaultDeviceChanged()
+    {
+        if (_deviceId is null) return false;
+        try
+        {
+            using var devices = new MMDeviceEnumerator();
+            using var device = devices.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            return device.ID != _deviceId;
+        }
+        catch { return false; }   // no default device at all: leave the output alone
     }
 
     private void Loop()
     {
         var nextTick = _clock.ElapsedMilliseconds;
         var lastRetry = 0L;
+        var lastDeviceCheck = _clock.ElapsedMilliseconds;
         while (!_stop)
         {
             var now = _clock.ElapsedMilliseconds;
             if (_player is null && now - lastRetry > 2000) { lastRetry = now; Open(); }
+            else if (_player is not null && now - lastDeviceCheck > DeviceCheckMs)
+            {
+                lastDeviceCheck = now;
+                if (DefaultDeviceChanged())
+                {
+                    Log.Information("[Atc] The default output changed; moving playback to it");
+                    Close();
+                    Open();
+                }
+            }
             if (now >= nextTick)
             {
                 nextTick += FrameMs;

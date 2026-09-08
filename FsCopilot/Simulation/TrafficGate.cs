@@ -6,7 +6,8 @@ namespace FsCopilot.Simulation;
 /// insurance on an unreliable channel, not a rate. When a change follows a run of suppressed
 /// samples, the last suppressed one goes first with its own age, so the receiver knows when the
 /// quiet period ended and does not stretch the first step of motion across it. At a busy gate
-/// this passes about a fifth of the samples.
+/// this passes about a fifth of the samples. Each sample says whether it came from a change or
+/// from standing still, because the two mean opposite things to the receiver's playout delay.
 /// </summary>
 public sealed class TrafficGate(TimeSpan heartbeat)
 {
@@ -20,12 +21,12 @@ public sealed class TrafficGate(TimeSpan heartbeat)
     /// Decide what to send for this sample: nothing, the sample, or the held sample followed by
     /// the sample. Ages are relative to <paramref name="now"/>.
     /// </summary>
-    public int Decide(in ObjectState sample, long now, Span<(ObjectState State, ushort AgeMs)> output)
+    public int Decide(in ObjectState sample, long now, Span<(ObjectState State, ushort AgeMs, bool Quiet)> output)
     {
         if (_sent is not { } sent)
         {
             Sent(sample, now);
-            output[0] = (sample, 0);
+            output[0] = (sample, 0, false);
             return 1;
         }
 
@@ -39,9 +40,12 @@ public sealed class TrafficGate(TimeSpan heartbeat)
         }
 
         var n = 0;
+        // The held sample is where the object stopped being still, not a step of motion, so it
+        // is marked quiet; so is a heartbeat. Only a sample the thresholds caught says anything
+        // about how fast this object is being sampled while it moves.
         if (changed && _held is { } held && _heldAt > _sentAt)
-            output[n++] = (held, (ushort)Math.Min(now - _heldAt, ushort.MaxValue));
-        output[n++] = (sample, 0);
+            output[n++] = (held, (ushort)Math.Min(now - _heldAt, ushort.MaxValue), true);
+        output[n++] = (sample, 0, !changed);
         Sent(sample, now);
         return n;
     }

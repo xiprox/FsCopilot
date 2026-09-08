@@ -26,13 +26,15 @@ internal enum TrafficDef : uint
 
 internal enum TrafficReq : uint
 {
-    PollAircraft = 1,
-    PollHelicopter,
-    PollGround,
     Identity = 10,
     Livery,
     Liveries,
     Foreign = 20,
+    // The poll's request id carries which poll asked, because the reply carries nothing else:
+    // SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE has no send id and no timestamp, so a straggler from
+    // an abandoned poll is otherwise indistinguishable from a reply to the one that replaced it.
+    // Layout: PollBase + generation * PollTypes + type, generations cycling.
+    PollBase = 100,
     // Per-object requests carry the host's u16 object index above these bases.
     CreateBase = 1000,
     ReleaseBase = 70000,

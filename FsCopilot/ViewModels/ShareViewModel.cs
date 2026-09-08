@@ -35,6 +35,10 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
     private AtcAppItem? _selectedAtcApp;
     private bool _syncingSelection;
     private IDisposable? _noticeTimer;
+    private IReadOnlyList<Audio.AtcApps.App> _detectedApps = [];
+    // The "Other…" list, held only while it is on screen; null is the short list of known apps.
+    private IReadOnlyList<Audio.AtcApps.App>? _sessionApps;
+    private bool _dropDownOpen, _loadingSessions;
 
     public sealed record AtcAppItem(string Label, string? Exe, bool IsOther)
     {
@@ -109,12 +113,12 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
 
         share.Lost
             .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(feature =>
+            .Subscribe(lost =>
             {
-                var who = feature == ShareSwitch.Feature.Traffic ? _trafficHost : _atcHostPeer;
-                if (feature == ShareSwitch.Feature.Traffic) { _trafficOn = false; this.RaisePropertyChanged(nameof(TrafficOn)); }
+                var traffic = lost.Feature == ShareSwitch.Feature.Traffic;
+                if (traffic) { _trafficOn = false; this.RaisePropertyChanged(nameof(TrafficOn)); }
                 else { _atcOn = false; this.RaisePropertyChanged(nameof(AtcOn)); }
-                Notice = $"{Name(who)} is already sharing {(feature == ShareSwitch.Feature.Traffic ? "traffic" : "ATC audio")}.";
+                Notice = $"{Name(lost.Host)} is already sharing {(traffic ? "traffic" : "ATC audio")}.";
             })
             .DisposeWith(_d);
 
@@ -131,9 +135,14 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
             .DisposeWith(_d);
 
         atcHost.Detected
-            .CombineLatest(atcHost.Sessions, (detected, sessions) => (detected, sessions))
             .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(x => RebuildApps(x.detected, x.sessions))
+            .Subscribe(detected =>
+            {
+                _detectedApps = detected;
+                // Never rearrange a list the user is looking at: an item can move out from under
+                // the pointer, and the expanded list is a snapshot they asked for by name.
+                if (!_dropDownOpen && _sessionApps is null) RebuildApps();
+            })
             .DisposeWith(_d);
     }
 
@@ -213,11 +222,7 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
         set
         {
             if (_syncingSelection || value is null || value == _selectedAtcApp) return;
-            if (value.IsOther)
-            {
-                _atcHost.ShowSessions = true;   // the list refills with every process that makes sound
-                return;
-            }
+            if (value.IsOther) { LoadSessions(); return; }
             _selectedAtcApp = value;
             this.RaisePropertyChanged();
             _atcHost.PreferredApp = value.Exe;
@@ -226,11 +231,56 @@ public sealed class ShareViewModel : ReactiveObject, IDisposable
         }
     }
 
-    private void RebuildApps(IReadOnlyList<Audio.AtcApps.App> detected, IReadOnlyList<Audio.AtcApps.App> sessions)
+    /// <summary>
+    /// The dropdown's own state, bound both ways. Closing it puts the list back to the known
+    /// apps, so "Other…" is a look at what is making sound now rather than a mode to get out of.
+    /// </summary>
+    public bool AtcDropDownOpen
     {
+        get => _dropDownOpen;
+        set
+        {
+            if (_dropDownOpen == value) return;
+            _dropDownOpen = value;
+            this.RaisePropertyChanged();
+            // Picking "Other…" closes the dropdown before the list has loaded; that close is
+            // ours, not the user giving up, so it must not collapse what is about to open.
+            if (!value && !_loadingSessions && _sessionApps is not null) { _sessionApps = null; RebuildApps(); }
+        }
+    }
+
+    /// <summary>
+    /// "Other…": read every sound-making process once, off the UI thread, then show the list and
+    /// open the dropdown again on top of it.
+    /// </summary>
+    private void LoadSessions()
+    {
+        if (_loadingSessions) return;
+        _loadingSessions = true;
+        Observable.Start(() => _atcHost.ListAudioSessions(), TaskPoolScheduler.Default)
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(
+                sessions =>
+                {
+                    _loadingSessions = false;
+                    _sessionApps = sessions;
+                    RebuildApps();
+                    AtcDropDownOpen = true;
+                },
+                e =>
+                {
+                    _loadingSessions = false;
+                    Log.Warning(e, "[Atc] Could not list the audio sessions");
+                })
+            .DisposeWith(_d);
+    }
+
+    private void RebuildApps()
+    {
+        var detected = _detectedApps;
         var items = new List<AtcAppItem>();
         foreach (var app in detected) items.Add(new AtcAppItem(app.Label, app.Exe, false));
-        if (_atcHost.ShowSessions)
+        if (_sessionApps is { } sessions)
         {
             foreach (var app in sessions)
                 if (items.All(i => i.Exe != app.Exe)) items.Add(new AtcAppItem(app.Label, app.Exe, false));

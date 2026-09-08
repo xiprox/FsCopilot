@@ -205,6 +205,7 @@
                         <ComboBox Classes="Share"
                                   IsVisible="{Binding Share.AtcOn}"
                                   ItemsSource="{Binding Share.AtcApps}"
+                                  IsDropDownOpen="{Binding Share.AtcDropDownOpen, Mode=TwoWay}"
                                   SelectedItem="{Binding Share.SelectedAtcApp}" />
 
                         <DockPanel Classes="VolumeRow"

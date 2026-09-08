@@ -174,7 +174,29 @@ public sealed class ProcessLoopback : IDisposable
     {
         _stop = true;
         try { _client.Stop(); } catch { /* ignore */ }
-        if (_thread.IsAlive) _thread.Join(500);
+        // This runs whenever the captured app exits or stops being the target, not only at
+        // shutdown. If the loop is still inside WaitOne when the handle goes it throws on a
+        // thread with no handler, which ends the process; leaking one event is the better
+        // failure. The loop wakes at least every 100 ms, so the wait is generous.
+        var stopped = !_thread.IsAlive || _thread.Join(TimeSpan.FromSeconds(2));
+        if (!stopped)
+        {
+            Log.Warning("[Atc] The loopback thread did not stop; leaving its handle and COM objects alone");
+            return;
+        }
         _event.Dispose();
+        // Nothing else releases these, and a session that loses and regains its ATC app goes
+        // round this more than once.
+        Release(_capture);
+        Release(_client);
+    }
+
+    static void Release(object com)
+    {
+        // The whole class is Windows-only by way of Mmdevapi, but a P/Invoke says so to nobody;
+        // this is the one call the platform analyser can see, so the check is for its benefit.
+        if (!OperatingSystem.IsWindows()) return;
+        try { if (Marshal.IsComObject(com)) Marshal.FinalReleaseComObject(com); }
+        catch (Exception e) { Log.Debug(e, "[Atc] Could not release a loopback COM object"); }
     }
 }

@@ -9,7 +9,12 @@ using Network;
 /// </summary>
 public record AtcFrame(string Host, uint Seq, byte[] Opus)
 {
-    public const int MaxOpusBytes = 1275;   // the codec's own maximum for one frame
+    // Opus allows 1275 bytes per frame, but this is an unreliable packet and LiteNetLib does not
+    // fragment those: over the MTU it throws instead of sending. The wire header is 16 bytes (id,
+    // an 8-character peer id, Seq, Len), so this keeps the packet inside the same 480-byte budget
+    // the state batches use against LiteNetLib's 508-byte initial MTU. At 24 kbps VBR a 20 ms
+    // frame is around 60 bytes, so the ceiling is headroom, never a constraint on quality.
+    public const int MaxOpusBytes = 460;
 
     public class Codec : IPacketCodec<AtcFrame>
     {

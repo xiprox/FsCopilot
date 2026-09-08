@@ -10,8 +10,12 @@ namespace FsCopilot.Simulation;
 public sealed class TrafficInterpolator
 {
     // How far behind the newest sample the render point sits: a slowly adapting average of the
-    // sample spacing plus slack for a late one. It must not follow the spacing of any single
-    // pair - that would move the render point every time a sample arrived, a visible jump.
+    // spacing of the samples that came from motion, plus slack for a late one. It must not follow
+    // the spacing of any single pair - that would move the render point every time a sample
+    // arrived, a visible jump. An object that has only ever been still has no estimate at all and
+    // renders at zero delay, which is right: there is nothing to interpolate between. The first
+    // sample of real motion seeds it, and seeding it then is free, because the poses either side
+    // of that instant are the same one.
     public const int JitterMarginMs = 200;
     public const int MinSpacingMs = 50;
     public const int MaxSpacingMs = 1500;
@@ -24,7 +28,14 @@ public sealed class TrafficInterpolator
     private readonly List<(long T, TrafficState S)> _samples = new(8);
     private double _delayMs;        // what the render point uses; slewed towards the target
     private double _targetDelayMs;  // the smoothed spacing plus margin
-    private const double DelaySlewPerRenderMs = 0.25;   // ~8 ms per second at 30 fps: never felt
+    // The two directions are not the same problem, so they do not get the same rate. Growing the
+    // delay late is harmless - the object is simply buffered a little longer. Shrinking it late is
+    // not: until it has shrunk, the object goes on being drawn where it was. Shrinking shows up as
+    // a speed error while it lasts (60 ms of catch-up per second of real time is 6 %, well under
+    // what anyone sees on traffic), and it sheds the worst case - a second of delay left over from
+    // a burst of packet loss - in about seventeen seconds rather than two minutes.
+    private const double DelayGrowPerRenderMs = 0.25;     // ~8 ms per second at 30 fps: never felt
+    private const double DelayShrinkPerRenderMs = 2.0;    // ~60 ms per second: a smooth catch-up
     private DriveState _last;
     private bool _hasLast;
 
@@ -37,9 +48,16 @@ public sealed class TrafficInterpolator
         {
             var last = _samples[^1];
             if (sampleTimeMs <= last.T) return false;   // older, or a duplicate: a zero-length segment would poison the delay
-            var spacing = Math.Clamp(sampleTimeMs - last.T, MinSpacingMs, MaxSpacingMs) + JitterMarginMs;
-            if (_targetDelayMs == 0) _targetDelayMs = _delayMs = spacing;
-            else _targetDelayMs += (spacing - _targetDelayMs) * DelaySmoothing;
+            // Spacing is only evidence when the sample came from motion. A heartbeat, or the held
+            // sample re-sent ahead of a change, measures how long the object stood still: five
+            // seconds at a gate, which would drag the render point a second and a half into the
+            // past and leave it there for the whole pushback.
+            if (!s.Quiet)
+            {
+                var spacing = Math.Clamp(sampleTimeMs - last.T, MinSpacingMs, MaxSpacingMs) + JitterMarginMs;
+                if (_targetDelayMs == 0) _targetDelayMs = _delayMs = spacing;
+                else _targetDelayMs += (spacing - _targetDelayMs) * DelaySmoothing;
+            }
         }
         _samples.Add((sampleTimeMs, s));
         if (_samples.Count > MaxSamples) _samples.RemoveAt(0);
@@ -53,7 +71,7 @@ public sealed class TrafficInterpolator
         if (_samples.Count < 2) return false;
 
         // Follow the target a fraction of a millisecond per frame: the render point never jumps.
-        _delayMs += Math.Clamp(_targetDelayMs - _delayMs, -DelaySlewPerRenderMs, DelaySlewPerRenderMs);
+        _delayMs += Math.Clamp(_targetDelayMs - _delayMs, -DelayShrinkPerRenderMs, DelayGrowPerRenderMs);
         var renderTime = nowMs - (long)_delayMs;
         // Samples behind the render point are only needed as the start of the bracketing pair.
         while (_samples.Count > 2 && _samples[1].T <= renderTime) _samples.RemoveAt(0);

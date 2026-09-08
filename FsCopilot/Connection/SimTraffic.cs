@@ -55,9 +55,12 @@ public sealed class SimTraffic : IDisposable
     public event Action<SimConnect, SIMCONNECT_RECV_SIMOBJECT_DATA>? ObjectData;
     public event Action<SimConnect, SIMCONNECT_RECV_ASSIGNED_OBJECT_ID>? Assigned;
     public event Action<SimConnect, SIMCONNECT_RECV_ENUMERATE_SIMOBJECT_AND_LIVERY_LIST>? Liveries;
-    /// <summary>Once per sim frame, with the sim's frame rate. Events can arrive in batches when
-    /// the sim outpaces this thread, so a handler pacing motion per frame should count frames
-    /// rather than read the clock.</summary>
+    /// <summary>Once per sim frame, with the sim's frame rate. Several can arrive in one
+    /// <c>ReceiveMessage</c> when the sim outpaces this thread, and they are then all for frames
+    /// already rendered: real time has passed once, not once per event. So a handler pacing
+    /// motion reads the wall clock and treats the extra invocations as redundant - counting
+    /// frames, or stepping a clock by the reported frame rate, advances motion several steps for
+    /// one interval of real time and drifts (see TrafficReceiver.Render).</summary>
     public event Action<SimConnect, float>? Frame;
     /// <summary>(name given to <see cref="Call"/>, the exception, the datum index the sim blamed).</summary>
     public event Action<string, SIMCONNECT_EXCEPTION, uint>? Exception;

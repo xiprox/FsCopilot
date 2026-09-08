@@ -25,7 +25,7 @@ public sealed class ShareSwitch : IDisposable
     private readonly SortedSet<string>[] _claims = [new(StringComparer.Ordinal), new(StringComparer.Ordinal)];
     private readonly bool[] _want = new bool[2];
     private readonly BehaviorSubject<string?>[] _host = [new(null), new(null)];
-    private readonly Subject<Feature> _lost = new();
+    private readonly Subject<(Feature Feature, string Host)> _lost = new();
     private readonly Subject<string> _peerJoined = new();
     private HashSet<string> _known = [];
     private readonly CompositeDisposable _d = new();
@@ -36,8 +36,13 @@ public sealed class ShareSwitch : IDisposable
     public IObservable<string?> Host(Feature f) => _host[(int)f].DistinctUntilChanged().ObserveOn(TaskPoolScheduler.Default);
     public string? CurrentHost(Feature f) => _host[(int)f].Value;
     public bool IsHosting(Feature f) => CurrentHost(f) == SelfId;
-    /// <summary>We claimed a feature and lost the tie-break; the toggle should revert.</summary>
-    public IObservable<Feature> Lost => _lost.ObserveOn(TaskPoolScheduler.Default);
+    /// <summary>
+    /// We claimed a feature and lost the tie-break; the toggle should revert. Carries who won,
+    /// because the host observable is a separate chain with no ordering against this one - a
+    /// subscriber that went looking for the winner in its own copy of the host would as often
+    /// as not find the value from before the claim.
+    /// </summary>
+    public IObservable<(Feature Feature, string Host)> Lost => _lost.ObserveOn(TaskPoolScheduler.Default);
     /// <summary>A peer id seen for the first time; hosts re-send what a late joiner missed.</summary>
     public IObservable<string> PeerJoined => _peerJoined.ObserveOn(TaskPoolScheduler.Default);
 
@@ -104,6 +109,14 @@ public sealed class ShareSwitch : IDisposable
     private void Apply(ShareHost p)
     {
         if (p.Peer == SelfId) return;
+        // The schema handshake means both peers run this build, so a feature we do not know is
+        // not something that happens - but it arrives on the network thread and would index
+        // past the end of the claim table, so it is refused rather than trusted.
+        if (p.Feature is not (Feature.Traffic or Feature.Atc))
+        {
+            Log.Warning("[Share] {Peer} claimed unknown feature {Feature}", p.Peer, (byte)p.Feature);
+            return;
+        }
         lock (_lock)
         {
             var claims = _claims[(int)p.Feature];
@@ -141,13 +154,13 @@ public sealed class ShareSwitch : IDisposable
     {
         var i = (int)f;
         var host = Min(f);
-        if (_want[i] && host != SelfId)
+        if (_want[i] && host is { } winner && winner != SelfId)
         {
             _want[i] = false;
             _claims[i].Remove(SelfId);
-            Log.Information("[Share] {Peer} already shares {Feature}; standing down", host, f);
+            Log.Information("[Share] {Peer} already shares {Feature}; standing down", winner, f);
             Send(new ShareHost(SelfId, f, false));
-            _lost.OnNext(f);
+            _lost.OnNext((f, winner));
             host = Min(f);
         }
         if (_host[i].Value != host)

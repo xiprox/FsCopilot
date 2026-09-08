@@ -52,7 +52,12 @@ public sealed class TrafficReceiver : IDisposable
     private readonly Dictionary<uint, Live> _bySim = new();
     private readonly HashSet<uint> _own = [];
     private readonly Dictionary<ushort, (long Arrival, TrafficState State)> _pending = new();
+    // The installed titles, and whether the enumeration that fills them has finished. A partial
+    // set is worse than none: a title in the part that has not arrived yet reads as "not
+    // installed here", and the fallback that decision picks is permanent for that object.
     private HashSet<string>? _knownTitles;
+    private int _liveryEnumsOpen;
+    private bool _titlesComplete;
     // Replay window over the host's batch sequence: the relay can deliver a batch twice, and
     // Unreliable delivery can reorder. A duplicate or a late straggler older than the window
     // is dropped here so it never reaches the interpolator or the delay estimate.
@@ -93,9 +98,12 @@ public sealed class TrafficReceiver : IDisposable
             s.MapClientEventToSimEvent(EVT.FreezeAlt, "FREEZE_ALTITUDE_SET");
             s.MapClientEventToSimEvent(EVT.FreezeAtt, "FREEZE_ATTITUDE_SET");
             _knownTitles = null;
+            _titlesComplete = false;
+            _liveryEnumsOpen = 0;
             if (sim.IsMsfs2024)
             {
                 _knownTitles = [];
+                _liveryEnumsOpen = 2;
                 s.EnumerateSimObjectsAndLiveries(TrafficReq.Liveries, SIMCONNECT_SIMOBJECT_TYPE.AIRCRAFT);
                 s.EnumerateSimObjectsAndLiveries(TrafficReq.Liveries, SIMCONNECT_SIMOBJECT_TYPE.HELICOPTER);
             }
@@ -238,7 +246,7 @@ public sealed class TrafficReceiver : IDisposable
         var id = live.Identity;
         var title = id.Title;
         var livery = id.Livery;
-        if (live.Fallback || (_knownTitles is { Count: > 0 } known && !known.Contains(title)))
+        if (live.Fallback || (_titlesComplete && _knownTitles is { } known && !known.Contains(title)))
         {
             var fallback = TrafficFallbacks.For(id.Category, _sim.IsMsfs2024);
             if (fallback is null) { live.Failed = true; live.FailedAt = _clock.ElapsedMilliseconds; return; }
@@ -479,8 +487,15 @@ public sealed class TrafficReceiver : IDisposable
         foreach (var entry in list.rgData)
             if (entry is SIMCONNECT_ENUMERATE_SIMOBJECT_LIVERY livery && !string.IsNullOrEmpty(livery.AircraftTitle))
                 _knownTitles.Add(livery.AircraftTitle);
-        if (list.dwEntryNumber >= list.dwOutOf - 1)
+        // dwEntryNumber is zero-based, and an empty list reports dwOutOf = 0. Both enumerations
+        // must land before the set can be used to judge a title missing; until then Create sends
+        // the real title and the sim's own exception drives the fallback, as it does on 2020.
+        if (list.dwOutOf != 0 && list.dwEntryNumber + 1 < list.dwOutOf) return;
+        if (_liveryEnumsOpen > 0 && --_liveryEnumsOpen == 0)
+        {
+            _titlesComplete = true;
             Log.Debug("[Traffic] {Count} aircraft titles installed", _knownTitles.Count);
+        }
     }
 
     private void OnException(string call, SIMCONNECT_EXCEPTION ex, uint index)
