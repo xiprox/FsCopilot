@@ -17,10 +17,10 @@ sealed class Program
 {
     /// <summary>
     /// The relay and STUN host. The fork speaks relay protocol v2 (see <see cref="RelayNetwork"/>),
-    /// which upstream's <c>p2p.fscopilot.com</c> does not, so this must be a relay built from this
-    /// tree; <c>--relay host</c> overrides it for a local one.
+    /// which upstream's <c>p2p.fscopilot.com</c> does not, so this is the fork's own, built from
+    /// this tree (record/self-hosted-relay); <c>--relay host</c> overrides it for a local one.
     /// </summary>
-    private const string RelayHost = "p2p.fscopilot.com";   // TODO: the fork's own relay, once deployed
+    private const string RelayHost = "fscrelay.ihsan.dev";
 
     [STAThread]
     public static void Main(string[] args)
