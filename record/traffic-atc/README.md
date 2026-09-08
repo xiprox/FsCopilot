@@ -28,6 +28,7 @@ capture kept in the repository: every measured number came from it.
 | `docs/index.md` | The map. Start here. |
 | `docs/01-design.md` | The proposal. Stable, amended by pointer only. |
 | `docs/02-open-questions.md` | The register of assumptions still to be tested. Updated in place. |
+| `docs/04-transport.md` | The relay protocol v2 and the channel plan: why the unreliable streams needed them, and what the relay costs at scale. |
 | `docs/build/plan.md` | What is being run, in what order, and where it stands. Live. |
 | `docs/build/log.md` | Findings as they happen. Newest at the top. |
 | `tools/` | The single-machine prototype: reader, injector, audio loop. |

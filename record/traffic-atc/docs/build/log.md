@@ -2,6 +2,51 @@
 
 Newest first. A negative result is a result.
 
+## 2026-09-08 · Unreliable never crossed the relay; relay protocol v2, channels, budgets
+
+Three commits on `ahead-traffic-atc`: 842475b the round after review that had been sitting
+uncommitted (quiet samples, poll generations, handle hygiene, the tie-break carrying its
+winner); 956e04d relay protocol v2 and `Transport`; 22dbddd the MTU floor and the repeated
+stop. The design is written up as [04-transport.md](../04-transport.md); this entry is what
+was found and measured.
+
+**Traffic states and ATC audio never reached a relay peer.** A review of the branch found it
+and it was verified against LiteNetLib 1.3.1 itself: `DeliveryMethod.Unreliable` has a
+one-byte header with no channel in it, so every unreliable packet arrived at the relay as
+channel 0 — the control channel — and was answered with a reliable `PROTOCOL_ERROR`, ~54 a
+second per peer while ATC was hosted. The one-machine bed missed it because both instances
+also held direct links and `HybridNetwork` sends on both: the relay copies vanished silently
+and the direct copies carried every test. **Correction to the 2026-09-06 entry**: the "quarter
+of state batches dropped over the relay" was measured on that bed, i.e. on the direct path,
+where the shared Sequenced ordering domain is just as real. The number stands; the
+attribution does not.
+
+**The relay now reads a frame type byte, not a channel number.** The alternative of routing
+on `method == Unreliable` — no wire change, works today — was put to the user and rejected as
+the same kind of rule that had just failed. Per-peer protocol version from the connect token,
+both versions served, never linked; no client fallback, so a fork build against upstream's
+relay fails cleanly at connect. Verified with a headless probe: 100/100 of every `Delivery`
+through a relay built from this tree, 0 reordered; against a relay built from `main`, one
+`PROTOCOL_ERROR` per intent and `NO LINK`, no storm.
+
+**Four channels, named for ordering, not features.** The concrete reason found on the way:
+a peer joining gets ~130 traffic identities on the reliable channel, and ReliableOrdered is
+head-of-line blocking, so every cockpit `Update` waited behind them. `Delivery.Bulk` for the
+identities; `ShareHost` goes with them because the receiver learns the host from it and drops
+identities from a host it does not know — the two must stay in wire order.
+
+**The 508-byte MTU was stale.** 1.3.1 starts at 1024 and the client now logs it on connect.
+Batches carry 23 states instead of 10; the audio limit derives from the same constant.
+
+**The stop is repeated.** The only unreliable loss that shows is an object's last sample —
+600 ms of overshoot held until the heartbeat — so the gate re-sends it on the next two polls,
+marked quiet. The receiver already refuses a sample at or before its newest, so a copy that
+was not needed costs nothing.
+
+Still to run: the two-instance bed over `--relay localhost --no-direct` against a live sim;
+the repeated stop under injected loss; `Program.RelayHost` is a TODO until the fork's own
+relay is deployed.
+
 ## 2026-09-06 · Stage 4, the card laid out and verified against a live sim
 
 Commit 8 on `ahead-traffic-atc`: the card's layout (62a61a2), the pass and the round that

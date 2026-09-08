@@ -27,5 +27,6 @@ It is live and it moves.
 | [01-design](01-design.md) | The proposal: what is read, what is sent, what is injected, who is allowed to share, and why each choice. |
 | [02-open-questions](02-open-questions.md) | Every assumption the design rests on that has not been tested, numbered so the log can settle them. |
 | [03-implementation-plan](03-implementation-plan.md) | How the prototype becomes FS Copilot code: decisions locked with the user, packets, file-by-file design, order of work, verification tiers, risks. |
+| [04-transport](04-transport.md) | Why Unreliable never crossed the relay, the relay protocol v2 that carries it, channels as ordering domains, delivery per stream, the MTU floor, and what the relay costs at scale. |
 | [build/plan](build/plan.md) | The prototype stages, each with the questions it exists to answer and an exit criterion. |
 | [build/log](build/log.md) | Findings, newest first. |

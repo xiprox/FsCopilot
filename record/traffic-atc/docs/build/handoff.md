@@ -22,6 +22,12 @@ sim, and reviewed by hand. Nothing about the card is outstanding.
 4. **Still untested:** fallback titles (helicopter, MSFS 2020); Tier 1 teardown beyond the
    session-end path, which is verified (leave → hosting stops on A, receiver clears on B,
    both cards disabled).
+5. **Relay (2026-09-08, see `docs/04-transport.md`).** The fork now speaks relay protocol v2,
+   which upstream's `p2p.fscopilot.com` does not: deploy `FsCopilot.Discovery` from this tree
+   to the fork's own host and put that host in `Program.RelayHost`. Until then a bed needs a
+   local relay (`dotnet run --project FsCopilot.Discovery -r win-x64 -p:SelfContained=false`)
+   and both instances started with `--relay localhost --no-direct`. Run the two-instance bed
+   that way once: traffic and ATC over the relay path have only been probed headlessly.
 
 ## The two-instance bed
 

@@ -4,6 +4,11 @@
     Depends:  01-design.md as amended by build/log.md; every decision in the table below.
     Status:   Approved by the user 2026-09-06. Amended by pointer only, like the design.
 
+> Amended 2026-09-08 by [04-transport.md](04-transport.md): the transport paragraphs below
+> ("rides on `INetwork` unchanged", "more channels is not an option", the 508-byte MTU in the
+> `INetwork.cs` note) are superseded. Unreliable did not survive the relay at all; the relay
+> protocol, the channel plan and the packet budgets are as 04 says.
+
 ## Context
 
 A shared cockpit today carries the aircraft but not what it flies among: the AI traffic an ATC
