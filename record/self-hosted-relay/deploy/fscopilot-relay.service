@@ -1,0 +1,76 @@
+# FS Copilot discovery server (STUN + relay).
+#
+# Install to /etc/systemd/system/fscopilot-relay.service
+# See ../docs/03-runbook.md for the surrounding steps.
+
+[Unit]
+Description=FS Copilot discovery server (STUN 3480/udp, relay 3600/udp)
+Documentation=https://github.com/xiprox/FsCopilot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=fscopilot
+Group=fscopilot
+WorkingDirectory=/opt/fscopilot
+ExecStart=/opt/fscopilot/p2p_serv
+
+# The stats WebSocket and health endpoint are not used by the desktop client
+# (see docs/01-service-inventory.md), so Kestrel is bound to loopback. Reach it
+# with:  ssh -L 2320:127.0.0.1:2320 <server>
+# To publish it, change this and put a TLS reverse proxy in front - never expose
+# Kestrel directly.
+Environment=ASPNETCORE_URLS=http://127.0.0.1:2320
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_BUNDLE_EXTRACT_BASE_DIR=/var/lib/fscopilot/extract
+
+# Workstation GC. The Web SDK defaults to Server GC, which reserves per-core
+# heaps sized against total RAM - wasteful on a 1-vCPU/512 MB droplet, and this
+# workload allocates almost nothing per packet anyway (ForwardToLinkedPeers
+# rents from ArrayPool). Drop this line on a larger box; it costs nothing there
+# but buys nothing either.
+Environment=DOTNET_gcServer=0
+
+Restart=always
+RestartSec=5s
+
+# Logs go to the journal: the discovery server's Serilog config is console-only.
+StandardOutput=journal
+StandardError=journal
+
+# --- Hardening ---------------------------------------------------------------
+# Both listeners are above 1024, so no CAP_NET_BIND_SERVICE is required and the
+# capability set can be emptied entirely.
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+
+# AF_NETLINK is required: .NET enumerates network interfaces on Linux through it,
+# and LiteNetLib does so when setting up dual-stack sockets. Dropping it produces
+# a startup failure that looks like a bind error.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+# ProtectSystem=strict leaves the whole filesystem read-only; StateDirectory
+# carves out /var/lib/fscopilot, owned by the service user, for the single-file
+# host's extraction dir.
+StateDirectory=fscopilot
+
+# Do NOT set MemoryDenyWriteExecute - the .NET JIT requires W^X and the service
+# will not start with it enabled.
+
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
