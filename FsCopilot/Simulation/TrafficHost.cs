@@ -163,7 +163,7 @@ public sealed class TrafficHost : IDisposable
         {
             if (_seenThisPoll.Contains(id)) continue;
             _tracked.Remove(id);
-            if (tracked.Identity is not null) Send(new TrafficRemove(_share.SelfId, tracked.Index), reliable: true);
+            if (tracked.Identity is not null) Send(new TrafficRemove(_share.SelfId, tracked.Index), Delivery.Bulk);
         }
         _polls.Clear();
         Flush();
@@ -263,7 +263,7 @@ public sealed class TrafficHost : IDisposable
             raw.Title ?? "", tracked.Livery, raw.AtcId ?? "", raw.AtcAirline ?? "", raw.AtcFlightNumber ?? "", raw.AtcModel ?? "",
             TrafficIdentity.CategoryOf(raw.Category ?? ""));
         tracked.Raw = null;
-        Send(tracked.Identity, reliable: true);
+        Send(tracked.Identity, Delivery.Bulk);
         Log.Debug("[Traffic] + {Index} {Title} [{Tail}]", tracked.Index, tracked.Identity.Title, tracked.Identity.Tail);
     }
 
@@ -274,7 +274,7 @@ public sealed class TrafficHost : IDisposable
         foreach (var tracked in _tracked.Values)
         {
             if (tracked.Identity is null) continue;
-            Send(tracked.Identity, reliable: true);
+            Send(tracked.Identity, Delivery.Bulk);
             tracked.Gate.ForceResend();
             n++;
         }
@@ -293,16 +293,21 @@ public sealed class TrafficHost : IDisposable
             var (state, readAt) = _batch[i];
             states[i] = state with { AgeMs = (ushort)Math.Min(state.AgeMs + (now - readAt), ushort.MaxValue) };
         }
-        Send(new TrafficStates(_share.SelfId, _seq++, (uint)now, states), reliable: false);
+        Send(new TrafficStates(_share.SelfId, _seq++, (uint)now, states), Delivery.Unreliable);
         _batch.Clear();
     }
 
-    private void Send<T>(T packet, bool reliable) where T : notnull
+    /// <summary>
+    /// Identities and removes are <see cref="Delivery.Bulk"/>: they must arrive, in order, and a
+    /// peer joining gets every identity at once - a burst that must not hold the cockpit's own
+    /// packets behind it. States are <see cref="Delivery.Unreliable"/>: batches partition the
+    /// objects, so Sequenced would drop one batch for the arrival of another (measured at a
+    /// quarter of them when they shared the physics stream's ordering), and the receiver orders
+    /// per object by sample time anyway.
+    /// </summary>
+    private void Send<T>(T packet, Delivery delivery) where T : notnull
     {
-        // States carry their own sequence numbers, so they go Unreliable rather than Sequenced:
-        // on a shared sequenced channel a state arriving after a newer physics packet is dropped,
-        // which over a relay was a quarter of them.
-        try { _net.SendAll(packet, reliable ? Delivery.Reliable : Delivery.Unreliable); }
+        try { _net.SendAll(packet, delivery); }
         catch (Exception e) { Log.Error(e, "[Traffic] Could not send {Packet}", typeof(T).Name); }
     }
 

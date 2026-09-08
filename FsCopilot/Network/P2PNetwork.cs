@@ -45,7 +45,8 @@ public sealed class P2PNetwork : INetwork, IDisposable
         {
             NatPunchEnabled = true,
             UnconnectedMessagesEnabled = true,
-            DisconnectTimeout = 15000
+            DisconnectTimeout = 15000,
+            ChannelsCount = Transport.ChannelsCount
         };
         _net.NatPunchModule.Init(_natListener);
 
@@ -210,7 +211,7 @@ public sealed class P2PNetwork : INetwork, IDisposable
     private void OnConnectionSuccess(NetPeer peer)
     {
         var peerId = peer.Tag as string ?? string.Empty;
-        Log.Debug("[Peer2Peer] CON {Peer} -> {Address}", peerId, new IPEndPoint(peer.Address, peer.Port));
+        Log.Debug("[Peer2Peer] CON {Peer} -> {Address} (mtu {Mtu})", peerId, new IPEndPoint(peer.Address, peer.Port), peer.Mtu);
 
         if (!string.IsNullOrEmpty(peerId) && _connectWaiters.TryGetValue(peerId, out var tcs))
             tcs.TrySetResult(ConnectionResult.Success);
@@ -365,15 +366,9 @@ public sealed class P2PNetwork : INetwork, IDisposable
     {
         var data = _codecs.Encode(packet);
         if (data.Length == 0) return;
-        _net.SendToAll(data, Method(delivery));
+        var (channel, method) = Transport.Map(delivery);
+        _net.SendToAll(data, channel, method);
     }
-
-    internal static DeliveryMethod Method(Delivery delivery) => delivery switch
-    {
-        Delivery.Sequenced => DeliveryMethod.Sequenced,
-        Delivery.Unreliable => DeliveryMethod.Unreliable,
-        _ => DeliveryMethod.ReliableOrdered
-    };
 
     public IObservable<TPacket> Stream<TPacket>() =>
         ((IObservable<TPacket>)_streams.GetOrAdd(typeof(TPacket), _ => new Subject<TPacket>()))

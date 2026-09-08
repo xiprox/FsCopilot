@@ -49,11 +49,19 @@ internal sealed class Codecs
         return codec is not null;
     }
 
-    public byte[] Encode<TPacket>(TPacket packet) where TPacket: notnull
+    public byte[] Encode<TPacket>(TPacket packet) where TPacket: notnull => Encode(packet, null);
+
+    /// <summary>
+    /// Encode with one byte ahead of the packet id - the relay's frame type - so the whole frame
+    /// is still one allocation. <see cref="Decode"/> reads from wherever the reader stands, so
+    /// the receiver takes the prefix off first and decodes as usual.
+    /// </summary>
+    public byte[] Encode<TPacket>(TPacket packet, byte? prefix) where TPacket: notnull
     {
         if (!TryGet<TPacket>(out var packetId, out var codec)) return [];
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms, Encoding.UTF8, true);
+        if (prefix is { } p) bw.Write(p);
         bw.Write(packetId);
         codec.Encode(packet, bw);
         bw.Flush();

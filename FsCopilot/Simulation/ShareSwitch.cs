@@ -172,7 +172,11 @@ public sealed class ShareSwitch : IDisposable
 
     private void Send(ShareHost p)
     {
-        try { _net.SendAll(p); }
+        // Bulk, with the identities: a receiver only accepts identities from the host it knows,
+        // and it learns the host from this packet, so the two must stay in wire order - which
+        // only sharing an ordered channel guarantees. A claim raised during an identity burst
+        // waits behind it; that is rare, brief, and the price of the ordering.
+        try { _net.SendAll(p, Delivery.Bulk); }
         catch (Exception e) { Log.Error(e, "[Share] Could not send {Feature} {Hosting}", p.Feature, p.Hosting); }
     }
 

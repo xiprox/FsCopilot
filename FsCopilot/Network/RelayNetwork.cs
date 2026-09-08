@@ -16,11 +16,25 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using Serilog;
 
+/// <summary>
+/// The relayed transport: one LiteNetLib link to the relay server, which fans every data frame
+/// out to the peers linked to us. Protocol version 2: every frame starts with a
+/// <see cref="FrameType"/> byte, so the relay tells control from data by reading it rather than
+/// by channel number - a rule that broke for Unreliable packets, which carry no channel and
+/// arrive as channel 0. Channel numbers are left to mean ordering domains, as
+/// <see cref="Transport"/> assigns them. A version 1 relay reads none of this; against one no
+/// link ever forms, which is the intended failure.
+/// </summary>
 public sealed class RelayNetwork : INetwork, IDisposable
 {
     private const int RelayPort = 3600;
-    private const byte ControlChannel = 0;
-    private const byte DataChannel = 1;
+    private const int ProtocolVersion = 2;
+
+    private enum FrameType : byte
+    {
+        Control = 0,
+        Data = 1
+    }
 
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(15);
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(2);
@@ -64,7 +78,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
             UnconnectedMessagesEnabled = false,
             NatPunchEnabled = false,
             DisconnectTimeout = 15000,
-            ChannelsCount = 2
+            ChannelsCount = Transport.ChannelsCount
         };
 
         // Client should not accept inbound connections
@@ -208,10 +222,11 @@ public sealed class RelayNetwork : INetwork, IDisposable
             var peer = _relayPeer;
             if (peer is null || peer.ConnectionState != ConnectionState.Connected) return;
 
-            var data = _codecs.Encode(packet);
+            var data = _codecs.Encode(packet, (byte)FrameType.Data);
             if (data.Length == 0) return;
 
-            peer.Send(data, DataChannel, P2PNetwork.Method(delivery));
+            var (channel, method) = Transport.Map(delivery);
+            peer.Send(data, channel, method);
         }
         catch (Exception e)
         {
@@ -238,7 +253,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
         if (_relayEndpoint is null)
             throw new InvalidOperationException("Relay endpoint resolution failed");
 
-        var token = $"pid={_peerId};schema={_codecs.Schema}";
+        var token = $"v={ProtocolVersion};pid={_peerId};schema={_codecs.Schema}";
 
         _net.Connect(_relayEndpoint, token);
 
@@ -276,7 +291,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
     private void OnRelayConnected(NetPeer peer)
     {
         _relayPeer = peer;
-        Log.Debug("[Relay] CON RELAY -> {Address}", new IPEndPoint(peer.Address, peer.Port));
+        Log.Debug("[Relay] CON RELAY -> {Address} (mtu {Mtu})", new IPEndPoint(peer.Address, peer.Port), peer.Mtu);
     }
 
     private void OnRelayDisconnected(NetPeer peer, DisconnectInfo info)
@@ -319,22 +334,26 @@ public sealed class RelayNetwork : INetwork, IDisposable
         if (peer is null || peer.ConnectionState != ConnectionState.Connected)
             throw new InvalidOperationException("Relay is not connected");
 
-        var w = new NetDataWriter();
-        w.Put((byte)ControlType.ConnectIntent);
+        var w = Control(ControlType.ConnectIntent);
         w.Put(targetPeerId);
 
-        peer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
+        peer.Send(w, Transport.ControlChannel, DeliveryMethod.ReliableOrdered);
+    }
+
+    /// <summary>A control frame: the frame type, then the control type. Always reliable.</summary>
+    private static NetDataWriter Control(ControlType type)
+    {
+        var w = new NetDataWriter();
+        w.Put((byte)FrameType.Control);
+        w.Put((byte)type);
+        return w;
     }
 
     private void DisconnectAllVirtual()
     {
         var peer = _relayPeer;
         if (peer is { ConnectionState: ConnectionState.Connected })
-        {
-            var w = new NetDataWriter();
-            w.Put((byte)ControlType.Disconnect);
-            peer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
-        }
+            peer.Send(Control(ControlType.Disconnect), Transport.ControlChannel, DeliveryMethod.ReliableOrdered);
 
         // Local reset immediately
         _peers.Clear();
@@ -343,46 +362,63 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     private void OnReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method)
     {
-        if (channel == ControlChannel)
-        {
-            if (reader.AvailableBytes < 1) return;
+        if (reader.AvailableBytes < 1) return;
 
-            var type = (ControlType)reader.GetByte();
-            switch (type)
+        var frame = (FrameType)reader.GetByte();
+        switch (frame)
+        {
+            case FrameType.Control:
+                OnControl(reader);
+                break;
+            case FrameType.Data:
             {
-                case ControlType.LinkReady:
-                {
-                    var otherId = reader.GetString();
-                    OnLinkReady(otherId);
-                    break;
-                }
-                case ControlType.LinkClosed:
-                {
-                    var otherId = reader.GetString();
-                    var code = reader.GetString();
-                    var msg = reader.GetString();
-                    OnLinkClosed(otherId, code, msg);
-                    break;
-                }
-                case ControlType.Error:
-                {
-                    var otherId = reader.GetString();
-                    var code = reader.GetString();
-                    var msg = reader.GetString();
-                    OnError(otherId, code, msg);
-                    break;
-                }
+                var obj = _codecs.Decode(reader);
+                if (obj is null) return;
+
+                if (!_streams.TryGetValue(obj.GetType(), out var subjObj)) return;
+
+                var onNextMethod = subjObj.GetType().GetMethod("OnNext");
+                onNextMethod!.Invoke(subjObj, [obj]);
+                break;
             }
+            default:
+                Log.Debug("[Relay] Dropped a frame of type {Type} on channel {Channel}", (byte)frame, channel);
+                break;
         }
-        else if (channel == DataChannel)
+    }
+
+    private void OnControl(NetPacketReader reader)
+    {
+        if (reader.AvailableBytes < 1) return;
+
+        var type = (ControlType)reader.GetByte();
+        switch (type)
         {
-            var obj = _codecs.Decode(reader);
-            if (obj is null) return;
-
-            if (!_streams.TryGetValue(obj.GetType(), out var subjObj)) return;
-
-            var onNextMethod = subjObj.GetType().GetMethod("OnNext");
-            onNextMethod!.Invoke(subjObj, [obj]);
+            case ControlType.LinkReady:
+            {
+                var otherId = reader.GetString();
+                OnLinkReady(otherId);
+                break;
+            }
+            case ControlType.LinkClosed:
+            {
+                var otherId = reader.GetString();
+                var code = reader.GetString();
+                var msg = reader.GetString();
+                OnLinkClosed(otherId, code, msg);
+                break;
+            }
+            case ControlType.Error:
+            {
+                var otherId = reader.GetString();
+                var code = reader.GetString();
+                var msg = reader.GetString();
+                OnError(otherId, code, msg);
+                break;
+            }
+            default:
+                Log.Debug("[Relay] Ignored control message {Type}", (byte)type);
+                break;
         }
     }
 
@@ -420,7 +456,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
         Log.Debug("[Relay] REJ {PeerId} {Reason} ({Message})", otherPeerId, code, message);
 
         // Minimal protocol: no target id in error => fail all pending connects
-        var result = code == "SCHEMA_MISMATCH" ? ConnectionResult.Rejected : ConnectionResult.Failed;
+        var result = code is "SCHEMA_MISMATCH" or "VERSION_MISMATCH" ? ConnectionResult.Rejected : ConnectionResult.Failed;
         if (_connectWaiters.TryGetValue(otherPeerId, out var tcs))
             tcs.TrySetResult(result);
     }

@@ -15,6 +15,13 @@ using ViewModels;
 
 sealed class Program
 {
+    /// <summary>
+    /// The relay and STUN host. The fork speaks relay protocol v2 (see <see cref="RelayNetwork"/>),
+    /// which upstream's <c>p2p.fscopilot.com</c> does not, so this must be a relay built from this
+    /// tree; <c>--relay host</c> overrides it for a local one.
+    /// </summary>
+    private const string RelayHost = "p2p.fscopilot.com";   // TODO: the fork's own relay, once deployed
+
     [STAThread]
     public static void Main(string[] args)
     {
@@ -68,6 +75,13 @@ sealed class Program
         var peerId = Random.String(8);
         var name = Environment.UserName;
         var trafficOptions = TrafficOptions.Parse(args);
+        // Development switches for the network: `--relay host` to use a relay of your own (the
+        // one-machine bed runs one on localhost), `--no-direct` to force every link through it.
+        var relayHost = RelayHost;
+        var relayArg = Array.FindIndex(args, a => string.Equals(a, "--relay", StringComparison.OrdinalIgnoreCase));
+        if (relayArg >= 0 && relayArg + 1 < args.Length) relayHost = args[relayArg + 1];
+        var direct = !args.Any(a => string.Equals(a, "--no-direct", StringComparison.OrdinalIgnoreCase));
+        if (relayHost != RelayHost) Log.Warning("[Application] Relay host overridden: {Host}", relayHost);
 
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
@@ -83,10 +97,7 @@ sealed class Program
                     
                     if (!isDev)
                     {
-                        services.AddSingleton<INetwork>(new HybridNetwork("p2p.fscopilot.com", peerId, name));
-                        // services.AddSingleton<INetwork>(!isExperimental
-                        //     ? new P2PNetwork("p2p.fscopilot.com", peerId, name)
-                        //     : new HybridNetwork("p2p.fscopilot.com", peerId, name));
+                        services.AddSingleton<INetwork>(new HybridNetwork(relayHost, peerId, name, direct));
                         services.AddSingleton<MasterSwitch>();
                         services.AddSingleton<Coordinator>();
                         // Registers the sharing packets; constructed after Coordinator so the

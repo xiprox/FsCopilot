@@ -8,7 +8,21 @@ public sealed class Relay : BackgroundService
 {
     private const int Port = 3600;
     private const byte ControlChannel = 0;
+    // Must match Transport.ChannelsCount in the client: LiteNetLib drops a packet whose channel
+    // number is at or past the count, and the relay forwards channel numbers verbatim.
+    private const byte ChannelsCount = 4;
     private const int TickMs = 10;
+
+    /// <summary>
+    /// The newest relay protocol. A client says which it speaks with <c>v=</c> in its connect
+    /// token; none means 1. Version 1 tells control from data by channel number, which fails for
+    /// Unreliable packets: LiteNetLib carries no channel on those, so they arrive as channel 0
+    /// and were read as control. Version 2 starts every frame with a <see cref="FrameType"/>
+    /// byte and leaves channel numbers to LiteNetLib, where they are ordering domains. A newer
+    /// version than this is refused at connect; the two known ones are served side by side, and
+    /// never linked to each other.
+    /// </summary>
+    private const int ProtocolVersion = 2;
 
     private readonly ILogger<Relay> _logger;
     private readonly ServerStats _stats;
@@ -31,7 +45,7 @@ public sealed class Relay : BackgroundService
             DisconnectTimeout = 15_000,
             NatPunchEnabled = false,
             UnconnectedMessagesEnabled = false,
-            ChannelsCount = 2
+            ChannelsCount = ChannelsCount
         };
 
         _listener.ConnectionRequestEvent += OnConnectionRequest;
@@ -74,11 +88,18 @@ public sealed class Relay : BackgroundService
     {
         var token = request.Data.GetString();
 
-        // Token handshake: pid=...;schema=...
-        if (!TryParseToken(token, out var peerId, out var schemaId))
+        // Token handshake: v=...;pid=...;schema=...
+        if (!TryParseToken(token, out var peerId, out var schemaId, out var version))
         {
             _logger.LogError("Invalid connection request: {Request}", token);
             request.Reject(NetDataWriter.FromString("PROTOCOL_ERROR"));
+            return;
+        }
+
+        if (version > ProtocolVersion)
+        {
+            _logger.LogWarning("REJECT pid={PeerId} v={Version}: newer than this relay", peerId, version);
+            request.Reject(NetDataWriter.FromString("VERSION_UNSUPPORTED"));
             return;
         }
 
@@ -92,11 +113,11 @@ public sealed class Relay : BackgroundService
         var peer = request.Accept();
         if (peer == null) return;
 
-        var ps = new PeerState(peerId, schemaId, peer);
+        var ps = new PeerState(peerId, schemaId, version, peer);
         _byPeer[peer] = ps;
         _byId[peerId] = ps;
 
-        _logger.LogInformation("CONNECT pid={PeerId} schema={Schema} ep={Ep}", peerId, schemaId, peer.Address);
+        _logger.LogInformation("CONNECT pid={PeerId} v={Version} schema={Schema} ep={Ep}", peerId, version, schemaId, peer.Address);
     }
 
     private void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
@@ -118,7 +139,7 @@ public sealed class Relay : BackgroundService
             otherState.Sessions.Remove(peer);
 
             if (other.ConnectionState == ConnectionState.Connected)
-                SendLinkClosed(other, ps.PeerId, "PEER_DISCONNECTED", $"Peer '{ps.PeerId}' disconnected");
+                SendLinkClosed(otherState, ps.PeerId, "PEER_DISCONNECTED", $"Peer '{ps.PeerId}' disconnected");
         }
 
         ps.Sessions.Clear();
@@ -138,14 +159,34 @@ public sealed class Relay : BackgroundService
             if (!_byPeer.TryGetValue(from, out var self))
                 return;
 
-            if (channel == ControlChannel)
+            if (self.Version < 2)
             {
-                HandleControl(from, self, reader);
+                // v1: the channel number is the frame type.
+                if (channel == ControlChannel) HandleControl(from, self, reader);
+                else ForwardToLinkedPeers(from, self, reader, channel, method);
                 return;
             }
 
-            // DATA: forward to all linked peers (broadcast inside "Sessions")
-            ForwardToLinkedPeers(from, self, reader, channel, method);
+            if (reader.AvailableBytes < 1) return;
+            var frame = (FrameType)reader.PeekByte();
+            switch (frame)
+            {
+                case FrameType.Control:
+                    // Control is reliable by construction; anything else claiming to be it is not ours.
+                    if (method is DeliveryMethod.Unreliable or DeliveryMethod.Sequenced) return;
+                    reader.GetByte();
+                    HandleControl(from, self, reader);
+                    return;
+
+                case FrameType.Data:
+                    // Forwarded whole, frame type included: the receiver strips it.
+                    ForwardToLinkedPeers(from, self, reader, channel, method);
+                    return;
+
+                default:
+                    _logger.LogDebug("FRAME ? pid={PeerId} type={Type}", self.PeerId, (byte)frame);
+                    return;
+            }
         }
         finally
         {
@@ -175,7 +216,9 @@ public sealed class Relay : BackgroundService
                 break;
 
             default:
-                SendError(from, "Unknown", "PROTOCOL_ERROR", $"Unknown control message {(byte)type}");
+                // Never answered. A reply per received packet turns a confused client into an
+                // amplifier - and this is exactly where a v1 client's Unreliable data used to land.
+                _logger.LogDebug("CONTROL ? pid={PeerId} type={Type}", self.PeerId, (byte)type);
                 break;
         }
     }
@@ -186,20 +229,29 @@ public sealed class Relay : BackgroundService
         if (string.IsNullOrWhiteSpace(targetId))
         {
             _logger.LogError("Invalid target peer {Peer}", targetId);
-            SendError(from, targetId ?? "Unknown", "PROTOCOL_ERROR", "Invalid ConnectIntent payload");
+            SendError(self, targetId ?? "Unknown", "PROTOCOL_ERROR", "Invalid ConnectIntent payload");
             return;
         }
 
         if (!_byId.TryGetValue(targetId, out var target) ||
             target.NetPeer.ConnectionState != ConnectionState.Connected)
         {
-            SendError(from, targetId, "TARGET_NOT_FOUND", $"Target '{targetId}' not connected");
+            SendError(self, targetId, "TARGET_NOT_FOUND", $"Target '{targetId}' not connected");
             return;
         }
 
         if (!string.Equals(self.SchemaId, target.SchemaId, StringComparison.Ordinal))
         {
-            SendError(from, targetId, "SCHEMA_MISMATCH", $"Schema mismatch: self={self.SchemaId}, target={target.SchemaId}");
+            SendError(self, targetId, "SCHEMA_MISMATCH", $"Schema mismatch: self={self.SchemaId}, target={target.SchemaId}");
+            return;
+        }
+
+        // Frames are forwarded as they arrive, so both ends of a link must frame them the same
+        // way. In practice the schema check already refuses this pair - a v1 client is an
+        // upstream build with another packet table - and this is the reason on record.
+        if (self.Version != target.Version)
+        {
+            SendError(self, targetId, "VERSION_MISMATCH", $"Protocol mismatch: self=v{self.Version}, target=v{target.Version}");
             return;
         }
 
@@ -209,8 +261,8 @@ public sealed class Relay : BackgroundService
         self.Sessions.Add(target.NetPeer);
         target.Sessions.Add(from);
 
-        SendLinkReady(from, targetId);
-        SendLinkReady(target.NetPeer, self.PeerId);
+        SendLinkReady(self, targetId);
+        SendLinkReady(target, self.PeerId);
 
         _logger.LogInformation("LINK UP {A} <-> {B}", self.PeerId, target.PeerId);
 
@@ -232,7 +284,7 @@ public sealed class Relay : BackgroundService
                 if (otherPeer.ConnectionState == ConnectionState.Connected)
                 {
                     SendLinkClosed(
-                        otherPeer,
+                        otherState,
                         self.PeerId,
                         code: "PEER_LEFT",
                         message: $"Peer '{self.PeerId}' left all relay links");
@@ -244,7 +296,7 @@ public sealed class Relay : BackgroundService
 
         // Optional: ack to self (useful for UI state)
         SendLinkClosed(
-            from,
+            self,
             otherPeerId: "*",
             code: "LEFT_ALL",
             message: "Left all relay links");
@@ -252,39 +304,45 @@ public sealed class Relay : BackgroundService
         UpdateRelayLinksStats();
     }
 
-    private void SendLinkReady(NetPeer peer, string otherPeerId)
+    /// <summary>A control frame for that peer: framed for v2, bare for v1.</summary>
+    private static NetDataWriter Control(PeerState to, ControlType type)
     {
         var w = new NetDataWriter();
-        w.Put((byte)ControlType.LinkReady);
-        w.Put(otherPeerId);
-        peer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
+        if (to.Version >= 2) w.Put((byte)FrameType.Control);
+        w.Put((byte)type);
+        return w;
     }
 
-    private void SendLinkClosed(NetPeer peer, string otherPeerId, string code, string message)
+    private static void SendLinkReady(PeerState to, string otherPeerId)
     {
-        var w = new NetDataWriter();
-        w.Put((byte)ControlType.LinkClosed);
+        var w = Control(to, ControlType.LinkReady);
+        w.Put(otherPeerId);
+        to.NetPeer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
+    }
+
+    private static void SendLinkClosed(PeerState to, string otherPeerId, string code, string message)
+    {
+        var w = Control(to, ControlType.LinkClosed);
         w.Put(otherPeerId);
         w.Put(code);
         w.Put(message);
-        peer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
+        to.NetPeer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
     }
 
-    private void SendError(NetPeer peer, string target, string code, string message)
+    private static void SendError(PeerState to, string target, string code, string message)
     {
-        var w = new NetDataWriter();
-        w.Put((byte)ControlType.Error);
+        var w = Control(to, ControlType.Error);
         w.Put(target);
         w.Put(code);
         w.Put(message);
-        peer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
+        to.NetPeer.Send(w, ControlChannel, DeliveryMethod.ReliableOrdered);
     }
 
     // ---------------------------------
     // Data forwarding: broadcast to linked peers
     // ---------------------------------
 
-    private static void ForwardToLinkedPeers(NetPeer from, PeerState self, NetPacketReader reader, byte channel, DeliveryMethod method)
+    private void ForwardToLinkedPeers(NetPeer from, PeerState self, NetPacketReader reader, byte channel, DeliveryMethod method)
     {
         var len = reader.AvailableBytes;
         if (len <= 0) return;
@@ -301,7 +359,13 @@ public sealed class Relay : BackgroundService
                 if (peer.ConnectionState != ConnectionState.Connected) continue;
 
                 // Preserve delivery semantics (Unreliable stays Unreliable, ReliableOrdered stays ReliableOrdered)
-                peer.Send(buf, 0, len, channel, method);
+                try { peer.Send(buf, 0, len, channel, method); }
+                catch (Exception e)
+                {
+                    // One link's trouble - an unreliable packet over its MTU, a socket gone - must
+                    // not abort the fan-out, nor the rest of this poll's events for every session.
+                    _logger.LogDebug(e, "FORWARD {From} -> {To} failed", self.PeerId, _byPeer.TryGetValue(peer, out var to) ? to.PeerId : "?");
+                }
             }
         }
         finally
@@ -315,16 +379,15 @@ public sealed class Relay : BackgroundService
     // v=1;pid=...;schema=...
     // ---------------------------------
 
-    private static bool TryParseToken(string token, out string peerId, out string schemaId)
+    private static bool TryParseToken(string token, out string peerId, out string schemaId, out int version)
     {
         peerId = schemaId = string.Empty;
+        version = 1;
 
         if (string.IsNullOrWhiteSpace(token))
             return false;
 
         var parts = token.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        string v = string.Empty;
 
         foreach (var part in parts)
         {
@@ -336,6 +399,7 @@ public sealed class Relay : BackgroundService
 
             switch (key)
             {
+                case "v": if (int.TryParse(val, out var v)) version = v; break;
                 case "pid": peerId = val; break;
                 case "schema": schemaId = val; break;
             }
@@ -357,6 +421,13 @@ public sealed class Relay : BackgroundService
     // Types
     // ---------------------------------
 
+    /// <summary>The first byte of every v2 frame, in either direction.</summary>
+    private enum FrameType : byte
+    {
+        Control = 0,
+        Data = 1
+    }
+
     private enum ControlType : byte
     {
         // client -> server
@@ -372,15 +443,18 @@ public sealed class Relay : BackgroundService
 
     private sealed class PeerState
     {
-        public PeerState(string peerId, string schemaId, NetPeer netPeer)
+        public PeerState(string peerId, string schemaId, int version, NetPeer netPeer)
         {
             PeerId = peerId;
             SchemaId = schemaId;
+            Version = version;
             NetPeer = netPeer;
         }
 
         public string PeerId { get; }
         public string SchemaId { get; }
+        /// <summary>The relay protocol this peer speaks; see <see cref="ProtocolVersion"/>.</summary>
+        public int Version { get; }
         public NetPeer NetPeer { get; }
 
         // "Sessions" == currently linked peers (relay links)
