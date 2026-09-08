@@ -183,6 +183,17 @@ Same probe against the deployed `fscrelay.ihsan.dev` (167.99.157.219, NYC), from
 over the internet: `mtu 1024` at connect, 100/100 of every delivery, 0 reordered, 8.5 s
 end to end including the 15 s-capped connect.
 
-Not yet run: the two-instance bed with `--relay localhost --no-direct` against a live sim —
-traffic objects spawning and ATC playing over the relay path — and the stop-redundancy under
-injected loss. Both need the sim.
+The two-instance bed against a live sim (MSFS 2024, FSLTL, BeyondATC), both instances on
+`--no-direct` through the deployed relay, A hosting and B receiving with `--traffic-shadow 80`,
+2026-09-08 17:25–17:27:
+
+```
+A  host: 92→95 objects, polls 11–15 ms avg, sent 16–17 % of samples through the gate
+B  receiving: 92→95 objects, 0 failed, 0 fallback, 0 packet gaps, 0 duplicates,
+   ~16 000 pose writes per 30 s, three consecutive windows
+B  [Atc] Receiving from A, playing on the selected device; A capturing BeyondATC
+```
+
+That is the Unreliable state path and the Bulk identity path through `fscrelay.ihsan.dev`
+with a 150–175 ms relay RTT, and no direct link (`transport: relay` on both cards). Not yet
+run: the stop-redundancy under injected loss.

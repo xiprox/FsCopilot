@@ -26,9 +26,12 @@ sim, and reviewed by hand. Nothing about the card is outstanding.
    which upstream's `p2p.fscopilot.com` does not. The fork's own relay is deployed at
    `fscrelay.ihsan.dev` (`record/self-hosted-relay/`) and is `Program.RelayHost`; a local one
    runs with `dotnet run --project FsCopilot.Discovery -r win-x64 -p:SelfContained=false` and
-   `--relay localhost`. Run the two-instance bed once with both instances on `--no-direct`:
-   traffic and ATC over the relay path have only been probed headlessly (all four deliveries
-   100/100 through the deployed box). The relay is built from `ahead` and must be redeployed
+   `--relay localhost`. The two-instance bed has been run with both instances on
+   `--no-direct` through the deployed relay against a live sim: 95 objects, 0 gaps, ATC
+   playing (log, 2026-09-08). The join and the toggles can be driven with UI Automation
+   (`System.Windows.Automation` from PowerShell: the code is a `Text` element, the join box
+   the only `Edit`, the share switches the two elements with `TogglePattern`). The relay is
+   built from `ahead` and must be redeployed
    when the relay protocol version changes; the packet table is checked client to client and
    never touches the server.
 

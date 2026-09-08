@@ -43,9 +43,17 @@ Batches carry 23 states instead of 10; the audio limit derives from the same con
 marked quiet. The receiver already refuses a sample at or before its newest, so a copy that
 was not needed costs nothing.
 
-Still to run: the two-instance bed over `--relay localhost --no-direct` against a live sim;
-the repeated stop under injected loss; `Program.RelayHost` is a TODO until the fork's own
-relay is deployed.
+**Later the same day, the relay deployed and the bed run through it.** Another session stood
+up `fscrelay.ihsan.dev` from `ahead` af557a1 (`record/self-hosted-relay/`); `Program.RelayHost`
+points at it (101e00d). The two-instance bed with both instances on `--no-direct` — the join
+and the toggles driven through UI Automation, which Avalonia exposes — against a live MSFS
+2024 with FSLTL and BeyondATC: A hosting 92–95 objects at 16–17 % through the gate, B
+receiving every one with **0 failed, 0 fallback, 0 packet gaps, 0 duplicates** over three
+consecutive 30 s windows, ~16 000 pose writes per window, ATC captured on A and playing on B.
+Both cards show `relay`, 150–175 ms RTT; `p2p.fscopilot.com` resolves to a different address
+and never saw a packet. The relay path that carried nothing this morning carries everything.
+
+Still to run: the repeated stop under injected loss.
 
 ## 2026-09-06 · Stage 4, the card laid out and verified against a live sim
 
