@@ -86,3 +86,28 @@ public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, Poin
         }
     }
 }
+
+/// <summary>
+/// The receiver's acknowledgement: "I have your session up to Seq". Sent every few
+/// seconds, and only when the receiver's high-water mark for that session has moved.
+/// The sender keeps everything after the last ack - that is its whole history, no live
+/// ring and no age window - and resends it when the link recovers; the receiver's
+/// (Session, Seq) dedupe stays as the second line for the kept-running case. From is
+/// the acker's own session id: both ids are per app run, so a restarted peer is a new
+/// acker in every respect, and the sender resends from the lowest ack it holds, which
+/// is what catches that peer up.
+/// </summary>
+public record PointerAck(ulong Session, uint Seq, ulong From)
+{
+    public class Codec : IPacketCodec<PointerAck>
+    {
+        public void Encode(PointerAck packet, BinaryWriter bw)
+        {
+            bw.Write(packet.Session);
+            bw.Write(packet.Seq);
+            bw.Write(packet.From);
+        }
+
+        public PointerAck Decode(BinaryReader br) => new(br.ReadUInt64(), br.ReadUInt32(), br.ReadUInt64());
+    }
+}

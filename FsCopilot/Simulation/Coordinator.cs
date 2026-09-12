@@ -10,13 +10,16 @@ public class Coordinator : IDisposable
     // session is considered over, held pointer history is discarded and slaves unlock.
     private static readonly TimeSpan DegradedTimeout = TimeSpan.FromMinutes(5);
 
-    // Pointer history kept while the session is live, to cover reconnect races: per key,
-    // bounded by count and, on re-send, by age. While degraded, everything from the
-    // outage start is kept instead (bounded by DegradedTimeout ending the session), so
-    // a slave that was locked for the whole gap replays the master's inputs completely.
-    private const int LiveHistoryPerKey = 50;
-    private const int DegradedHistoryPerKey = 2000;
-    private static readonly TimeSpan LiveHistoryMaxAge = TimeSpan.FromSeconds(60);
+    // Pointer history is everything the peers have not acknowledged yet (PointerAck):
+    // the receiver acks its high-water mark every few seconds, the sender drops what
+    // every acker has, and on recovery it resends the rest in Seq order. The receiver's
+    // (Session, Seq) dedupe then covers the peer that kept running, and the ack floor
+    // covers the one that restarted. The cap is a safety bound only: ~60 B presses and
+    // <=2.4 KB drags keep 2000 well under a megabyte. It is what bounds the history
+    // when an acker goes quiet for good (a third peer that left mid-session keeps its
+    // last ack as the floor), which is accepted.
+    private const int HistoryCap = 2000;
+    private static readonly TimeSpan AckInterval = TimeSpan.FromSeconds(3);
 
     private readonly INetwork _net;
     private readonly MasterSwitch _masterSwitch;
@@ -30,11 +33,12 @@ public class Coordinator : IDisposable
     private readonly ulong _sessionId;
     private int _pointerSeq;
     private readonly object _stateLock = new();
-    private readonly Dictionary<string, List<(PointerEvent Packet, DateTime At)>> _history = new();
-    private readonly Dictionary<ulong, uint> _lastSeq = new();
-    private bool _accumulate;
+    private readonly List<PointerEvent> _history = [];        // our unacked events, Seq ascending
+    private readonly Dictionary<ulong, uint> _acks = new();   // acker session -> last Seq of ours it has
+    private readonly Dictionary<ulong, uint> _lastSeq = new(); // sender session -> last Seq applied
+    private readonly Dictionary<ulong, uint> _acked = new();   // sender session -> last Seq we acked
     private bool _hadPeer;
-    private string _session = SessionState.None;
+    private volatile string _session = SessionState.None;
     private IDisposable? _degradedTimer;
 
     public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch, PanelServer panels)
@@ -58,6 +62,7 @@ public class Coordinator : IDisposable
         _net.RegisterPacket<Physics, Physics.Codec>();
         _net.RegisterPacket<Surfaces, Surfaces.Codec>();
         _net.RegisterPacket<PointerEvent, PointerEvent.Codec>();
+        _net.RegisterPacket<PointerAck, PointerAck.Codec>();
 
         _d.Add(sim.Aircraft.Take(1).Subscribe(_ => AddLink((ref Physics physics) =>
         {
@@ -92,6 +97,10 @@ public class Coordinator : IDisposable
             .Where(e => Fresh(e.Session, e.Seq))
             .Where(e => _pointer.Keys.Contains(e.Key))
             .Subscribe(panels.Send));
+        // Acks mean "received by the app", not "applied by the panel"; app -> panel is
+        // loopback and the panel's own missed counter covers that hop.
+        _d.Add(_net.Stream<PointerAck>().Subscribe(OnAck));
+        _d.Add(Observable.Interval(AckInterval).Subscribe(_ => SendAcks()));
 
         // The session state machine behind the panel overlays: none -> live on the first
         // peer, live -> degraded when the last peer drops, back to live on reconnect
@@ -132,9 +141,9 @@ public class Coordinator : IDisposable
             _degradedTimer?.Dispose();
             _degradedTimer = null;
             _hadPeer = false;
-            _accumulate = false;
             _session = SessionState.None;
             _history.Clear();
+            _acks.Clear();
             _panels.SetSession(_session, _masterSwitch.IsMaster);
         }
     }
@@ -151,18 +160,16 @@ public class Coordinator : IDisposable
                 _hadPeer = true;
                 _session = SessionState.Live;
                 _panels.SetSession(_session, _masterSwitch.IsMaster);
-                // Re-send held history; the receiver drops what it already has by
-                // (Session, Seq). After an outage everything held is sent - the slave was
-                // locked for the whole gap, so ordered replay reconstructs sync exactly.
-                // Otherwise only recent events go, to cover the reconnect race without
-                // replaying stale input into a panel that moved on.
-                ResendHistory(includeAll: recovered);
-                _accumulate = false;
+                // Recovery replays; first contact does not. Everything held is what no
+                // acker had when the link dropped - the slave was locked for the whole
+                // gap, so ordered replay reconstructs sync exactly, and a peer that kept
+                // running drops what it already applied by (Session, Seq). A fresh
+                // session has nothing to replay and nobody it would be right for.
+                if (recovered) ResendHistory();
             }
             else if (_hadPeer && _session == SessionState.Live)
             {
                 _session = SessionState.Degraded;
-                _accumulate = true;
                 _panels.SetSession(_session, _masterSwitch.IsMaster);
                 _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
                 {
@@ -175,33 +182,60 @@ public class Coordinator : IDisposable
 
     private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
 
-    private void SendPointer(PointerEvent e) { Record(e.Key, e); _net.SendAll(e); }
-
-    private void Record(string key, PointerEvent packet)
+    private void SendPointer(PointerEvent e)
     {
         lock (_stateLock)
         {
-            if (!_history.TryGetValue(key, out var list)) _history[key] = list = [];
-            list.Add((packet, DateTime.UtcNow));
-            var cap = _accumulate ? DegradedHistoryPerKey : LiveHistoryPerKey;
-            if (list.Count > cap) list.RemoveAt(0);
+            // Nothing is held while no session exists: there is nobody to replay it to,
+            // and a first contact must not receive the local pilot's solo input.
+            if (_hadPeer)
+            {
+                _history.Add(e);
+                if (_history.Count > HistoryCap) _history.RemoveAt(0);
+            }
+        }
+        _net.SendAll(e);
+    }
+
+    /// <summary>A peer has our session up to ack.Seq: drop what every acker has.</summary>
+    private void OnAck(PointerAck ack)
+    {
+        if (ack.Session != _sessionId) return;
+        lock (_stateLock)
+        {
+            _acks[ack.From] = _acks.TryGetValue(ack.From, out var prev) ? Math.Max(prev, ack.Seq) : ack.Seq;
+            var floor = _acks.Values.Min();
+            var n = 0;
+            while (n < _history.Count && _history[n].Seq <= floor) n++;
+            if (n > 0) _history.RemoveRange(0, n);
         }
     }
 
-    private void ResendHistory(bool includeAll)
+    /// <summary>Acknowledges each sender session whose high-water mark moved since the
+    /// last ack. Only while live: an ack sent into a dropped link is lost with it, and
+    /// marking it as sent would leave the sender holding more than it needs to.</summary>
+    private void SendAcks()
     {
-        List<(PointerEvent Packet, DateTime At)> entries;
-        lock (_stateLock)
+        if (_session != SessionState.Live) return;
+        List<PointerAck> due = [];
+        lock (_lastSeq)
         {
-            entries = _history.Values.SelectMany(l => l).OrderBy(e => e.At).ToList();
+            foreach (var (session, seq) in _lastSeq)
+            {
+                if (_acked.TryGetValue(session, out var acked) && acked == seq) continue;
+                _acked[session] = seq;
+                due.Add(new PointerAck(session, seq, _sessionId));
+            }
         }
-        var cutoff = DateTime.UtcNow - LiveHistoryMaxAge;
-        foreach (var (packet, at) in entries)
-        {
-            if (!includeAll && at < cutoff) continue;
-            _net.SendAll(packet);
-        }
-        if (entries.Count > 0) Log.Debug("[Pointer] Re-sent {Count} held events after reconnect", entries.Count);
+        foreach (var ack in due) _net.SendAll(ack);
+    }
+
+    private void ResendHistory()
+    {
+        PointerEvent[] entries;
+        lock (_stateLock) entries = _history.OrderBy(e => e.Seq).ToArray();
+        foreach (var e in entries) _net.SendAll(e);
+        if (entries.Length > 0) Log.Debug("[Pointer] Re-sent {Count} unacknowledged events after reconnect", entries.Length);
     }
 
     private bool Fresh(ulong session, uint seq)
