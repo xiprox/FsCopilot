@@ -26,19 +26,13 @@ public sealed class PanelServer : IDisposable
     // the app open. Loopback delivery is sub-millisecond when it works at all.
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromMilliseconds(750);
 
-    // Bounds on events held for a panel that has not helloed its key yet (still loading,
-    // or reloading on a view change). Flushed in order on hello; capped so a key that
-    // never appears cannot leak.
-    private static readonly TimeSpan PendingMaxAge = TimeSpan.FromMinutes(5);
-    private const int PendingMaxCount = 500;
-
     private readonly HttpListener? _listener;
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<PanelSocket, byte> _sockets = new();
     private readonly BehaviorSubject<bool> _bindFailed = new(false);
     private readonly CompositeDisposable _d = new();
     private readonly Subject<PointerEvent> _events = new();
-    private readonly ConcurrentDictionary<string, ConcurrentQueue<(string Json, DateTime At)>> _pending = new();
+    private int _undelivered;
 
     private volatile string[] _pointerKeys = [];
     private volatile string _session = SessionState.None;
@@ -118,8 +112,7 @@ public sealed class PanelServer : IDisposable
         Broadcast(StateJson());
     }
 
-    /// <summary>Replays a peer's gesture on every panel that helloed with its key, or holds it
-    /// for a panel that has not appeared yet (loading, or reloading on a view change).</summary>
+    /// <summary>Replays a peer's gesture on every panel that helloed with its key.</summary>
     public void Send(PointerEvent e) => Route(e.Key, Json(w =>
     {
         w.WriteString("t", "pointer");
@@ -128,6 +121,7 @@ public sealed class PanelServer : IDisposable
         w.WriteString("k", e.Kind == PointerKind.Drag ? "drag" : "press");
         w.WriteString("key", e.Key);
         w.WriteNumber("button", e.Button);
+        w.WriteNumber("gap", e.GapMs);
         if (e.Kind == PointerKind.Drag)
         {
             w.WriteStartArray("path");
@@ -167,9 +161,14 @@ public sealed class PanelServer : IDisposable
         }
         if (delivered) return;
 
-        var queue = _pending.GetOrAdd(key, _ => new ConcurrentQueue<(string, DateTime)>());
-        queue.Enqueue((text, DateTime.UtcNow));
-        while (queue.Count > PendingMaxCount && queue.TryDequeue(out _)) { }
+        // No panel has helloed this key: dropped, and counted. Not held for one that
+        // appears later - a document that helloes later was (re)loaded by the sim and
+        // starts from its default state, while the peer's did not. It is desynced by
+        // construction, and presses made against the state it was in are not a
+        // replay into it: "next page" three times into a panel that reset to page
+        // one is three random inputs. Dropping is the safer outcome.
+        var total = Interlocked.Increment(ref _undelivered);
+        Log.Debug("[PanelServer] No panel for {Key}; event dropped ({Total} undelivered so far)", key, total);
     }
 
     /// <summary>
@@ -320,7 +319,6 @@ public sealed class PanelServer : IDisposable
                 // profile loaded still learns its mode; Configure() broadcasts later changes.
                 Send(socket, ConfigJson());
                 Send(socket, StateJson());
-                FlushPending(socket, name);
                 break;
             case "pointer":
                 HandlePointer(json);
@@ -331,26 +329,13 @@ public sealed class PanelServer : IDisposable
         }
     }
 
-    private void FlushPending(PanelSocket socket, string name)
-    {
-        if (!_pending.TryRemove(name, out var queue)) return;
-        var cutoff = DateTime.UtcNow - PendingMaxAge;
-        var flushed = 0;
-        while (queue.TryDequeue(out var item))
-        {
-            if (item.At < cutoff) continue;
-            Send(socket, item.Json);
-            flushed++;
-        }
-        if (flushed > 0) Log.Debug("[PanelServer] Flushed {Count} held events to {Name}", flushed, name);
-    }
-
     private void HandlePointer(JsonElement json)
     {
         if (!json.TryGetProperty("msg", out var msg)) return;
         var key = msg.String("key");
         if (key.Length == 0) return;
         var button = (byte)msg.Double("button");
+        var gap = (ushort)Math.Clamp(msg.Double("gap"), 0, 1000);
 
         switch (msg.String("k"))
         {
@@ -358,7 +343,7 @@ public sealed class PanelServer : IDisposable
                 var nx = (float)msg.Double("nx");
                 var ny = (float)msg.Double("ny");
                 _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Press, button,
-                    (ushort)Math.Clamp(msg.Double("hold"), 0, 1500),
+                    (ushort)Math.Clamp(msg.Double("hold"), 0, 1500), gap,
                     nx, ny, (float)msg.Double("ux", nx), (float)msg.Double("uy", ny), PointerEvent.NoPath));
                 break;
             case "drag":
@@ -377,7 +362,7 @@ public sealed class PanelServer : IDisposable
                 if (points.Count < 2) return;
                 var first = points[0];
                 var last = points[^1];
-                _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Drag, button, 0,
+                _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Drag, button, 0, gap,
                     first.X, first.Y, last.X, last.Y, points.ToArray()));
                 break;
         }

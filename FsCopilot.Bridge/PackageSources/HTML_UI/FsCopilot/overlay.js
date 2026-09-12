@@ -127,6 +127,25 @@ class Overlay {
 
     has(name) { return Object.prototype.hasOwnProperty.call(Overlay.STATES, name); }
 
+    /* elementFromPoint with this overlay out of the way. A blocking overlay is the
+     * topmost node, so a replay's lookup would land on it instead of the
+     * instrument; for the duration of the one synchronous call the overlay ignores
+     * hit-testing, then is restored in the finally. The page is single-threaded,
+     * so no real click can be delivered in between - from the pilot's side the
+     * overlay never opens. The synthetic events themselves are dispatched straight
+     * at the found element and never hit-test at all. Assumes the engine applies
+     * the style change synchronously before elementFromPoint, as Chrome does; if
+     * an in-sim check ever says otherwise, the fallback is to remove the node and
+     * reinsert it around the call. */
+    hitTest(x, y) {
+        const el = this._el;
+        if (!el) return document.elementFromPoint(x, y);
+        const prev = el.style.pointerEvents;
+        el.style.pointerEvents = 'none';
+        try { return document.elementFromPoint(x, y); }
+        finally { el.style.pointerEvents = prev; }
+    }
+
     /* Which state is on screen, or null. Lets policy retract one specific overlay
      * without stepping on a different one that replaced it meanwhile. */
     showing() { return this._el ? this._name : null; }
@@ -147,6 +166,11 @@ Overlay.STATES = {
         // should not need to know the lock rule to escape it.
         desc: 'The connection to the other pilot dropped; this panel is paused to prevent desync. ' +
             'Take control to keep flying, or wait for the connection to return.'
+    },
+    replaying: {
+        block: true, accent: '94,234,212', line: '18,84,76', card: '8,24,22', veil: 'rgba(6,20,18,0.40)',
+        title: 'REPLAYING',
+        desc: 'Applying the other pilot\'s inputs. Input is paused until this panel has caught up.'
     },
     lost: {
         block: false, accent: '248,113,113', line: '134,52,52', card: '27,12,12', veil: 'rgba(26,10,11,0.34)',

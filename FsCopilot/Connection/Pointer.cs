@@ -23,13 +23,18 @@ public enum PointerKind : byte
 /// ~30 Hz and clamps replay steps to 250 ms, so ushort never saturates in practice).
 /// Capture bounds the path at 240 points; decode rejects anything past 1024 as
 /// malformed rather than allocating. A press has an empty path.
+/// GapMs is the idle time before this gesture on the capturing side - since the previous
+/// gesture's end, capped at 1000 - and the receiver's replay queue preserves it: a panel
+/// that loads something after a click needs the time the pilot gave it, and the pilot's
+/// pacing is the only honest source of that number. A resend burst arrives all at once,
+/// so arrival time tells the panel nothing.
 /// Session identifies one app run (random); Seq increases monotonically within it -
 /// together they let the receiver drop duplicates when history is re-sent after a
 /// reconnect, and notice gaps. Flags is reserved: adding a field later changes the
 /// codec schema and breaks compatibility with every older build, flag bits do not.
 /// </summary>
 public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, PointerKind Kind, byte Button,
-    ushort HoldMs, float DownX, float DownY, float UpX, float UpY, PointerEvent.Point[] Path)
+    ushort HoldMs, ushort GapMs, float DownX, float DownY, float UpX, float UpY, PointerEvent.Point[] Path)
 {
     public readonly record struct Point(ushort DtMs, float X, float Y);
 
@@ -48,6 +53,7 @@ public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, Poin
             bw.Write((byte)packet.Kind);
             bw.Write(packet.Button);
             bw.Write(packet.HoldMs);
+            bw.Write(packet.GapMs);
             bw.Write(packet.DownX);
             bw.Write(packet.DownY);
             bw.Write(packet.UpX);
@@ -72,6 +78,7 @@ public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, Poin
             if (kind > (byte)PointerKind.Drag) throw new InvalidDataException($"Pointer kind {kind} rejected");
             var button = br.ReadByte();
             var hold = br.ReadUInt16();
+            var gap = br.ReadUInt16();
             var downX = br.ReadSingle();
             var downY = br.ReadSingle();
             var upX = br.ReadSingle();
@@ -81,7 +88,7 @@ public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, Poin
             var path = count == 0 ? NoPath : new Point[count];
             for (var i = 0; i < count; i++)
                 path[i] = new Point(br.ReadUInt16(), br.ReadSingle(), br.ReadSingle());
-            return new PointerEvent(key, session, seq, flags, (PointerKind)kind, button, hold,
+            return new PointerEvent(key, session, seq, flags, (PointerKind)kind, button, hold, gap,
                 downX, downY, upX, upY, path);
         }
     }
