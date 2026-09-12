@@ -8,9 +8,9 @@
                 Settled: Q00, Q01, Q02, Q03, Q08 yes; Q05 no, permanently.
                 Q04 deferred on the same-build assumption. Q06, Q07 and Q09 open,
                 none of them blocking.
-                Stage 6 is the only numbered stage left and it is blocked solely
-                on there being no second machine. A remote tester needs the
-                Community package and the host, and nothing else.
+                Stage 6 is the only numbered stage left. It was blocked on there
+                being no second machine; as of 2026-09-11 it is partially run
+                (see the stage, and the log entry it points to).
 
                 **Drag works.** Agent v5 captures and replays drags in the
                 cockpit, so all three tiers of 02-approach are built and tested
@@ -102,9 +102,13 @@ paired-panel test named here is cancelled too: EFBs are out of scope and the A22
 paired panels are bezel-driven rather than pointer-driven.
 
 ### Stage 6 · Two machines
-**Blocked — there is no second machine.**
+**Partially run.** A three-way session on 2026-09-08 over real links, read from this
+machine's app log: 70 replays on the display units, none missed, no pointer warnings. See
+"First multi-machine session" in [log.md](log.md). What it does not cover: the receiver
+side on the peers' machines, and every outage path (degraded, resend, timeout), none of
+which occurred.
 
-The only other tester is in another country, so this waits on a packaged build they can run.
+Before that, the only other tester was in another country, and this waited on a packaged build they could run.
 [08-testbed](08-testbed.md) has the eventual shape. Q04, whether two machines agree on the
 instrument rect, is deferred with it on the assumption that the rect is `panel.cfg`-derived and
 therefore identical on the same addon build.

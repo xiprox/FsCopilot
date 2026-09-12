@@ -1,0 +1,1294 @@
+# Salvage check before removing Definitions/synaptic_a220.yaml from ahead-pointer-forwarding (R11)
+# Generated 2026-09-12. Left: the branch's copy (added in 30501dd, header dated 2026-08-20).
+# Right: fscopilot-profiles definitions/synaptic_a220.yaml (header dated 2026-09-09).
+#
+# 1. Variables named in a get: on the branch copy that no get: in the profiles copy names
+#    (compared on the variable only, ignoring units, quoting and whitespace):
+#    A:AUTOPILOT AIRSPEED HOLD VAR
+#    A:AUTOPILOT ALTITUDE LOCK VAR
+#    A:AUTOPILOT HEADING LOCK DIR:1
+#    A:AUTOPILOT MANAGED SPEED IN MACH
+#    A:AUTOPILOT VERTICAL HOLD VAR
+#    A:KOHLSMAN SETTING MB:1
+#    A:KOHLSMAN SETTING MB:2
+#    A:KOHLSMAN SETTING STD:1
+#    A:KOHLSMAN SETTING STD:2
+#    L:A22X Display Tune Inhibited
+#    L:A22X ISI ADS Reversion
+#    L:A22X ISI Altimeter STD
+#    L:A22X L Chrono
+#    L:A22X L Console Lights
+#    L:A22X Lamp Test
+#    L:A22X R Chrono
+#    L:A22X R Console Lights
+#    L:A22X Rudder Pedals
+#    L:A22X Selected FPA
+#    L:INI_GPU_AVAIL
+#    (count: 20 of 274 branch-copy variables; the profiles copy names 497)
+#
+# 2. Full unified diff, branch copy -> profiles copy:
+
+--- branch/Definitions/synaptic_a220.yaml
++++ profiles/definitions/synaptic_a220.yaml
+@@ -1,67 +1,7 @@
+ # Synaptic Simulations A220-300.
+ # Authors: AlexdAviator, xip
+ # Version: 0.0.1
+-# Updated: 2026-08-20
+-
+-# ═══ NOTES ══════════════════════════════════════════════════════════════════
+-
+-# UNVERIFIED. Written from docs.synapticsim.com/pilots/{simvars,inputs} without the
+-# aircraft installed. Nothing here has been run against the sim yet. Entries that need
+-# checking are marked TODO or VERIFY; see PLAN.md sections 2b/2c for the reasoning.
+-#
+-# 2026-08-20: APU Switch and Engine Master fixes.
+-# - APU Switch: was a bare get: with no guard, so the spring-loaded Start position (2) got
+-#   re-sent every tick even after the local system auto-returned to Run (1), re-triggering
+-#   Start repeatedly. Now guarded to fire only on disagreement, same as the Circuit Breaker
+-#   block. This was the actual bug -- the var name/enum were already correct.
+-# - Engine Master 1/2: confirmed no L:/A: var is documented anywhere for these on the A220.
+-#   Added a VERIFY entry using A:GENERAL ENG FUEL VALVE:index as a readback proxy for the
+-#   ENGINE_MASTER_n_SET events. Needs confirming against --dev; see the comment at that
+-#   block if it doesn't move with the switch.
+-#
+-# Filename is a placeholder. FS Copilot loads <SimObjects\Airplanes\FOLDER>.yaml, so this
+-# needs renaming to the installed folder name once known.
+-
+-# ═══ DELIBERATE EXCLUSIONS ══════════════════════════════════════════════════
+-
+-# - L:A22X Aural * (~120 vars). Aural playback state. Each sim generates its own from its
+-#   own systems model; syncing double-plays callouts and warnings.
+-# - "* Lamp" / "* PBA" annunciator vars (~45). Computed outputs. The other side's systems
+-#   drive them from the switch state we do sync, so writing them fights the local model.
+-#   Held in reserve as READ-ONLY observables if a pulse var proves too short to watch.
+-# - L:A22X Throttle Type / Throttle L Idle / Throttle R Idle / Throttle L Rev Idle /
+-#   Throttle R Rev Idle / Throttle L Raw / Throttle R Raw. Per-user hardware calibration.
+-#   Syncing these corrupts the other pilot's throttle mapping. Do not add them.
+-# - L:A22X Flight Stage, Paused at TOD, Emer Transmitter Test, RDC Powered, L/R MKP Powered.
+-#   Derived or read-only state.
+-# - Flight controls and aircraft position. Already synced natively by FS Copilot (Physics +
+-#   Surfaces packets at 20fps with interpolation). Nothing from the AXIS_* section of the
+-#   inputs doc belongs here.
+-# - MCDU / EFB keypresses. Already synced by the JS interaction hook, not by definitions.
+-
+-# ═══ DETERMINISM ════════════════════════════════════════════════════════════
+-
+-# The wire payload is the absolute current value, never a delta, and the implicit set is an
+-# absolute write -- so a bare `get:` on a state var is already idempotent and last-writer-
+-# wins. Two things break that, and are handled specially below:
+-#
+-#   1. Encoder pulses (baro knobs). Several increments can land inside one poll interval
+-#      with no intervening zero, so clicks coalesce and the two altimeters drift apart.
+-#      Fixed by syncing the absolute A:KOHLSMAN vars instead of the L:A22X pulse vars.
+-#   2. Toggles. A toggle applied to a receiver that has already diverged preserves the
+-#      divergence forever. Where a toggle is unavoidable it is written as
+-#      `value != current ? '(>K:EVENT)' : ''` so it only fires on disagreement.
+-#
+-# Button-driven pulses (caution ack, chrono, gear aural, FMS cancel/execute) relay directly
+-# -- a press is a clean 0->1->0 spanning many frames, so each one gets its own change event.
+-#
+-# Commented `set:` lines are alternates. Uncommenting is a 2-character delete: strip "# "
+-# and the set: lands aligned under its get:.
+-
+-# ═══ NOT SYNCED ON CONNECT ══════════════════════════════════════════════════
+-
+-# FS Copilot pushes no state snapshot when a peer joins -- the two cockpits converge only as
+-# controls are touched. Connect before starting the flow, or sweep the panels after joining.
++# Updated: 2026-09-09
+ 
+ include:
+   - modules/payload.yaml
+@@ -76,279 +16,890 @@
+ master:
+   # ── Thrust levers, spoiler, trim ──────────────────────────────────────────
+ 
+-  # Master-only by choice: the pilot not flying cannot move these. To make them shared,
+-  # move the block to `shared:` -- expect input fighting if both have hardware axes.
+-
+   - get: L:A22X Throttle L Raw
+     set: "`${Math.round(value * 16383)} (>K:THROTTLE1_SET)`"
+   - get: L:A22X Throttle R Raw
+     set: "`${Math.round(value * 16383)} (>K:THROTTLE2_SET)`"
+   - get: L:A22X Horizontal Stabilizer
+ 
++  - get: A:RUDDER POSITION, Position 16k
++  - get: A:RUDDER TRIM PCT, Percent
++
+   # ── Sidestick and pedal animation ─────────────────────────────────────────
+   - get: L:A22X L Sidestick X
+   - get: L:A22X L Sidestick Y
+-  - get: L:A22X Rudder Pedals
+-  # UNVERIFIED / ASSUMED: the docs only document the left sidestick. These two are guessed
+-  # from the naming convention every other L/R pair in this aircraft follows, and have not
+-  # been confirmed to exist. An unknown var is harmless -- it just never produces a value --
+-  # so leaving them in costs nothing.
+   - get: L:A22X R Sidestick X
+   - get: L:A22X R Sidestick Y
+ 
+   # ── Wheel braking ─────────────────────────────────────────────────────────
+-  # VERIFY: units. The A220 ramps commanded brake pressure over time while the BRAKES event
+-  # is held, so this may fight the local ramp -- if it feels wrong, drop these two lines.
+   - get: A:BRAKE LEFT POSITION, Position
+   - get: A:BRAKE RIGHT POSITION, Position
+ 
+ shared:
+-  # ═══ ANNUNCIATORS AND CHRONOS ═════════════════════════════════════════════
++  # ═══ GLARESHIELD ══════════════════════════════════════════════════════════
+ 
+-  # Caution/warning acknowledge. Relayed as a pulse so that a silence by the pilot
+-  # monitoring also silences it for the pilot flying.
+-  # If --dev shows the pulse is too short to observe, read the lamp instead:
+-  #   - get: L:A22X Caution PBA
+-  #     set: "!value && current ? '1 (>L:A22X Master Caution Warning)' : ''"
++  - get: L:A22X L Outboard Brightness
++  - get: L:A22X L Inboard Brightness
++  - get: L:A22X R Inboard Brightness
++  - get: L:A22X R Outboard Brightness
++
++  # ── Master Caution ────────────────────────────────────────────────────────
+   - get: L:A22X Master Caution Warning
++    set: "(>B:AIRLINER_FCU_MASTER_CAUTION_1_Set)"
+ 
+-  - get: L:A22X L Chrono
+-  - get: L:A22X R Chrono
++  # ── Chrono ────────────────────────────────────────────────────────────────
++  - get: B:AIRLINER_FCU_CHRONO_1_Push
++  - get: B:AIRLINER_FCU_CHRONO_2_Push
++
++  # ── Sidestick Priority ────────────────────────────────────────────────────
++  - get: B:AIRLINER_FCU_SIDESTICK_PRIORITY_1_COVER
++    set: (>B:AIRLINER_FCU_SIDESTICK_PRIORITY_1_COVER_Set)
++  - get: B:AIRLINER_FCU_SIDESTICK_PRIORITY_2_COVER
++    set: (>B:AIRLINER_FCU_SIDESTICK_PRIORITY_2_COVER_Set)
++  - get: L:A22X L Sidestick Priority
++  - get: L:A22X R Sidestick Priority
++
++  # ── CPDLC ─────────────────────────────────────────────────────────────────
++  - get: H:A220_FCU_CPDLC_ACPT
++    set: (>B:AIRLINER_FCU_CPDLC_ACPT_1_Set)
++  - get: H:A220_FCU_CPDLC_STBY
++    set: (>B:AIRLINER_FCU_CPDLC_STBY_1_Set)
++  - get: H:A220_FCU_CPDLC_RJCT
++    set: (>B:AIRLINER_FCU_CPDLC_RJCT_1_Set)
++  - get: H:A220_FCU_CPDLC_LOAD
++    set: (>B:AIRLINER_FCU_CPDLC_LOAD_1_Set)
++  - get: H:A220_FCU_CPDLC_REFRESH
++    set: (>B:AIRLINER_FCU_CPDLC_REFRESH_1_Set)
++
++  # ── RANGE ─────────────────────────────────────────────────────────────────
++
++  # JS-only state in DisplayUnits; the H: events are all there is.
++  - get: H:A220_CTP_RANGE_1_INC
++  - get: H:A220_CTP_RANGE_1_DEC
++  - get: H:A220_CTP_RANGE_2_INC
++  - get: H:A220_CTP_RANGE_2_DEC
++
++  - get: H:A220_CTP_WXR_1
++    set: (>B:AIRLINER_CTP_WX_1_Set)
++  - get: H:A220_CTP_WXR_2
++    set: (>B:AIRLINER_CTP_WX_2_Set)
++
++  # ── INDB DSPLY ────────────────────────────────────────────────────────────
++
++  - get: H:A220_CTP_INDB_L_1
++    set: (>B:AIRLINER_CTP_INDB_L_1_Set)
++  - get: H:A220_CTP_INDB_L_2
++    set: (>B:AIRLINER_CTP_INDB_L_2_Set)
++
++  - get: H:A220_CTP_INDB_R_1
++    set: (>B:AIRLINER_CTP_INDB_R_1_Set)
++  - get: H:A220_CTP_INDB_R_2
++    set: (>B:AIRLINER_CTP_INDB_R_2_Set)
++
++  # ── Buttons ───────────────────────────────────────────────────────────────
++
++  - get: H:A220_CTP_MAP_1
++    set: (>B:AIRLINER_CTP_MAP_1_Set)
++  - get: H:A220_CTP_MAP_2
++    set: (>B:AIRLINER_CTP_MAP_1_Set)
++
++  - get: H:A220_CTP_FMS_1
++    set: (>B:AIRLINER_CTP_FMS_1_Set)
++  - get: H:A220_CTP_FMS_2
++    set: (>B:AIRLINER_CTP_FMS_2_Set)
++
++  - get: H:A220_CTP_CNS_1
++    set: (>B:AIRLINER_CTP_CNS_1_Set)
++  - get: H:A220_CTP_CNS_2
++    set: (>B:AIRLINER_CTP_CNS_2_Set)
++
++  - get: H:A220_CTP_CHKL_1
++    set: (>B:AIRLINER_CTP_CHKL_1_Set)
++  - get: H:A220_CTP_CHKL_2
++    set: (>B:AIRLINER_CTP_CHKL_2_Set)
++
++  - get: H:A220_CTP_SYN_1
++    set: (>B:AIRLINER_CTP_SYN_1_Set)
++  - get: H:A220_CTP_SYN_2
++    set: (>B:AIRLINER_CTP_SYN_2_Set)
++
++  - get: H:A220_CTP_DATA_1
++    set: (>B:AIRLINER_CTP_DATA_1_Set)
++  - get: H:A220_CTP_DATA_2
++    set: (>B:AIRLINER_CTP_DATA_2_Set)
++
++  - get: H:A220_CTP_TERR_1
++    set: (>B:AIRLINER_CTP_TERR_1_Set)
++  - get: H:A220_CTP_TERR_2
++    set: (>B:AIRLINER_CTP_TERR_2_Set)
++
++  - get: H:A220_CTP_TFC_1
++    set: (>B:AIRLINER_CTP_TFC_1_Set)
++  - get: H:A220_CTP_TFC_2
++    set: (>B:AIRLINER_CTP_TFC_2_Set)
++
++  - get: H:A220_CTP_WX_1
++    set: (>B:AIRLINER_CTP_WX_1_Set)
++  - get: H:A220_CTP_WX_2
++    set: (>B:AIRLINER_CTP_WX_2_Set)
+ 
+-  # State var; the writable form is the `Display Tune Inhibit` pulse.
+-  - get: L:A22X Display Tune Inhibited
+-    set: "value != current ? '1 (>L:A22X Display Tune Inhibit)' : ''"   # enable if sync doesn't work
++  - get: L:A22X L Nav Source
++    set: (>B:AIRLINER_CTP_NAV_1_Set)
++  - get: L:A22X R Nav Source
++    set: (>B:AIRLINER_CTP_NAV_2_Set)
+ 
+-  # ═══ OVERHEAD ═════════════════════════════════════════════════════════════
+-  # ── Electrical ────────────────────────────────────────────────────────────
+-  - get: L:A22X RAT Gen
+-  - get: L:A22X APU Gen Off
+-  - get: L:A22X L Gen Off
+-  - get: L:A22X R Gen Off
+-  - get: L:A22X L Gen Disc
+-  - get: L:A22X R Gen Disc
+-  - get: L:A22X Cabin Power Off
+-  - get: L:A22X Bus Isolation Mode
+-  - get: L:A22X L Eng Fire
+-  - get: L:A22X R Eng Fire
++  # ── BARO ──────────────────────────────────────────────────────────────────
++  # Altimeters in the A220 cannot be reliably synced as of now.
++  #
++  # The aircraft seems to manage its altimeter calibration internally and there
++  # is no variable that exposes that state. `A:KOHLSMAN SETTING` vars are inert
++  # and can't be used.
++  #
++  # `B:AIRLINER_CTP_BARO_STD_1/2` vars can be used but these report deltas,
++  # which means they wouldn't self-correct if altimeters ever drift somehow.
++  # Additionally, they tick (revert to 0) quite quickly, and it's untested
++  # whether FSC would be picking them up reliably - some events could be skipped.
+ 
+-  - get: A:ELECTRICAL MASTER BATTERY:1, Bool
+-    set: "value ? '1 (>K:BATTERY1_SET)' : '0 (>K:BATTERY1_SET)'"
+-  - get: A:ELECTRICAL MASTER BATTERY:2, Bool
+-    set: "value ? '1 (>K:BATTERY2_SET)' : '0 (>K:BATTERY2_SET)'"
++  - get: L:A22X L Altimeter HPA, Number
++  - get: L:A22X R Altimeter HPA, Number
+ 
+-  - get: L:INI_GPU_AVAIL
+-  - get: L:A22X External Power In Use
++  # ═══ CONTROL TUNING PANEL ═════════════════════════════════════════════════
++  # Minimums and CRS in the TUNE MENU not synced.
+ 
+-  # ── Fuel ──────────────────────────────────────────────────────────────────
+-  - get: L:A22X L Boost Pump
+-  - get: L:A22X R Boost Pump
+-  - get: L:A22X Manual Transfer
+-  - get: L:A22X Gravity Transfer
+-
+-  # ── Bleed, packs, pressurisation ──────────────────────────────────────────
+-  - get: L:A22X L Bleed Off
+-  - get: L:A22X R Bleed Off
+-  - get: L:A22X APU Bleed Off
+-  - get: L:A22X Crossbleed
+-  - get: L:A22X L Pack Off
+-  - get: L:A22X R Pack Off
+-  - get: L:A22X Pack Flow
+-  - get: L:A22X Ram Air
+-  - get: L:A22X Trim Air Off
+-  - get: L:A22X Cockpit Air
+-  - get: L:A22X Fwd Cabin Air
+-  - get: L:A22X Aft Cabin Air
+-  - get: L:A22X Fwd Cargo Air
+-  - get: L:A22X Aft Cargo Air
+-  - get: L:A22X Manual Temperature
+-  - get: L:A22X Recirc Air Off
+-  - get: L:A22X Emergency Depress
+-  - get: L:A22X Man Press
+-  - get: L:A22X Manual Rate
+-  - get: L:A22X Ditching
+-  - get: L:A22X Passenger Oxygen
++  - get: L:A22X L CTP Brightness
++  - get: L:A22X R CTP Brightness
+ 
+-  # ── Anti-ice ──────────────────────────────────────────────────────────────
+-  - get: L:A22X L Cowl Anti Ice
+-  - get: L:A22X R Cowl Anti Ice
+-  - get: L:A22X Wing Anti Ice
+-  - get: L:A22X Probe Heat
+-  - get: L:A22X L Side Window Heat Off
+-  - get: L:A22X R Side Window Heat Off
+-  - get: L:A22X L Windshield Heat Off
+-  - get: L:A22X R Windshield Heat Off
+-
+-  # ── APU, hydraulics, flight control computers ─────────────────────────────
+-  # FIX: guarded so the write only fires on disagreement. Position 2 (Start) is spring-
+-  # loaded -- the local system auto-returns it to 1 (Run) once the APU lights off. A bare
+-  # get: still implies a bidirectional write every tick, so it kept re-sending '2' after
+-  # the local side had already moved to '1', re-triggering Start repeatedly and blocking
+-  # the sequence from ever completing on the receiving side. Same guard pattern as the
+-  # Circuit Breaker block further down.
+-  - get: L:A22X APU Switch
+-    set: |
+-      switch (value) {
+-          case 0: return '0 (>L:A22X APU Switch)'
+-          case 1: return '1 (>L:A22X APU Switch)'
+-          case 2: return '2 (>L:A22X APU Switch)'
+-          default: return ''
+-      }
+-  - get: L:A22X PTU
+-  - get: L:A22X ACMP 2B
+-  - get: L:A22X ACMP 3A
+-  - get: L:A22X ACMP 3B
+-  - get: L:A22X Hyd 1 SOV
+-  - get: L:A22X Hyd 2 SOV
+-  - get: L:A22X PFCC 1 Off
+-  - get: L:A22X PFCC 2 Off
+-  - get: L:A22X PFCC 3 Off
++  - get: H:A220_CTP_LSK1_1
++    set: (>B:AIRLINER_CTP_LSK1_1_Set)
++  - get: H:A220_CTP_LSK1_2
++    set: (>B:AIRLINER_CTP_LSK1_2_Set)
++  - get: H:A220_CTP_LSK2_1
++    set: (>B:AIRLINER_CTP_LSK2_1_Set)
++  - get: H:A220_CTP_LSK2_2
++    set: (>B:AIRLINER_CTP_LSK2_2_Set)
++  - get: H:A220_CTP_LSK3_1
++    set: (>B:AIRLINER_CTP_LSK3_1_Set)
++  - get: H:A220_CTP_LSK3_2
++    set: (>B:AIRLINER_CTP_LSK3_2_Set)
++  - get: H:A220_CTP_LSK4_1
++    set: (>B:AIRLINER_CTP_LSK4_1_Set)
++  - get: H:A220_CTP_LSK4_2
++    set: (>B:AIRLINER_CTP_LSK4_2_Set)
++
++  - get: H:A220_CTP_RSK1_1
++    set: (>B:AIRLINER_CTP_RSK1_1_Set)
++  - get: H:A220_CTP_RSK1_2
++    set: (>B:AIRLINER_CTP_RSK1_2_Set)
++  - get: H:A220_CTP_RSK2_1
++    set: (>B:AIRLINER_CTP_RSK2_1_Set)
++  - get: H:A220_CTP_RSK2_2
++    set: (>B:AIRLINER_CTP_RSK2_2_Set)
++  - get: H:A220_CTP_RSK3_1
++    set: (>B:AIRLINER_CTP_RSK3_1_Set)
++  - get: H:A220_CTP_RSK3_2
++    set: (>B:AIRLINER_CTP_RSK3_2_Set)
++
++  - get: H:A220_CTP_TUNE_1
++    set: (>B:AIRLINER_CTP_TUNE_1_Set)
++  - get: H:A220_CTP_TUNE_2
++    set: (>B:AIRLINER_CTP_TUNE_2_Set)
++
++  - get: L:A22X L CTP Crosstune, Number
++    set: (>B:AIRLINER_CTP_ACROSS_1_Set)
++  - get: L:A22X R CTP Crosstune, Number
++    set: (>B:AIRLINER_CTP_ACROSS_2_Set)
+ 
+-  # ── Exterior lights ───────────────────────────────────────────────────────
+-  - get: L:A22X Nav Lights
+-  - get: L:A22X Beacon Lights
+-  - get: L:A22X Strobe Lights
+-  - get: L:A22X Logo Lights
+-  - get: L:A22X Wing Insp Lights
+-  - get: L:A22X Taxi Lights
+-  - get: L:A22X L Landing Lights
+-  - get: L:A22X R Landing Lights
+-  - get: L:A22X Nose Landing Lights
+-
+-  # ── Interior lights and signs ─────────────────────────────────────────────
+-  - get: L:A22X Dome Lights
+-  - get: L:A22X Annun Lights
+-  - get: L:A22X Emergency Lights
+-  - get: L:A22X Seat Belt Lights
+-  - get: L:A22X No PED Lights
+-  - get: L:A22X Entrance Lights
+-  - get: L:A22X L Foot Lights
+-  - get: L:A22X R Foot Lights
+-  - get: L:A22X L Bag Lights
+-  - get: L:A22X R Bag Lights
++  # ── Frequencies & Transponder ─────────────────────────────────────────────
++  - get: A:COM ACTIVE FREQUENCY:1, Hz
++    set: (>K:COM_RADIO_SET_HZ)
++  - get: A:COM STANDBY FREQUENCY:1, Hz
++    set: (>K:COM_STBY_RADIO_SET_HZ)
++  - get: A:COM ACTIVE FREQUENCY:2, Hz
++    set: (>K:COM2_RADIO_SET_HZ)
++  - get: A:COM STANDBY FREQUENCY:2, Hz
++    set: (>K:COM2_STBY_RADIO_SET_HZ)
++  - get: A:COM ACTIVE FREQUENCY:3, Hz
++    set: (>K:COM3_RADIO_SET_HZ)
++  - get: A:COM STANDBY FREQUENCY:3, Hz
++    set: (>K:COM3_STBY_RADIO_SET_HZ)
++  - get: A:NAV STANDBY FREQUENCY:1, Hz
++    set: (>K:NAV1_STBY_SET_HZ)
++  - get: A:NAV STANDBY FREQUENCY:2, Hz
++    set: (>K:NAV2_STBY_SET_HZ)
+ 
+-  # ── Warnings, inhibits, emergency ─────────────────────────────────────────
+-  - get: L:A22X Lamp Test
+-  - get: L:A22X Aural Warn Inhibit
+-  - get: L:A22X TAWS Gear Inhibit
+-  - get: L:A22X TAWS Terrain Inhibit
+-  - get: L:A22X TAWS Flaps Inhibit
+-  - get: L:A22X TAWS GS Inhibit
+-  - get: L:A22X Evac
+-  - get: L:A22X Emer Transmitter
++  - get: A:TRANSPONDER CODE:1, BCO16
++    set: (>K:XPNDR_SET)
++  - get: A:TRANSPONDER IDENT:1, Bool
++    set: "value ? '1 (>K:XPNDR_IDENT_ON)' : '1 (>K:XPNDR_IDENT_OFF)'"
+ 
+   # ═══ FLIGHT CONTROL PANEL ═════════════════════════════════════════════════
+ 
+-  # The FG vars are documented as "whether X is engaged", i.e. state readbacks. If they are
+-  # writable, the bare get: below is fully deterministic and nothing more is needed. If they
+-  # turn out to be read-only, uncomment the set: under each -- the A220 exposes only toggle
+-  # events for these (no _SET variants), so the guard fires them only when the two sides
+-  # disagree.
+-
+-  # Synchronize FCP mode buttons using their state readbacks.
+-  # The associated K-events are toggles, so the event is only sent
+-  # when the source and destination states differ.
++  - get: L:A22X FCP Brightness
++
++  - get: L:A22X L Flight Director
++    set: "`${!!value !== !!current ? '1 (>B:AIRLINER_FCU_FD_1_Set)' : ''}`"
++  - get: L:A22X R Flight Director
++    set: "`${!!value !== !!current ? '1 (>B:AIRLINER_FCU_FD_2_Set)' : ''}`"
+ 
+   - get: L:A22X AP Master
+-    set: "value != current ? '(>K:AP_MASTER)' : ''"
+-
++    set: "value != current ? '(>B:AIRLINER_FCU_AP_Set)' : ''"
+   - get: L:A22X AT Master
+-    set: "value != current ? '(>K:AUTO_THROTTLE_ARM)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_AT_Set)' : ''"
++
++  - get: L:A22X FG Source
++    set: "value != current ? '1 (>L:A22X FG Source Transfer)' : ''"
++
++  - get: B:AIRLINER_FCU_EDM_COVER
++    set: (>B:AIRLINER_FCU_EDM_COVER_Set)
++  - get: L:A22X FG EDM
++    set: "value != current ? '1 (>B:AIRLINER_FCU_EDM_Set)' : ''"
++
++  # ── Speed ─────────────────────────────────────────────────────────────────
++  - get: L:A22X FG Speed Mode
++
++  - get: K:AP_SPD_VAR_INC
++  - get: K:AP_SPD_VAR_DEC
++  - get: K:AP_MANAGED_SPEED_IN_MACH_TOGGLE
++
++  # ── Heading / Nav / Approach ──────────────────────────────────────────────
+ 
+   - get: L:A22X FG Heading
+-    set: "value != current ? '(>K:AP_HDG_HOLD)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_HDG_Set)' : ''"
++
++  # HEADING KNOB
++  # Not possible to implement a direct value sync. Not possible to repeat an inc/dec
++  # based on delta between peers either as Synaptic collapses the sequence into a
++  # single change. Falling back to syncing inc/dev events...
++  # - get: A:AUTOPILOT HEADING LOCK DIR, Degrees
++  #   set: >
++  #     (() => {
++  #       let delta = value - current;
++  #       if (delta > 180) delta -= 360;
++  #       if (delta < -180) delta += 360;
++  #       const steps = Math.round(delta);
++  #       if (steps === 0) return '';
++  #       const event = steps > 0 ? '(>K:HEADING_BUG_INC)' : '(>K:HEADING_BUG_DEC)';
++  #       return Array(Math.abs(steps)).fill(event).join(' ');
++  #     })()
++  - get: K:HEADING_BUG_INC
++  - get: K:HEADING_BUG_DEC
++  - get: K:HEADING_BUG_SET # PUSH SYNC
+ 
+   - get: L:A22X FG LNAV
+-    set: "value != current ? '(>K:AP_NAV1_HOLD)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_NAV_Set)' : ''"
+ 
+   - get: L:A22X FG Approach
+-    set: "value != current ? '(>K:AP_APR_HOLD)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_APPR_Set)' : ''"
++
++  - get: L:A22X FG Half Bank
++    set: (>B:AIRLINER_FCU_BANK_Set)
++
++  # ── Altitude ──────────────────────────────────────────────────────────────
+ 
+   - get: L:A22X FG Flight Level
+-    set: "value != current ? '(>K:FLIGHT_LEVEL_CHANGE)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_FLC_Set)' : ''"
+ 
+   - get: L:A22X FG Altitude
+-    set: "value != current ? '(>K:AP_ALT_HOLD)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_ALT_Set)' : ''"
++
++  - get: L:A22X FG VNAV
++    set: "value != current ? '1 (>B:AIRLINER_FCU_VNAV_Set)' : ''"
++
++  - get: L:A22X FG Altitude Unit
++  - get: L:A22X FG Altitude Fine
++    set: "`${!!value !== !!current ? '1 (>B:AIRLINER_FCU_ALT_PUSH_PUSH_Set)' : ''}`"
++
++  - get: K:AP_ALT_VAR_INC
++  - get: K:AP_ALT_VAR_DEC
++
++  # ── Vertical Speed ────────────────────────────────────────────────────────
+ 
+   - get: L:A22X FG Vertical Speed
+-    set: "value != current ? '(>K:AP_VS_HOLD)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_VS_Set)' : ''"
+ 
+   - get: L:A22X FG Flight Path Angle
+-    set: "value != current ? '(>K:AP_ATT_HOLD)' : ''"
++    set: "value != current ? '(>B:AIRLINER_FCU_FPA_Set)' : ''"
+ 
+-  - get: L:A22X FG VNAV
+-    set: "value != current ? '1 (>L:A22X FG VNAV Toggle)' : ''"
++  - get: K:AP_VS_VAR_INC
++  - get: K:AP_VS_VAR_DEC
+ 
+-  - get: L:A22X FG EDM
+-    set: "value != current ? '1 (>L:A22X EDM)' : ''"
++  # ═══ OVERHEAD ═════════════════════════════════════════════════════════════
+ 
+-  - get: L:A22X FG Source
+-    set: "value != current ? '1 (>L:A22X FG Source Transfer)' : ''"
++  - get: L:A22X Entrance Lights, Number
++  - get: L:A22X Dome Lights, Number
+ 
+-  - get: L:A22X FG Half Bank
+-  - get: L:A22X FG Speed Mode
+-  - get: L:A22X FG Altitude Unit
+-  - get: L:A22X FG Altitude Fine
+-  - get: L:A22X L Flight Director
+-  - get: L:A22X R Flight Director
++  # ── AURAL WAWRN ───────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_AURAL_WARN_COVER
++    set: (>B:AIRLINER_OVH_AURAL_WARN_COVER_Set)
++  - get: L:A22X Aural Warn Inhibit, Number
++
++  # ── PROBE HEAT ────────────────────────────────────────────────────────────
++  - get: L:A22X Probe Heat, Number
++
++  # ── WINDOW HEAT ───────────────────────────────────────────────────────────
++  - get: L:A22X L Side Window Heat Off, Number
++  - get: L:A22X R Side Window Heat Off, Number
++  - get: L:A22X L Windshield Heat Off, Number
++  - get: L:A22X R Windshield Heat Off, Number
++
++  # ── PRIM FLT CTRL ─────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_PFCC_1_COVER
++    set: (>B:AIRLINER_OVH_PFCC_1_COVER_Set)
++  - get: B:AIRLINER_OVH_PFCC_2_COVER
++    set: (>B:AIRLINER_OVH_PFCC_2_COVER_Set)
++  - get: B:AIRLINER_OVH_PFCC_3_COVER
++    set: (>B:AIRLINER_OVH_PFCC_3_COVER_Set)
++  - get: L:A22X PFCC 1 Off, Number
++  - get: L:A22X PFCC 2 Off, Number
++  - get: L:A22X PFCC 3 Off, Number
++
++  # ── CVR ───────────────────────────────────────────────────────────────────
++  - get: L:A22X CVR Test, Number
++    set: (>B:AIRLINER_OVH_CVR_TEST_Set)
++  - get: L:A22X CVR Erase, Number
++    set: (>B:AIRLINER_OVH_CVR_ERASE_Set)
++
++  # ── SERV INT & MECH CALL ──────────────────────────────────────────────────
++  - get: L:A22X Mech Call, Number
++    set: (>B:AIRLINER_OVH_MECH_CALL_Set)
++  - get: L:A22X Service Intercom, Number
++
++  # ── Engine Fire & Bottles ─────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_FIRE_L_COVER
++    set: (>B:AIRLINER_OVH_FIRE_L_COVER_Set)
++  - get: B:AIRLINER_OVH_FIRE_APU_COVER
++    set: (>B:AIRLINER_OVH_FIRE_APU_COVER_Set)
++  - get: B:AIRLINER_OVH_FIRE_R_COVER
++    set: (>B:AIRLINER_OVH_FIRE_R_COVER_Set)
++
++  - get: L:A22X L Eng Fire, Number
++    set: (>B:AIRLINER_OVH_FIRE_L_Set)
++  - get: L:A22X APU Fire, Number
++  - get: L:A22X R Eng Fire, Number
++    set: (>B:AIRLINER_OVH_FIRE_R_Set)
++
++  - get: L:A22X L Eng Fire Bottle 1, Number
++  - get: L:A22X L Eng Fire Bottle 2, Number
++  - get: L:A22X APU Bottle 1, Number
++  - get: L:A22X R Eng Fire Bottle 1, Number
++  - get: L:A22X R Eng Fire Bottle 2, Number
++
++  # ── Hydraulic ─────────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_HYD_1_SOV_COVER
++    set: (>B:AIRLINER_OVH_HYD_1_SOV_COVER_Set)
++  - get: B:AIRLINER_OVH_HYD_2_SOV_COVER
++    set: (>B:AIRLINER_OVH_HYD_2_SOV_COVER_Set)
++  - get: L:A22X Hyd 1 SOV, Number
++  - get: L:A22X Hyd 2 SOV, Number
++  - get: L:A22X ACMP 3A, Number
++  - get: L:A22X ACMP 3B, Number
++  - get: L:A22X ACMP 2B, Number
++  - get: L:A22X PTU, Number
+ 
+-  # Selected targets. Synced as absolute values rather than the INC/DEC events.
+-  # VERIFY: the inputs doc lists only AP_*_VAR_INC/DEC for speed, altitude and VS. The
+-  # stock _SET events used here are undocumented for this aircraft but normally still work.
+-  - get: A:AUTOPILOT HEADING LOCK DIR:1, Degrees
+-    set: "`1 ${value} (>K:2:HEADING_BUG_SET)`"
+-  - get: A:AUTOPILOT AIRSPEED HOLD VAR, Knots
+-    set: (>K:AP_SPD_VAR_SET)
+-  - get: A:AUTOPILOT ALTITUDE LOCK VAR, Feet
+-    set: (>K:AP_ALT_VAR_SET_ENGLISH)
+-  - get: A:AUTOPILOT VERTICAL HOLD VAR, Feet per minute
+-    set: (>K:AP_VS_VAR_SET_ENGLISH)
+-  - get: L:A22X Selected FPA
+-  - get: A:AUTOPILOT MANAGED SPEED IN MACH, Bool
+-    set: "value != current ? '(>K:AP_MANAGED_SPEED_IN_MACH_TOGGLE)' : ''"
+-
+-  # ═══ CONTROL TUNING PANEL / EFIS - LEFT AND RIGHT ═════════════════════════
+-
+-  # Baro is synced as the absolute A:KOHLSMAN value, NOT as the L:A22X Altimeter Set pulse.
+-  # That pulse is an encoder (-1/+1 per detent) and coalesces on a fast spin, which silently
+-  # drifts the two altimeters apart. Same pattern as a400m, the CRJs, the A340 and the PA-24.
+-
+-  - get: L:A22X ISI Altimeter STD,Bool
+-
+-  - get: A:KOHLSMAN SETTING MB:1, Millibars
+-    set: "`1 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+-  - get: A:KOHLSMAN SETTING MB:2, Millibars
+-    set: "`2 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+-  - get: A:KOHLSMAN SETTING STD:1, Bool
+-    set: "value ? '1 (>K:BAROMETRIC_STD_PRESSURE)' : ''"
+-  - get: A:KOHLSMAN SETTING STD:2, Bool
+-    set: "value ? '2 (>K:BAROMETRIC_STD_PRESSURE)' : ''"
+-  - get: L:A22X L Altimeter HPA
+-  - get: L:A22X R Altimeter HPA
++  # ── Electrical ────────────────────────────────────────────────────────────
++  - get: L:A22X Bus Isolation Mode, Number
+ 
+-  - get: L:A22X L Nav Source
+-  - get: L:A22X R Nav Source
+-  - get: L:A22X L CTP Crosstune
+-  - get: L:A22X R CTP Crosstune
++  - get: B:AIRLINER_OVH_ELEC_CABIN_PWR_COVER
++    set: (>B:AIRLINER_OVH_ELEC_CABIN_PWR_COVER_Set)
++  - get: L:A22X Cabin Power Off, Number
++
++  - get: B:AIRLINER_OVH_ELEC_RAT_GEN_COVER
++    set: (>B:AIRLINER_OVH_ELEC_RAT_GEN_COVER_Set)
++  - get: L:A22X RAT Gen, Number
+ 
+-  # ═══ MULTIFUNCTION KEYBOARD PANEL AND DISPLAY REVERSION ═══════════════════
+-  - get: L:A22X Reversion Mode
+-  - get: L:A22X L ADS Reversion
+-  - get: L:A22X R ADS Reversion
+-  - get: L:A22X L IRS Reversion
+-  - get: L:A22X R IRS Reversion
++  - get: A:ELECTRICAL MASTER BATTERY:1, Bool
++    set: (>K:BATTERY1_SET)
++  - get: A:ELECTRICAL MASTER BATTERY:2, Bool
++    set: (>K:BATTERY2_SET)
++
++  - get: L:A22X External Power In Use, Number
++    set: "!!value !== !!current ? '1 (>B:AIRLINER_OVH_EXT_PWR_Set)' : ''"
++
++  - get: L:A22X L Gen Off, Number
++  - get: L:A22X R Gen Off, Number
++  - get: L:A22X APU Gen Off, Number
++
++  - get: B:AIRLINER_OVH_L_DISC_COVER
++    set: (>B:AIRLINER_OVH_L_DISC_COVER_Set)
++  - get: B:AIRLINER_OVH_R_DISC_COVER
++    set: (>B:AIRLINER_OVH_R_DISC_COVER_Set)
++  - get: L:A22X L Gen Disc, Number
++  - get: L:A22X R Gen Disc, Number
++
++  # ── APU ───────────────────────────────────────────────────────────────────
++  - get: L:A22X APU Switch, Number
++
++  # ── TAWS ──────────────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_TAWS_GEAR_COVER
++    set: (>B:AIRLINER_OVH_TAWS_GEAR_COVER_Set)
++  - get: L:A22X TAWS Gear Inhibit, Number
++
++  - get: B:AIRLINER_OVH_TAWS_TERR_COVER
++    set: (>B:AIRLINER_OVH_TAWS_TERR_COVER_Set)
++  - get: L:A22X TAWS Terrain Inhibit, Number
++
++  - get: B:AIRLINER_OVH_TAWS_FLAP_COVER
++    set: (>B:AIRLINER_OVH_TAWS_FLAP_COVER_Set)
++  - get: L:A22X TAWS Flaps Inhibit, Number
++
++  - get: L:A22X TAWS GS Inhibit, Number
++
++  # ── Fuel ──────────────────────────────────────────────────────────────────
++  - get: L:A22X L Boost Pump, Number
++  - get: L:A22X R Boost Pump, Number
++  - get: L:A22X Manual Transfer, Number
++  - get: L:A22X Gravity Transfer, Number
++
++  # ── Air - Bleed & Packs ───────────────────────────────────────────────────
++  - get: L:A22X Cockpit Air, Number
++  - get: L:A22X Fwd Cabin Air, Number
++  - get: L:A22X Aft Cabin Air, Number
+ 
+-  # ═══ INTEGRATED STANDBY INSTRUMENT ════════════════════════════════════════
++  - get: L:A22X Manual Temperature, Number
++
++  - get: L:A22X Fwd Cargo Air, Number
++  - get: L:A22X Aft Cargo Air, Number
++
++  - get: L:A22X Trim Air Off, Number
++
++  - get: L:A22X Pack Flow, Number
++
++  - get: L:A22X Recirc Air Off, Number
++
++  - get: B:AIRLINER_OVH_AIR_RAM_COVER
++    set: (>B:AIRLINER_OVH_AIR_RAM_COVER_Set)
++  - get: L:A22X Ram Air, Number
++
++  - get: L:A22X L Pack Off, Number
++  - get: L:A22X R Pack Off, Number
++
++  - get: L:A22X L Bleed Off, Number
++  - get: L:A22X R Bleed Off, Number
++  - get: L:A22X APU Bleed Off, Number
++  - get: L:A22X Crossbleed, Number
++
++  # ── Anti-ice ──────────────────────────────────────────────────────────────
++  - get: L:A22X L Cowl Anti Ice, Number
++  - get: L:A22X R Cowl Anti Ice, Number
++  - get: L:A22X Wing Anti Ice, Number
++
++  # ── ELT ───────────────────────────────────────────────────────────────────
++  - get: L:A22X Emer Transmitter, Number
++
++  # ── Cargo Fire ────────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_FIRE_CARGO_FWD_COVER
++    set: (>B:AIRLINER_OVH_FIRE_CARGO_FWD_COVER_Set)
++  - get: L:A22X Cargo Fwd Fire, Number
++  - get: B:AIRLINER_OVH_FIRE_CARGO_AFT_COVER
++    set: (>B:AIRLINER_OVH_FIRE_CARGO_AFT_COVER_Set)
++  - get: L:A22X Cargo Aft Fire, Number
++  - get: L:A22X Cargo Fire Bottle, Number
++
++  # ── Equipment Cooling ─────────────────────────────────────────────────────
++  - get: L:A22X Cooling Inlet, Number
++  - get: L:A22X Cooling Exhaust, Number
++
++  # ── Pressurization ────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_EMER_PRESS_COVER
++    set: (>B:AIRLINER_OVH_EMER_PRESS_COVER_Set)
++  - get: L:A22X Emergency Depress, Number
++
++  - get: L:A22X Man Press, Number
++  - get: L:A22X Manual Rate, Number
++
++  - get: B:AIRLINER_OVH_DITCHING_COVER
++    set: (>B:AIRLINER_OVH_DITCHING_COVER_Set)
++  - get: L:A22X Ditching, Number
++
++  - get: B:AIRLINER_OVH_PAX_OXY_COVER
++    set: (>B:AIRLINER_OVH_PAX_OXY_COVER_Set)
++  - get: L:A22X Passenger Oxygen, Number
++
++  # ── EVAC ──────────────────────────────────────────────────────────────────
++  - get: B:AIRLINER_OVH_EVAC_CMD_COVER
++    set: (>B:AIRLINER_OVH_EVAC_CMD_COVER_Set)
++  - get: L:A22X Evac, Number
++
++  # ── Wipers ────────────────────────────────────────────────────────────────
++  - get: L:A22X_WIPER_L, Number
++  - get: L:A22X_WIPER_R, Number
++
++  # ── Exterior lights ───────────────────────────────────────────────────────
++  - get: L:A22X Nav Lights, Number
++  - get: L:A22X Beacon Lights, Number
++  - get: L:A22X Strobe Lights, Number
++  - get: L:A22X Logo Lights, Number
++  - get: L:A22X Wing Insp Lights, Number
++  - get: L:A22X Taxi Lights, Number
++  - get: L:A22X L Landing Lights, Number
++  - get: L:A22X R Landing Lights, Number
++  - get: L:A22X Nose Landing Lights, Number
++
++  # ── Signs ─────────────────────────────────────────────────────────────────
++  - get: L:A22X Seat Belt Lights, Number
++  - get: L:A22X No PED Lights, Number
++
++  # ── Interior lights ───────────────────────────────────────────────────────
++  - get: L:A22X L Reading Lights, Number
++  - get: L:A22X R Reading Lights, Number
++
++  - get: L:A22X Annun Lights, Number
++  - get: L:A22X Emergency Lights, Number
++
++  - get: L:A22X Overhead Integral Lights, Number
++  - get: L:A22X CB Integral Lights, Number
++  - get: L:A22X Compass Lights, Number
++    set: (>B:AIRLINER_OVH_COMPASS_LX_Set)
+ 
+-  # VERIFY: assumes the ISI is Kohlsman index 3, as it is on the CRJ.
++  - get: L:A22X L Map Lights, Number
++  - get: L:A22X R Map Lights, Number
+ 
++  # ═══ GEAR & AUTOBRAKE ═════════════════════════════════════════════════════
++
++  # ── Standby Altimeter ─────────────────────────────────────────────────────
+   - get: A:KOHLSMAN SETTING MB:3, Millibars
+     set: "`3 ${value * 16} (>K:2:KOHLSMAN_SET)`"
+   - get: A:KOHLSMAN SETTING STD:3, Bool
+     set: "value ? '3 (>K:BAROMETRIC_STD_PRESSURE)' : ''"
+-  - get: L:A22X ISI ADS Reversion
+ 
+-  # ═══ PEDESTAL ═════════════════════════════════════════════════════════════
++  # ── Gear ──────────────────────────────────────────────────────────────────
++  # TODO
++
++  - get: B:AIRLINER_LDG_ALTN_GEAR_COVER
++    set: (>B:AIRLINER_LDG_ALTN_GEAR_COVER_Set)
++  - get: L:A22X Alternate Gear, Number
++
++  - get: B:AIRLINER_LDG_AURAL_COVER
++    set: (>B:AIRLINER_LDG_AURAL_COVER_Set)
++  - get: L:A22X Gear Aural, Number
++
++  - get: L:A22X Autobrake
++    set: (>K:SET_AUTOBRAKE_CONTROL)
++
++  - get: B:AIRLINER_ALTN_BRAKE_COVER
++    set: (>B:AIRLINER_ALTN_BRAKE_COVER_Set)
++  - get: L:A22X Alternate Brake
++
++  - get: L:A22X Nose Steer Off
++
++  # ═══ KEYBOARD PANEL ═══════════════════════════════════════════════════════
++
++  # MSG
++  - get: H:A220_KBD_MSG_1
++    set: (>B:AIRLINER_KBD_MSG_1_Set)
++  - get: H:A220_KBD_MSG_2
++    set: (>B:AIRLINER_KBD_MSG_2_Set)
++
++  # ROUTE
++  - get: H:A220_KBD_ROUTE_1
++    set: (>B:AIRLINER_KBD_ROUTE_1_Set)
++  - get: H:A220_KBD_ROUTE_2
++    set: (>B:AIRLINER_KBD_ROUTE_2_Set)
++
++  # DIRECT TO
++  - get: H:A220_KBD_DIR_1
++    set: (>B:AIRLINER_KBD_DIR_1_Set)
++  - get: H:A220_KBD_DIR_2
++    set: (>B:AIRLINER_KBD_DIR_2_Set)
++
++  # DEP / ARR
++  - get: H:A220_KBD_DEP_1
++    set: (>B:AIRLINER_KBD_DEP_1_Set)
++  - get: H:A220_KBD_DEP_2
++    set: (>B:AIRLINER_KBD_DEP_2_Set)
++
++  # CNCL, EXEC
++  - get: L:A22X Flight Plan Cancel, Number
++  - get: L:A22X Flight Plan Execute, Number
++  - get: L:A22X Flight Plan Modified, Number
++
++  # ── Letters ───────────────────────────────────────────────────────────────
++  - get: H:A220_KBD_A_1
++    set: (>B:AIRLINER_KBD_A_1_Set)
++  - get: H:A220_KBD_A_2
++    set: (>B:AIRLINER_KBD_A_2_Set)
++  - get: H:A220_KBD_B_1
++    set: (>B:AIRLINER_KBD_B_1_Set)
++  - get: H:A220_KBD_B_2
++    set: (>B:AIRLINER_KBD_B_2_Set)
++  - get: H:A220_KBD_C_1
++    set: (>B:AIRLINER_KBD_C_1_Set)
++  - get: H:A220_KBD_C_2
++    set: (>B:AIRLINER_KBD_C_2_Set)
++  - get: H:A220_KBD_D_1
++    set: (>B:AIRLINER_KBD_D_1_Set)
++  - get: H:A220_KBD_D_2
++    set: (>B:AIRLINER_KBD_D_2_Set)
++  - get: H:A220_KBD_E_1
++    set: (>B:AIRLINER_KBD_E_1_Set)
++  - get: H:A220_KBD_E_2
++    set: (>B:AIRLINER_KBD_E_2_Set)
++  - get: H:A220_KBD_F_1
++    set: (>B:AIRLINER_KBD_F_1_Set)
++  - get: H:A220_KBD_F_2
++    set: (>B:AIRLINER_KBD_F_2_Set)
++  - get: H:A220_KBD_G_1
++    set: (>B:AIRLINER_KBD_G_1_Set)
++  - get: H:A220_KBD_G_2
++    set: (>B:AIRLINER_KBD_G_2_Set)
++  - get: H:A220_KBD_H_1
++    set: (>B:AIRLINER_KBD_H_1_Set)
++  - get: H:A220_KBD_H_2
++    set: (>B:AIRLINER_KBD_H_2_Set)
++  - get: H:A220_KBD_I_1
++    set: (>B:AIRLINER_KBD_I_1_Set)
++  - get: H:A220_KBD_I_2
++    set: (>B:AIRLINER_KBD_I_2_Set)
++  - get: H:A220_KBD_J_1
++    set: (>B:AIRLINER_KBD_J_1_Set)
++  - get: H:A220_KBD_J_2
++    set: (>B:AIRLINER_KBD_J_2_Set)
++  - get: H:A220_KBD_K_1
++    set: (>B:AIRLINER_KBD_K_1_Set)
++  - get: H:A220_KBD_K_2
++    set: (>B:AIRLINER_KBD_K_2_Set)
++  - get: H:A220_KBD_L_1
++    set: (>B:AIRLINER_KBD_L_1_Set)
++  - get: H:A220_KBD_L_2
++    set: (>B:AIRLINER_KBD_L_2_Set)
++  - get: H:A220_KBD_M_1
++    set: (>B:AIRLINER_KBD_M_1_Set)
++  - get: H:A220_KBD_M_2
++    set: (>B:AIRLINER_KBD_M_2_Set)
++  - get: H:A220_KBD_N_1
++    set: (>B:AIRLINER_KBD_N_1_Set)
++  - get: H:A220_KBD_N_2
++    set: (>B:AIRLINER_KBD_N_2_Set)
++  - get: H:A220_KBD_O_1
++    set: (>B:AIRLINER_KBD_O_1_Set)
++  - get: H:A220_KBD_O_2
++    set: (>B:AIRLINER_KBD_O_2_Set)
++  - get: H:A220_KBD_P_1
++    set: (>B:AIRLINER_KBD_P_1_Set)
++  - get: H:A220_KBD_P_2
++    set: (>B:AIRLINER_KBD_P_2_Set)
++  - get: H:A220_KBD_Q_1
++    set: (>B:AIRLINER_KBD_Q_1_Set)
++  - get: H:A220_KBD_Q_2
++    set: (>B:AIRLINER_KBD_Q_2_Set)
++  - get: H:A220_KBD_R_1
++    set: (>B:AIRLINER_KBD_R_1_Set)
++  - get: H:A220_KBD_R_2
++    set: (>B:AIRLINER_KBD_R_2_Set)
++  - get: H:A220_KBD_S_1
++    set: (>B:AIRLINER_KBD_S_1_Set)
++  - get: H:A220_KBD_S_2
++    set: (>B:AIRLINER_KBD_S_2_Set)
++  - get: H:A220_KBD_T_1
++    set: (>B:AIRLINER_KBD_T_1_Set)
++  - get: H:A220_KBD_T_2
++    set: (>B:AIRLINER_KBD_T_2_Set)
++  - get: H:A220_KBD_U_1
++    set: (>B:AIRLINER_KBD_U_1_Set)
++  - get: H:A220_KBD_U_2
++    set: (>B:AIRLINER_KBD_U_2_Set)
++  - get: H:A220_KBD_V_1
++    set: (>B:AIRLINER_KBD_V_1_Set)
++  - get: H:A220_KBD_V_2
++    set: (>B:AIRLINER_KBD_V_2_Set)
++  - get: H:A220_KBD_W_1
++    set: (>B:AIRLINER_KBD_W_1_Set)
++  - get: H:A220_KBD_W_2
++    set: (>B:AIRLINER_KBD_W_2_Set)
++  - get: H:A220_KBD_X_1
++    set: (>B:AIRLINER_KBD_X_1_Set)
++  - get: H:A220_KBD_X_2
++    set: (>B:AIRLINER_KBD_X_2_Set)
++  - get: H:A220_KBD_Y_1
++    set: (>B:AIRLINER_KBD_Y_1_Set)
++  - get: H:A220_KBD_Y_2
++    set: (>B:AIRLINER_KBD_Y_2_Set)
++  - get: H:A220_KBD_Z_1
++    set: (>B:AIRLINER_KBD_Z_1_Set)
++  - get: H:A220_KBD_Z_2
++    set: (>B:AIRLINER_KBD_Z_2_Set)
++
++  # ── Digits ────────────────────────────────────────────────────────────────
++  - get: H:A220_KBD_0_1
++    set: (>B:AIRLINER_KBD_0_1_Set)
++  - get: H:A220_KBD_0_2
++    set: (>B:AIRLINER_KBD_0_2_Set)
++  - get: H:A220_KBD_1_1
++    set: (>B:AIRLINER_KBD_1_1_Set)
++  - get: H:A220_KBD_1_2
++    set: (>B:AIRLINER_KBD_1_2_Set)
++  - get: H:A220_KBD_2_1
++    set: (>B:AIRLINER_KBD_2_1_Set)
++  - get: H:A220_KBD_2_2
++    set: (>B:AIRLINER_KBD_2_2_Set)
++  - get: H:A220_KBD_3_1
++    set: (>B:AIRLINER_KBD_3_1_Set)
++  - get: H:A220_KBD_3_2
++    set: (>B:AIRLINER_KBD_3_2_Set)
++  - get: H:A220_KBD_4_1
++    set: (>B:AIRLINER_KBD_4_1_Set)
++  - get: H:A220_KBD_4_2
++    set: (>B:AIRLINER_KBD_4_2_Set)
++  - get: H:A220_KBD_5_1
++    set: (>B:AIRLINER_KBD_5_1_Set)
++  - get: H:A220_KBD_5_2
++    set: (>B:AIRLINER_KBD_5_2_Set)
++  - get: H:A220_KBD_6_1
++    set: (>B:AIRLINER_KBD_6_1_Set)
++  - get: H:A220_KBD_6_2
++    set: (>B:AIRLINER_KBD_6_2_Set)
++  - get: H:A220_KBD_7_1
++    set: (>B:AIRLINER_KBD_7_1_Set)
++  - get: H:A220_KBD_7_2
++    set: (>B:AIRLINER_KBD_7_2_Set)
++  - get: H:A220_KBD_8_1
++    set: (>B:AIRLINER_KBD_8_1_Set)
++  - get: H:A220_KBD_8_2
++    set: (>B:AIRLINER_KBD_8_2_Set)
++  - get: H:A220_KBD_9_1
++    set: (>B:AIRLINER_KBD_9_1_Set)
++  - get: H:A220_KBD_9_2
++    set: (>B:AIRLINER_KBD_9_2_Set)
++
++  # ── Punctuation ───────────────────────────────────────────────────────────
++  # Panel legends SP, /, . and +/-.
++  - get: H:A220_KBD_SPACE_1
++    set: (>B:AIRLINER_KBD_SPACE_1_Set)
++  - get: H:A220_KBD_SPACE_2
++    set: (>B:AIRLINER_KBD_SPACE_2_Set)
++  - get: H:A220_KBD_SLASH_1
++    set: (>B:AIRLINER_KBD_SLASH_1_Set)
++  - get: H:A220_KBD_SLASH_2
++    set: (>B:AIRLINER_KBD_SLASH_2_Set)
++  - get: H:A220_KBD_DOT_1
++    set: (>B:AIRLINER_KBD_DOT_1_Set)
++  - get: H:A220_KBD_DOT_2
++    set: (>B:AIRLINER_KBD_DOT_2_Set)
++  - get: H:A220_KBD_PLUS_MINUS_1
++    set: (>B:AIRLINER_KBD_PLUS_MINUS_1_Set)
++  - get: H:A220_KBD_PLUS_MINUS_2
++    set: (>B:AIRLINER_KBD_PLUS_MINUS_2_Set)
++
++  # ── Clear and enter ───────────────────────────────────────────────────────
++  # CLR/DEL is the only held key on the panel: the mouse writes 1 on press and 0 on
++  # release, but the input event's _Set only ever writes the 1. A relayed press is
++  # therefore always a tap on the receiving side -- a long hold does not carry across.
++  - get: H:A220_KBD_CLEAR_1
++    set: (>B:AIRLINER_KBD_CLEAR_1_Set)
++  - get: H:A220_KBD_CLEAR_2
++    set: (>B:AIRLINER_KBD_CLEAR_2_Set)
++  - get: H:A220_KBD_ENTER_1
++    set: (>B:AIRLINER_KBD_ENTER_1_Set)
++  - get: H:A220_KBD_ENTER_2
++    set: (>B:AIRLINER_KBD_ENTER_2_Set)
++
++  # ── Page and mode keys ────────────────────────────────────────────────────
++  - get: H:A220_KBD_MAP_1
++    set: (>B:AIRLINER_KBD_MAP_1_Set)
++  - get: H:A220_KBD_MAP_2
++    set: (>B:AIRLINER_KBD_MAP_2_Set)
++  - get: H:A220_KBD_FMS_1
++    set: (>B:AIRLINER_KBD_FMS_1_Set)
++  - get: H:A220_KBD_FMS_2
++    set: (>B:AIRLINER_KBD_FMS_2_Set)
++  - get: H:A220_KBD_CNS_1
++    set: (>B:AIRLINER_KBD_CNS_1_Set)
++  - get: H:A220_KBD_CNS_2
++    set: (>B:AIRLINER_KBD_CNS_2_Set)
++  - get: H:A220_KBD_CHKL_1
++    set: (>B:AIRLINER_KBD_CHKL_1_Set)
++  - get: H:A220_KBD_CHKL_2
++    set: (>B:AIRLINER_KBD_CHKL_2_Set)
++  - get: H:A220_KBD_SYN_1
++    set: (>B:AIRLINER_KBD_SYN_1_Set)
++  - get: H:A220_KBD_SYN_2
++    set: (>B:AIRLINER_KBD_SYN_2_Set)
++  - get: H:A220_KBD_DATA_1
++    set: (>B:AIRLINER_KBD_DATA_1_Set)
++  - get: H:A220_KBD_DATA_2
++    set: (>B:AIRLINER_KBD_DATA_2_Set)
++
++  # ── Arrows, paging, and CAS ───────────────────────────────────────────────
++  - get: H:A220_KBD_LEFT_1
++    set: (>B:AIRLINER_KBD_LEFT_1_Set)
++  - get: H:A220_KBD_LEFT_2
++    set: (>B:AIRLINER_KBD_LEFT_2_Set)
++  - get: H:A220_KBD_RIGHT_1
++    set: (>B:AIRLINER_KBD_RIGHT_1_Set)
++  - get: H:A220_KBD_RIGHT_2
++    set: (>B:AIRLINER_KBD_RIGHT_2_Set)
++  - get: H:A220_KBD_UP_1
++    set: (>B:AIRLINER_KBD_UP_1_Set)
++  - get: H:A220_KBD_UP_2
++    set: (>B:AIRLINER_KBD_UP_2_Set)
++  - get: H:A220_KBD_DOWN_1
++    set: (>B:AIRLINER_KBD_DOWN_1_Set)
++  - get: H:A220_KBD_DOWN_2
++    set: (>B:AIRLINER_KBD_DOWN_2_Set)
++  - get: H:A220_KBD_PREV_1
++    set: (>B:AIRLINER_KBD_PREV_1_Set)
++  - get: H:A220_KBD_PREV_2
++    set: (>B:AIRLINER_KBD_PREV_2_Set)
++  - get: H:A220_KBD_NEXT_1
++    set: (>B:AIRLINER_KBD_NEXT_1_Set)
++  - get: H:A220_KBD_NEXT_2
++    set: (>B:AIRLINER_KBD_NEXT_2_Set)
++  - get: H:A220_KBD_CAS_1
++    set: (>B:AIRLINER_KBD_CAS_1_Set)
++  - get: H:A220_KBD_CAS_2
++    set: (>B:AIRLINER_KBD_CAS_2_Set)
++
++  # ═══ CURSOR CONTROL PANEL ═════════════════════════════════════════════════
++
++  - get: H:A220_DSK_LARGE_1_DEC
++    set: (>B:AIRLINER_DSK_KNOB_LARGE_1_Set)
++  - get: H:A220_DSK_LARGE_2_DEC
++    set: (>B:AIRLINER_DSK_KNOB_LARGE_2_Set)
++  - get: H:A220_DSK_SMALL_1_DEC
++    set: (>B:AIRLINER_DSK_KNOB_SMALL_1_Set)
++  - get: H:A220_DSK_SMALL_2_DEC
++    set: (>B:AIRLINER_DSK_KNOB_SMALL_2_Set)
++
++  - get: H:A220_CCP_DSPL_UPR_1
++    set: (>B:AIRLINER_CCP_DSPL_UPR_1_Set)
++  - get: H:A220_CCP_DSPL_UPR_2
++    set: (>B:AIRLINER_CCP_DSPL_UPR_2_Set)
++  - get: H:A220_CCP_DSPL_LWR_1
++    set: (>B:AIRLINER_CCP_DSPL_LWR_1_Set)
++  - get: H:A220_CCP_DSPL_LWR_2
++    set: (>B:AIRLINER_CCP_DSPL_LWR_2_Set)
++
++  - get: H:A220_CCP_MENU_1
++    set: (>B:AIRLINER_CCP_MENU_1_Set)
++  - get: H:A220_CCP_MENU_2
++    set: (>B:AIRLINER_CCP_MENU_2_Set)
++
++  # ═══ AUDIO CONTROL PANEL ══════════════════════════════════════════════════
++
++  - get: L:A22X Tx Channel, Number
++    set: |
++      switch (value) {
++          case 0: return '0 (>B:AIRLINER_ACP_PUSH_VHF1_1_Set) 0 (>B:AIRLINER_ACP_PUSH_VHF2_1_Set) 0 (>B:AIRLINER_ACP_PUSH_VHF3_1_Set)'
++          case 1: return '1 (>B:AIRLINER_ACP_PUSH_VHF1_1_Set)'
++          case 2: return '1 (>B:AIRLINER_ACP_PUSH_VHF2_1_Set)'
++          case 3: return '1 (>B:AIRLINER_ACP_PUSH_VHF3_1_Set)'
++          default: return ''
++      }
++
++  - get: L:A22X ACP VHF1 Volume
++  - get: L:A22X ACP VHF2 Volume
++  - get: L:A22X ACP VHF3 Volume
++
++  # ═══ REVERSION ════════════════════════════════════════════════════════════
++
++  - get: L:A22X Reversion Mode
++
++
++  - get: L:A22X L ADS Reversion
++  - get: L:A22X R ADS Reversion
++  - get: L:A22X L IRS Reversion
++  - get: L:A22X R IRS Reversion
++
+   # ── Engine ────────────────────────────────────────────────────────────────
+   - get: L:A22X Eng Start Mode
+   - get: L:A22X Continuous Ignition
+@@ -384,52 +935,15 @@
+   - get: A:GEAR HANDLE POSITION, Bool
+     set: (>K:GEAR_SET)
+   - get: L:A22X Alternate Gear
+-  - get: L:A22X Nose Steer Off
+   - get: L:A22X L Tiller
+   - get: L:A22X Parking Brake
+-  - get: L:A22X Autobrake
+-    set: (>K:SET_AUTOBRAKE_CONTROL)
+-  - get: L:A22X Alternate Brake
+-  # Gear aural cancel. Button pulse, relayed directly.
+-  - get: L:A22X Gear Aural
+ 
+   # ── Radios, transponder, audio ────────────────────────────────────────────
+-  - get: A:COM ACTIVE FREQUENCY:1, Hz
+-    set: (>K:COM_RADIO_SET_HZ)
+-  - get: A:COM STANDBY FREQUENCY:1, Hz
+-    set: (>K:COM_STBY_RADIO_SET_HZ)
+-  - get: A:COM ACTIVE FREQUENCY:2, Hz
+-    set: (>K:COM2_RADIO_SET_HZ)
+-  - get: A:COM STANDBY FREQUENCY:2, Hz
+-    set: (>K:COM2_STBY_RADIO_SET_HZ)
+-  - get: A:COM ACTIVE FREQUENCY:3, Hz
+-    set: (>K:COM3_RADIO_SET_HZ)
+-  - get: A:COM STANDBY FREQUENCY:3, Hz
+-    set: (>K:COM3_STBY_RADIO_SET_HZ)
+-  - get: A:NAV STANDBY FREQUENCY:1, Hz
+-    set: (>K:NAV1_STBY_SET_HZ)
+-  - get: A:NAV STANDBY FREQUENCY:2, Hz
+-    set: (>K:NAV2_STBY_SET_HZ)
+-
+-  - get: A:TRANSPONDER CODE:1, BCO16
+-    set: (>K:XPNDR_SET)
+-  - get: A:TRANSPONDER IDENT:1, Bool
+-    set: "value ? '1 (>K:XPNDR_IDENT_ON)' : '1 (>K:XPNDR_IDENT_OFF)'"
+ 
+   # Transmit selection. The three ACP VHF vars are button-press flags; this is the resulting
+   # state, so it is the deterministic one to sync.
+   - get: L:A22X Tx Channel
+ 
+-  # ═══ FLIGHT MANAGEMENT SYSTEM ═════════════════════════════════════════════
+-
+-  # MCDU keypresses are handled by the interaction hook, not here. These three carry the
+-  # modify/execute handshake, which the hook cannot reproduce. Cancel and Execute are
+-  # irreducibly momentary -- Flight Plan Modified only tells us a mod ended, not which way.
+-
+-  - get: L:A22X Flight Plan Modified
+-  - get: L:A22X Flight Plan Cancel
+-  - get: L:A22X Flight Plan Execute
+-
+   # ═══ SIMULATOR OPTIONS ════════════════════════════════════════════════════
+ 
+   # Synced so both sides pause together at top of descent.
+@@ -447,33 +961,25 @@
+   - get: L:A22X DU3 Backlight
+   - get: L:A22X DU4 Backlight
+   - get: L:A22X DU5 Backlight
+-  - get: L:A22X L Outboard Brightness
+-  - get: L:A22X L Inboard Brightness
+-  - get: L:A22X R Inboard Brightness
+-  - get: L:A22X R Outboard Brightness
+   - get: L:A22X Lower Brightness
+   - get: L:A22X L MKP Brightness
+   - get: L:A22X R MKP Brightness
+-  - get: L:A22X L CTP Brightness
+-  - get: L:A22X R CTP Brightness
+   - get: L:A22X L CTP Backlight
+   - get: L:A22X R CTP Backlight
+-  - get: L:A22X FCP Brightness
+   - get: L:A22X FCP Backlight
+   - get: L:A22X ISI Brightness
+   - get: L:A22X Annun Brightness
+   - get: L:A22X Pedestal Integral Lights
+   - get: L:A22X Glareshield Integral Lights
+-  - get: L:A22X Overhead Integral Lights
+-  - get: L:A22X CB Integral Lights
+   - get: L:A22X Flood Lights
+-  - get: L:A22X L Reading Lights
+-  - get: L:A22X R Reading Lights
+-  - get: L:A22X L Console Lights
+-  - get: L:A22X R Console Lights
+   - get: L:A22X L Map Lights
+   - get: L:A22X R Map Lights
+ 
++  - get: L:A22X L Foot Lights
++  - get: L:A22X R Foot Lights
++  - get: L:A22X L Bag Lights
++  - get: L:A22X R Bag Lights
++
+   # ═══ CIRCUIT BREAKERS ═════════════════════════════════════════════════════
+ 
+   # Documented only as "pulls cockpit circuit breaker when set", which leaves it ambiguous

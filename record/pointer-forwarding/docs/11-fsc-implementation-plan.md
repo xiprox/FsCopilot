@@ -10,6 +10,14 @@
 > after 10s**, and a **deliberate app shutdown announces itself** (`{t:"bye"}`) so the panel
 > clears instead of warning at all. The blue/amber lock policy is unchanged.
 
+> **Amended 2026-09-12** by the log entry *"The review register built"* and by
+> [12-pre-pr-review](12-pre-pr-review.md). Four parts below are superseded: the two-mode
+> history (live ring, 60 s window, accumulation mode) is now "everything after the last
+> `PointerAck`"; `PointerPress`/`PointerDrag` are one `PointerEvent`, carrying `GapMs`; the
+> per-key pending queue that flushed on hello is gone (events for a key with no panel are
+> dropped and counted); and *connecting* is a real state on both sides, driven by pending
+> peers and a join in flight. The replay side gained a serial queue and a `replaying` lock.
+
 Decided 2026-09-01. This is the graduation plan [05-integration](05-integration.md) said
 would be its own piece of work. Where this file and `01-10` disagree, this file wins — the
 disagreements are called out below and pointered from the docs they amend. TDS, Fenix and

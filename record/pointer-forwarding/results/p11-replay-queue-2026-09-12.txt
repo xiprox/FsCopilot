@@ -1,0 +1,12 @@
+# node probes/p11-replay-queue.mjs <dir with pointer.js>, run 2026-09-12 against ahead-pointer-forwarding after R05
+[FsCopilot] [Pointer] Active on K rect=1000x500
+1 lone tap events: mousedown@100,50 mouseup@100,50 click@100,50 | overlay: (none)
+2 burst overlay after enqueue: +replaying | queued: 2 busy: true
+2 burst timeline (ms from enqueue): mousedown@100+0 mouseup@100+103 click@100+103 mousedown@200+410 mouseup@200+410 click@200+410 mousedown@300+410 mouseup@300+410 click@300+410
+2 burst overlay trail: +replaying -replaying | stats: {"captured":0,"replayed":4,"missed":0,"echo":0,"outside":0,"locked":0,"stalled":0,"rect":[1000,500],"queued":0}
+3 live tap dispatched synchronously: true | overlay: (none)
+4 stalled: busy true queued 1 | overlay: +replaying
+[FsCopilot] [Pointer] Replay did not complete - releasing the queue
+4 after deadman: busy false queued 0 stalled 1 | tap behind it ran: mousedown@500,50 mouseup@500,50 click@500,50 | overlay trail: +replaying -replaying
+5 captured: press gap=0 nx=0.1; press gap=121 nx=0.2 | stats: {"captured":2,"replayed":6,"missed":0,"echo":1,"outside":2,"locked":0,"stalled":1,"rect":[1000,500],"queued":0}
+6 after link closed, overlay trail: -degraded | showing: null

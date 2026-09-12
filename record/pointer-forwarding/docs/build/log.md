@@ -36,6 +36,88 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-12 — The review register built: sixteen of seventeen land on the branch
+    Question:  12-pre-pr-review R01–R17, from DECIDED to FIXED
+    Stage:     pre-PR, after stage 6's partial run
+    Expected:  Seventeen decisions settled on 2026-09-11, each a local change
+               to build in the register's order.
+    Found:     Seven commits on ahead-pointer-forwarding, 149b90d..833ea67, in
+               that order: R08; R03/R04/R15; R01/R10; R02; R06/R07/R09/R17;
+               R05/R12/R13; R14. The app builds clean at every one and every
+               panel file passes node --check.
+
+               Two things the decisions had left open were settled on the way.
+               (1) R03's "resend everything after the minimum ack among the
+               ackers known when the outage began" collapses to "resend
+               everything held": the history is trimmed to above the ack floor
+               on every ack, and no ack can arrive while degraded, so the two
+               are the same set and the snapshot was not built. (2) R06's
+               replaying overlay follows the same rule as the session locks -
+               applied only while the app's state is fresh (inside the 8 s
+               deadman). Without that, a replay finishing after the app link
+               closed would re-apply a degraded lock nobody was alive to lift;
+               probe p11's last scenario is exactly that case.
+
+               p11 is a Node harness with a stub DOM, not the sim. It checks
+               the queue's own logic: a burst of hold 100 / gap 300 / gap 0
+               replays in order with the ups at ~100 and ~410 ms and the third
+               immediately; a lone tap is synchronous and shows nothing; a live
+               gesture whose gap already elapsed waits nothing; a stalled
+               gesture is released by the deadman and the tap behind it runs;
+               echo and outside are counted apart; the fail-open case above.
+
+               R11's salvage diff is not empty: 20 variables the branch's A220
+               copy names in a get: are absent from the profiles repo's copy
+               (the A:AUTOPILOT and A:KOHLSMAN set, both chronos and console
+               lights, ISI, Lamp Test, Selected FPA, INI_GPU_AVAIL). Whether
+               they were dropped there on purpose cannot be told from here, so
+               the file stays on the branch until the user has read the list.
+               R12 is half built by design: the Origin header is logged; the
+               http(s) rejection waits on one sim session saying what Coherent
+               sends. Two in-sim checks are owed and unchanged: R06 part 5's
+               synchronous style change before elementFromPoint, and R10's
+               connecting lock actually showing on a joiner.
+    Changed:   Sixteen sections FIXED; R09 WONTFIX with its queue gone; R11
+               DECIDED with the salvage done and the git rm left to the user,
+               before push; R12 FIXED for step one, DECIDED for step two. The
+               history model 11-fsc-implementation-plan describes (live ring,
+               60 s window, accumulation mode, per-key pending flush on hello)
+               is superseded and pointered from there. pointer: is documented
+               for profile authors in fscopilot-profiles docs/desktop-app.md.
+               ahead is not rebuilt; that is profiles/tools/ahead-rebuild.sh.
+    Affects:   12-pre-pr-review (every status line and a "Built" note at the
+               top), 11-fsc-implementation-plan (pointer at the top), index.md
+    Evidence:  results/p11-replay-queue-2026-09-12.txt (probes/p11-replay-queue.mjs),
+               results/a220-profile-salvage-2026-09-12.txt
+
+---
+
+## 2026-09-11 — First multi-machine session, read from the app log
+    Question:  Stage 6 — does the mechanism hold over a real peer link?
+    Stage:     6
+    Expected:  Untested. Stage 6 was recorded as blocked on a second machine.
+    Found:     A three-way session on 2026-09-08, 22:00–22:33, direct connections,
+               build 1.2.1-pointer.1 (ae87e62 or later: it emits panel stats).
+               DisplayUnits|config=Default on this machine: captured 168,
+               replayed 70, missed 0, ignored 142, rect 7410x1110 throughout.
+               Every replay found a target. Ignored is 2x replayed plus two:
+               two real inputs swallowed by the replaying counter (R07 in
+               12-pre-pr-review, now observed). No [Pointer] warning in any of
+               the five runs: no reordered drop on this side, no history
+               resend, no degraded timeout. An app restart at 21:57 was
+               rejoined by the panels on their fourth port lap, queues intact.
+               An earlier session the same evening, 21:38–21:58 over the relay:
+               captured 84, replayed 18, missed 0.
+    Changed:   Stage 6 is no longer blocked; it is partially run, and the
+               register's "found by reading, not by flying" is corrected. R07
+               gains evidence. R08 remains believed-not-observed on this side;
+               a reordered drop is logged on the receiver, so the peers' logs
+               from that evening would settle it.
+    Affects:   build/plan.md (stage 6), 12-pre-pr-review (opening, R07, R08)
+    Evidence:  results/session-2026-09-08-app.txt
+
+---
+
 ## 2026-09-06 - The fork gets a trunk: `ahead`, rebuilt from topic branches, never edited
     Question:  none - repository structure for the graduation work. Not a probe;
                recorded because the next session would otherwise re-derive it,
