@@ -54,13 +54,15 @@ var jsLoaded = false;
 Include.addImports(['/JS/Services/CommBus.js'], () =>
 Include.addImports(['/FsCopilot/common.js'], () =>
 Include.addImports(['/FsCopilot/channel.js'], () =>
+Include.addImports(['/FsCopilot/overlay.js'], () =>
+Include.addImports(['/FsCopilot/pointer.js'], () =>
 Include.addImports(['/FsCopilot/bus.js'], () =>
 Include.addImports(['/FsCopilot/events.js'], () =>
 Include.addImports(['/FsCopilot/hook.js'], () => {
     console.log('[Hook] References loaded.');
     jsLoaded = true;
     if (templateToLoad != null) hook = new Hook(templateToLoad);
-}))))));
+}))))))));
 /* End of FS Copilot Integration */
 
 class VCockpitPanel extends HTMLElement {

@@ -9,20 +9,27 @@ public class Coordinator : IDisposable
     private readonly INetwork _net;
     private readonly MasterSwitch _masterSwitch;
     private readonly SimClient _sim;
+    private readonly PanelServer _panels;
     private readonly CompositeDisposable _d = new();
     private CompositeDisposable _cSubs = new();
     private HashSet<string> _ignore = [];
+    private volatile PointerFilter _pointer = PointerFilter.Empty;
 
-    public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch)
+    private readonly ulong _sessionId;
+    private int _pointerSeq;
+
+    public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch, PanelServer panels)
     {
         _net = net;
         _masterSwitch = masterSwitch;
         _sim = sim;
+        _panels = panels;
         var sw = Stopwatch.StartNew();
 
         Span<byte> sessionBytes = stackalloc byte[8];
         RandomNumberGenerator.Fill(sessionBytes);
         var sessionId = BitConverter.ToUInt64(sessionBytes);
+        _sessionId = sessionId;
 
         net.RegisterPacket<Update, Update.Codec>();
         net.RegisterPacket<Interact, InteractCodec>();
@@ -31,6 +38,7 @@ public class Coordinator : IDisposable
         _sim.Register<Surfaces>();
         _net.RegisterPacket<Physics, Physics.Codec>();
         _net.RegisterPacket<Surfaces, Surfaces.Codec>();
+        _net.RegisterPacket<PointerEvent, PointerEvent.Codec>();
 
         _d.Add(sim.Aircraft.Take(1).Subscribe(_ => AddLink((ref Physics physics) =>
         {
@@ -44,11 +52,28 @@ public class Coordinator : IDisposable
             surfaces.TimeMs = (uint)sw.ElapsedMilliseconds;
         })));
 
+        // Instruments synced by pointer are excluded from the element-name path in both
+        // directions - one press must not actuate twice.
         _d.Add(_sim.Interactions
-            .Where(i => !_ignore.Contains(i.Instrument))
+            .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(interact => _net.SendAll(interact)));
         _d.Add(_net.Stream<Interact>()
+            .Where(i => !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(update => _sim.Set(update)));
+
+        // Pointer sync is symmetric like Interact - never gated on master. Outbound the
+        // profile filter is the opt-in. Inbound it is what gates delivery: a panel
+        // helloes its key before it has been told its mode, so the socket is registered
+        // either way and routing alone would deliver into a panel still in events mode.
+        // Presses and drags share one stream in each direction, so Seq follows capture
+        // order and arrival order is delivery order - a second stream would be a second
+        // scheduling hop and could overtake.
+        _d.Add(panels.Events
+            .Where(e => _pointer.Keys.Contains(e.Key))
+            .Subscribe(e => _net.SendAll(e with { Session = _sessionId, Seq = NextSeq() })));
+        _d.Add(_net.Stream<PointerEvent>()
+            .Where(e => _pointer.Keys.Contains(e.Key))
+            .Subscribe(panels.Send));
     }
 
     public void Dispose()
@@ -64,6 +89,28 @@ public class Coordinator : IDisposable
         _cSubs = new();
         foreach (var def in definitions) AddLink(def);
         foreach (var i in definitions.Ignore) _ignore.Add(i);
+        _pointer = new PointerFilter(definitions.Pointer);
+        _panels.Configure(definitions.Pointer);
+    }
+
+    private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
+
+    private sealed class PointerFilter
+    {
+        public static readonly PointerFilter Empty = new([]);
+
+        public HashSet<string> Keys { get; }
+        public HashSet<string> Instruments { get; }
+
+        public PointerFilter(string[] keys)
+        {
+            Keys = [..keys];
+            // pointer: entries are full keys (identifier|query); Interact carries the bare
+            // identifier, so the double-actuation guard matches on the prefix.
+            Instruments = keys
+                .Select(k => { var i = k.IndexOf('|'); return i < 0 ? k : k[..i]; })
+                .ToHashSet();
+        }
     }
 
     private void AddLink<TPacket>(RefAction<TPacket> modify)
