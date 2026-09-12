@@ -61,14 +61,19 @@ public sealed class P2PNetwork : INetwork, IDisposable
             .ObserveOn(TaskPoolScheduler.Default)
             .Select(_ =>
             {
-                _net.GetPeersNonAlloc(peers, ConnectionState.Any);
+                // Live links and handshakes in progress, flagged apart. Not Any: a peer
+                // shutting down after a Leave would linger for seconds as if it were a
+                // failed handshake.
+                _net.GetPeersNonAlloc(peers,
+                    ConnectionState.Connected | ConnectionState.Outgoing | ConnectionState.EndPointChange);
                 return peers
                     .Where(p => p.Tag is string)
                     .Select(p => new Peer(
                         (string)p.Tag, 
                         _peerNames.TryGetValue((string)p.Tag, out var peerName) ? peerName : string.Empty, 
                         p.Ping,
-                        Peer.TransportKind.Direct))
+                        Peer.TransportKind.Direct,
+                        Connected: p.ConnectionState != ConnectionState.Outgoing))
                     .ToArray();
             })
             .Publish()

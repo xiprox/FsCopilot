@@ -24,7 +24,8 @@ public sealed class HybridNetwork : INetwork, IDisposable
         _p2p = new(host, peerId, name, false);
         _relay = new(host, peerId, name, false);
 
-        // Merge peers from both networks. Prefer Direct if both exist for same PeerId.
+        // Merge peers from both networks. Prefer connected, then Direct, if both exist
+        // for the same PeerId.
         Peers = Observable.CombineLatest(
                 _p2p.Peers.StartWith(),
                 _relay.Peers.StartWith(),
@@ -93,8 +94,13 @@ public sealed class HybridNetwork : INetwork, IDisposable
         var dict = new Dictionary<string, Peer>(StringComparer.Ordinal);
 
         foreach (var p in p2pPeers) dict[p.PeerId] = p;
-        // Prefer direct
-        foreach (var p in relayPeers) dict.TryAdd(p.PeerId, p);
+        // Prefer connected before direct: a direct handshake still in progress beside
+        // a live relay link must not report the peer as connecting.
+        foreach (var p in relayPeers)
+        {
+            if (!dict.TryGetValue(p.PeerId, out var direct) || (p.Connected && !direct.Connected))
+                dict[p.PeerId] = p;
+        }
 
         return dict.Values.ToArray();
     }

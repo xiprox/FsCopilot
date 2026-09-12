@@ -386,7 +386,10 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     private void OnLinkReady(string otherPeerId)
     {
-        _peers.TryAdd(otherPeerId, new(otherPeerId, Name: string.Empty, Ping: 0, Transport: Peer.TransportKind.Relay));
+        // LinkReady arrives only after the relay has checked the target is connected
+        // and the schemas match, so a relay peer is a real link from the first tick.
+        _peers.TryAdd(otherPeerId, new(otherPeerId, Name: string.Empty, Ping: 0,
+            Transport: Peer.TransportKind.Relay, Connected: true));
         _publish.OnNext(Unit.Default);
 
         if (_connectWaiters.TryGetValue(otherPeerId, out var tcs))
