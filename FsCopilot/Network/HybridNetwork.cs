@@ -24,6 +24,8 @@ public sealed class HybridNetwork : INetwork, IDisposable
     // flags: those would blink off between the two.
     public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
 
+    public IObservable<string> PeerLeft => Observable.Merge(_p2p.PeerLeft, _relay.PeerLeft);
+
     public HybridNetwork(string host, string peerId, string name)
     {
         _peerId = peerId;

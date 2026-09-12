@@ -143,7 +143,10 @@ Overlay.STATES = {
     degraded: {
         block: true, accent: '250,220,40', line: '100,84,14', card: '24,21,8', veil: 'rgba(24,20,4,0.40)',
         title: 'SYNC DEGRADED',
-        desc: 'Looks like there\'s an issue with your connection. This panel has been disabled to prevent desync.'
+        // Names the way out: a crash on the other side lands here too, and the pilot
+        // should not need to know the lock rule to escape it.
+        desc: 'The connection to the other pilot dropped; this panel is paused to prevent desync. ' +
+            'Take control to keep flying, or wait for the connection to return.'
     },
     lost: {
         block: false, accent: '248,113,113', line: '134,52,52', card: '27,12,12', veil: 'rgba(26,10,11,0.34)',

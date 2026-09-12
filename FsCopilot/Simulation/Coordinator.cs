@@ -38,6 +38,10 @@ public class Coordinator : IDisposable
     private readonly Dictionary<ulong, uint> _lastSeq = new(); // sender session -> last Seq applied
     private readonly Dictionary<ulong, uint> _acked = new();   // sender session -> last Seq we acked
     private bool _hadPeer;
+    // A peer announced it was leaving. Spent when the link goes down, and cleared by
+    // any tick that still shows a live link, so a third peer leaving a three-way
+    // session does not turn the next real outage into a session end.
+    private bool _peerLeft;
     private Link _link = Link.None;
     private volatile string _session = SessionState.None;
     private IDisposable? _degradedTimer;
@@ -116,6 +120,7 @@ public class Coordinator : IDisposable
                     : joining || peers.Count > 0 ? Link.Connecting
                     : Link.None)
             .Subscribe(OnLink));
+        _d.Add(net.PeerLeft.Subscribe(_ => { lock (_stateLock) _peerLeft = true; }));
         _d.Add(masterSwitch.Master
             .DistinctUntilChanged()
             .Subscribe(_ => { lock (_stateLock) _panels.SetSession(_session, _masterSwitch.IsMaster); }));
@@ -147,6 +152,7 @@ public class Coordinator : IDisposable
             _degradedTimer?.Dispose();
             _degradedTimer = null;
             _hadPeer = false;
+            _peerLeft = false;
             // Forget the link too, so the next tick that still shows the departing peer
             // is not a transition, and the next live one is.
             _link = Link.None;
@@ -163,6 +169,7 @@ public class Coordinator : IDisposable
     {
         lock (_stateLock)
         {
+            if (link == Link.Live) _peerLeft = false;
             if (link == _link) return;
             _link = link;
             switch (link)
@@ -198,6 +205,15 @@ public class Coordinator : IDisposable
                     {
                         _session = SessionState.None;
                         _panels.SetSession(_session, _masterSwitch.IsMaster);
+                        break;
+                    }
+                    if (_peerLeft)
+                    {
+                        // "Left", not "lost": no outage to bridge, nothing to wait for.
+                        // Nothing else changes - the remaining pilot keeps the role they
+                        // had, which is upstream's behaviour and a separate piece of work.
+                        Log.Information("[Pointer] Peer left; session over");
+                        EndSession();
                         break;
                     }
                     _session = SessionState.Degraded;

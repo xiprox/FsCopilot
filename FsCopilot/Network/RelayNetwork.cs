@@ -50,10 +50,13 @@ public sealed class RelayNetwork : INetwork, IDisposable
     private volatile NetPeer? _relayPeer;
     private int _connecting;
     private readonly BehaviorSubject<int> _connectingCount = new(0);
+    private readonly Subject<string> _peerLeft = new();
 
     public IObservable<ICollection<Peer>> Peers { get; }
 
     public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
+
+    public IObservable<string> PeerLeft => _peerLeft;
 
     public RelayNetwork(string host, string peerId, string name, bool autoConnect = true)
     {
@@ -414,6 +417,10 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     private void OnLinkClosed(string otherPeerId, string code, string message)
     {
+        // The server's split is exact: PEER_LEFT / LEFT_ALL follow the other side's
+        // DisconnectIntent, PEER_DISCONNECTED means it timed out at the relay.
+        if (code is "PEER_LEFT" or "LEFT_ALL") _peerLeft.OnNext(otherPeerId);
+
         if (_peers.TryRemove(otherPeerId, out _)) _publish.OnNext(Unit.Default);
 
         if (_connectWaiters.TryGetValue(otherPeerId, out var tcs))
