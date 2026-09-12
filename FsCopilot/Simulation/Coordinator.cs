@@ -7,7 +7,7 @@ using Network;
 public class Coordinator : IDisposable
 {
     // A dropped link is treated as a recoverable outage for this long; after that the
-    // session is considered over, held pointer history is discarded and slaves unlock.
+    // sync is considered over, held pointer history is discarded and slaves unlock.
     private static readonly TimeSpan DegradedTimeout = TimeSpan.FromMinutes(5);
 
     // Pointer history is everything the peers have not acknowledged yet (PointerAck):
@@ -39,10 +39,10 @@ public class Coordinator : IDisposable
     private bool _hadPeer;
     // A peer announced it was leaving. Spent when the link goes down, and cleared by
     // any tick that still shows a live link, so a third peer leaving a three-way
-    // session does not turn the next real outage into a session end.
+    // session does not turn the next real outage into a sync end.
     private bool _peerLeft;
     private Link _link = Link.None;
-    private volatile string _session = SessionState.None;
+    private volatile string _syncState = SyncState.None;
     private IDisposable? _degradedTimer;
 
     public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch, PanelServer panels)
@@ -106,14 +106,14 @@ public class Coordinator : IDisposable
         _d.Add(_net.Stream<PointerAck>().Subscribe(OnAck));
         _d.Add(Observable.Interval(AckInterval).Subscribe(_ => SendAcks()));
 
-        // The session state machine behind the panel overlays. The link is what the
+        // The sync state machine behind the panel overlays. The link is what the
         // transport shows: live (a connected peer), connecting (a handshake or a join
-        // in flight, nobody connected yet), or none. The session follows it: none ->
+        // in flight, nobody connected yet), or none. Sync follows it: none ->
         // connecting -> live on first contact; live -> degraded when the last peer
         // drops (connecting instead, if a reconnect is already in flight), back to live
         // on recovery with the unacked history resent, and to none when the outage
         // outlives the timeout. A failed first attempt goes connecting -> none, never
-        // degraded: it was never live. An intentional Leave calls EndSession directly.
+        // degraded: it was never live. An intentional Leave calls EndSync directly.
         _d.Add(Observable.CombineLatest(net.Peers, net.Connecting,
                 (peers, joining) => peers.Any(p => p.Connected) ? Link.Live
                     : joining || peers.Count > 0 ? Link.Connecting
@@ -122,7 +122,7 @@ public class Coordinator : IDisposable
         _d.Add(net.PeerLeft.Subscribe(_ => { lock (_stateLock) _peerLeft = true; }));
         _d.Add(masterSwitch.Master
             .DistinctUntilChanged()
-            .Subscribe(_ => { lock (_stateLock) _panels.SetSession(_session, _masterSwitch.IsMaster); }));
+            .Subscribe(_ => { lock (_stateLock) _panels.SetSync(_syncState, _masterSwitch.IsMaster); }));
     }
 
     public void Dispose()
@@ -142,9 +142,9 @@ public class Coordinator : IDisposable
         _panels.Configure(definitions.Pointer);
     }
 
-    /// <summary>The user left the session on purpose: no outage to bridge, so held pointer
+    /// <summary>The user left on purpose: no outage to bridge, so held pointer
     /// history is dropped and panels return to their resting state.</summary>
-    public void EndSession()
+    public void EndSync()
     {
         lock (_stateLock)
         {
@@ -155,10 +155,10 @@ public class Coordinator : IDisposable
             // Forget the link too, so the next tick that still shows the departing peer
             // is not a transition, and the next live one is.
             _link = Link.None;
-            _session = SessionState.None;
+            _syncState = SyncState.None;
             _history.Clear();
             _acks.Clear();
-            _panels.SetSession(_session, _masterSwitch.IsMaster);
+            _panels.SetSync(_syncState, _masterSwitch.IsMaster);
         }
     }
 
@@ -178,8 +178,8 @@ public class Coordinator : IDisposable
                     _degradedTimer = null;
                     var recovered = _hadPeer;
                     _hadPeer = true;
-                    _session = SessionState.Live;
-                    _panels.SetSession(_session, _masterSwitch.IsMaster);
+                    _syncState = SyncState.Live;
+                    _panels.SetSync(_syncState, _masterSwitch.IsMaster);
                     // Recovery replays; first contact does not. Everything held is what
                     // no acker had when the link dropped - the slave was locked for the
                     // whole gap, so ordered replay reconstructs sync exactly, and a peer
@@ -192,16 +192,16 @@ public class Coordinator : IDisposable
                     // there is no peer to send it to - up to ~10 s on the joiner. Mid-
                     // session it is an outage with a reconnect in flight, and the
                     // outage clock runs regardless of how the attempt ends.
-                    _session = SessionState.Connecting;
-                    _panels.SetSession(_session, _masterSwitch.IsMaster);
+                    _syncState = SyncState.Connecting;
+                    _panels.SetSync(_syncState, _masterSwitch.IsMaster);
                     if (_hadPeer) StartDegradedTimer();
                     break;
 
                 case Link.None:
                     if (!_hadPeer)
                     {
-                        _session = SessionState.None;
-                        _panels.SetSession(_session, _masterSwitch.IsMaster);
+                        _syncState = SyncState.None;
+                        _panels.SetSync(_syncState, _masterSwitch.IsMaster);
                         break;
                     }
                     if (_peerLeft)
@@ -209,12 +209,12 @@ public class Coordinator : IDisposable
                         // "Left", not "lost": no outage to bridge, nothing to wait for.
                         // Nothing else changes - the remaining pilot keeps the role they
                         // had, which is upstream's behaviour and a separate piece of work.
-                        Log.Information("[Pointer] Peer left; session over");
-                        EndSession();
+                        Log.Information("[Pointer] Peer left; sync ended");
+                        EndSync();
                         break;
                     }
-                    _session = SessionState.Degraded;
-                    _panels.SetSession(_session, _masterSwitch.IsMaster);
+                    _syncState = SyncState.Degraded;
+                    _panels.SetSync(_syncState, _masterSwitch.IsMaster);
                     StartDegradedTimer();
                     break;
             }
@@ -226,8 +226,8 @@ public class Coordinator : IDisposable
         if (_degradedTimer != null) return;
         _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
         {
-            Log.Warning("[Pointer] Peer did not return within {Timeout}; session over, panels may be desynced", DegradedTimeout);
-            EndSession();
+            Log.Warning("[Pointer] Peer did not return within {Timeout}; sync ended, panels may be desynced", DegradedTimeout);
+            EndSync();
         });
     }
 
@@ -237,7 +237,7 @@ public class Coordinator : IDisposable
     {
         lock (_stateLock)
         {
-            // Nothing is held while no session exists: there is nobody to replay it to,
+            // Nothing is held while sync has never been live: there is nobody to replay it to,
             // and a first contact must not receive the local pilot's solo input.
             if (_hadPeer)
             {
@@ -267,7 +267,7 @@ public class Coordinator : IDisposable
     /// marking it as sent would leave the sender holding more than it needs to.</summary>
     private void SendAcks()
     {
-        if (_session != SessionState.Live) return;
+        if (_syncState != SyncState.Live) return;
         List<PointerAck> due = [];
         lock (_lastSeq)
         {

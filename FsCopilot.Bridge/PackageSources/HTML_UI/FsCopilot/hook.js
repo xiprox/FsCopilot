@@ -35,7 +35,7 @@ class Hook {
             if (msg.t === 'config') {
                 this._configure(msg.pointer || [], instrument, channel);
             } else if (msg.t === 'state') {
-                if (this._pointerOwner && window.fscPointer) window.fscPointer.updateState(msg.session, msg.role);
+                if (this._pointerOwner && window.fscPointer) window.fscPointer.updateState(msg.sync, msg.role);
             } else if (msg.t === 'pointer') {
                 if (this._pointerOwner && window.fscPointer && msg.msg) window.fscPointer.replay(msg.msg);
             }

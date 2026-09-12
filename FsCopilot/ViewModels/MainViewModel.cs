@@ -256,7 +256,7 @@ public class MainViewModel : ReactiveObject, IDisposable
             masterSwitch.TakeControl();
             // Leaving on purpose is not an outage: drop held pointer history and
             // return panels to their resting state instead of locking the slave.
-            coordinator.EndSession();
+            coordinator.EndSync();
         });
 
         TakeControlCommand = ReactiveCommand.Create(masterSwitch.TakeControl);

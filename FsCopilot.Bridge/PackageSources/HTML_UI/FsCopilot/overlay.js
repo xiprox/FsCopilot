@@ -160,7 +160,7 @@ Overlay.STATES = {
     connecting: {
         block: true, accent: '96,165,250', line: '38,80,140', card: '12,17,27', veil: 'rgba(9,14,24,0.42)',
         title: 'CONNECTING',
-        desc: 'Input is paused to prevent desync before the session is live.'
+        desc: 'Input is paused to prevent desync before sync is live.'
     },
     degraded: {
         block: true, accent: '250,220,40', line: '100,84,14', card: '24,21,8', veil: 'rgba(24,20,4,0.40)',

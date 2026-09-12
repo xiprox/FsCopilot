@@ -59,14 +59,14 @@ class Pointer {
         this._warned = false;
         this._lostTimer = null;
         this._lastState = 0;
-        this._session = 'none';
+        this._syncState = 'none';
         this._role = 'master';
 
         this._listen(document, 'mousedown', (ev) => this._onDown(ev));
         this._listen(document, 'mousemove', (ev) => this._onMove(ev));
         this._listen(document, 'mouseup', (ev) => this._onUp(ev));
 
-        // The app renews session state every 2s; losing it means the app is gone.
+        // The app renews sync state every 2s; losing it means the app is gone.
         // A blocking overlay with nobody alive to lift it would violate fail-open,
         // so it degrades to the non-blocking warning - never to silence.
         this._watchdog = setInterval(() => {
@@ -77,7 +77,7 @@ class Pointer {
         }, 2000);
 
         // The emergency escape hatch, at a fixed global so it survives losing every
-        // other handle. Mutes overlays until the session next goes live.
+        // other handle. Mutes overlays until sync next goes live.
         window.fscUnlock = () => {
             this._overlayMuted = true;
             this._debugHold = false;
@@ -99,7 +99,7 @@ class Pointer {
         };
 
         // Locked from the start: entering pointer mode means the profile opted this
-        // panel in, and until the app confirms the session state the safe reading
+        // panel in, and until the app confirms the sync state the safe reading
         // is "connecting". The state that follows config or hello refines it
         // within milliseconds.
         this.updateState('connecting', 'master');
@@ -135,10 +135,10 @@ class Pointer {
         this._overlay.remove();
     }
 
-    /* Session state -> overlay ------------------------------------------------ */
+    /* Sync state -> overlay --------------------------------------------------- */
 
-    updateState(session, role) {
-        this._session = session;
+    updateState(sync, role) {
+        this._syncState = sync;
         this._role = role;
         this._lastState = Date.now();
         // The app answered, so whatever outage there was is over: drop the linger and
@@ -146,14 +146,14 @@ class Pointer {
         this._warned = false;
         this._clearLostTimer();
         if (this._debugHold) return; // a forced debug overlay outranks real state
-        if (session === 'live' || session === 'none') this._overlayMuted = false;
+        if (sync === 'live' || sync === 'none') this._overlayMuted = false;
         this._refreshOverlay(false);
     }
 
     /* One place decides which overlay stands. Blocking only while the app is alive
      * and renewing the lock (a fresh state): both sides during connecting, the
      * slave while the peer link is degraded, and either side while a replay is
-     * in progress - in that order, so a replay never hides a session lock. The
+     * in progress - in that order, so a replay never hides a sync lock. The
      * red warning is not decided here: it is a notice with its own timer, and the
      * replay path must never touch it (the app is gone; the queue drains on its
      * own). A state renewal replaces it, because the app is back. */
@@ -164,8 +164,8 @@ class Pointer {
 
         const fresh = this._lastState > 0 && Date.now() - this._lastState <= Pointer.STATE_DEADMAN_MS;
         let want = null;
-        if (fresh && this._session === 'connecting') want = 'connecting';
-        else if (fresh && this._session === 'degraded' && this._role === 'slave') want = 'degraded';
+        if (fresh && this._syncState === 'connecting') want = 'connecting';
+        else if (fresh && this._syncState === 'degraded' && this._role === 'slave') want = 'degraded';
         else if (fresh && (this._busy || this._queue.length)) want = 'replaying';
 
         if (want) this._overlay.apply(want);

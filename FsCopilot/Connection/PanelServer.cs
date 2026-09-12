@@ -8,7 +8,7 @@ using System.Text.Json;
 /// Local WebSocket endpoint for panel documents. Cockpit JS (see the bridge package's
 /// FsCopilot/channel.js) connects here directly, bypassing the CommBus/WASM/SimConnect
 /// bus and its 512-byte single-slot buffer. Panels identify themselves per instrument
-/// with a hello message and receive the current pointer configuration and session state
+/// with a hello message and receive the current pointer configuration and sync state
 /// in return; the state is re-broadcast every 2 seconds so a panel can treat silence as
 /// "the app is gone" and fail open. A deliberate shutdown says goodbye first; see
 /// <see cref="Shutdown"/>.
@@ -35,7 +35,7 @@ public sealed class PanelServer : IDisposable
     private int _undelivered;
 
     private volatile string[] _pointerKeys = [];
-    private volatile string _session = SessionState.None;
+    private volatile string _syncState = SyncState.None;
     private volatile bool _isMaster = true;
     private volatile bool _closing;
 
@@ -104,11 +104,11 @@ public sealed class PanelServer : IDisposable
         Log.Information("[PanelServer] Dev echo enabled: panel captures reflect back to their panels");
     }
 
-    /// <summary>Updates the session state broadcast to panels; drives the overlay lock.</summary>
-    public void SetSession(string session, bool isMaster)
+    /// <summary>Updates the sync state broadcast to panels; drives the overlay lock.</summary>
+    public void SetSync(string sync, bool isMaster)
     {
-        if (_session == session && _isMaster == isMaster) return;
-        _session = session;
+        if (_syncState == sync && _isMaster == isMaster) return;
+        _syncState = sync;
         _isMaster = isMaster;
         Broadcast(StateJson());
     }
@@ -396,7 +396,7 @@ public sealed class PanelServer : IDisposable
     private string StateJson() => Json(w =>
     {
         w.WriteString("t", "state");
-        w.WriteString("session", _session);
+        w.WriteString("sync", _syncState);
         w.WriteString("role", _isMaster ? "master" : "slave");
     });
 
@@ -457,8 +457,8 @@ public sealed class PanelServer : IDisposable
     }
 }
 
-/// <summary>Session states broadcast to panels; string-valued because they go out as JSON.</summary>
-public static class SessionState
+/// <summary>Sync states broadcast to panels; string-valued because they go out as JSON.</summary>
+public static class SyncState
 {
     public const string None = "none";
     public const string Connecting = "connecting";
