@@ -7,8 +7,18 @@ using Network;
 public class Coordinator : IDisposable
 {
     // A dropped link is treated as a recoverable outage for this long; after that the
-    // sync is considered over and slaves unlock.
+    // sync is considered over, held pointer history is discarded and slaves unlock.
     private static readonly TimeSpan DegradedTimeout = TimeSpan.FromMinutes(5);
+
+    // Pointer history is everything the peers have not acknowledged yet (PointerAck):
+    // the receiver acks its high-water mark every few seconds, the sender drops what
+    // every acker has, and on recovery it resends the rest in Seq order. The receiver's
+    // (Session, Seq) dedupe then covers the peer that kept running, and the ack floor
+    // covers the one that restarted. The cap catches the acker that goes quiet for
+    // good - a third peer that left mid-session keeps its last ack as the floor - and
+    // is otherwise slack: ~60 B presses and <=2.4 KB drags keep 2000 under a megabyte.
+    private const int HistoryCap = 2000;
+    private static readonly TimeSpan AckInterval = TimeSpan.FromSeconds(3);
 
     private readonly INetwork _net;
     private readonly MasterSwitch _masterSwitch;
@@ -22,6 +32,10 @@ public class Coordinator : IDisposable
     private readonly ulong _sessionId;
     private int _pointerSeq;
     private readonly object _stateLock = new();
+    private readonly List<PointerEvent> _history = [];        // our unacked events, Seq ascending
+    private readonly Dictionary<ulong, uint> _acks = new();   // acker session -> last Seq of ours it has
+    private readonly Dictionary<ulong, uint> _lastSeq = new(); // sender session -> last Seq applied
+    private readonly Dictionary<ulong, uint> _acked = new();   // sender session -> last Seq we acked
     private bool _hadPeer;
     // A peer announced it was leaving. Spent when the link goes down, and cleared by
     // any tick that still shows a live link, so a third peer leaving a three-way
@@ -52,6 +66,7 @@ public class Coordinator : IDisposable
         _net.RegisterPacket<Physics, Physics.Codec>();
         _net.RegisterPacket<Surfaces, Surfaces.Codec>();
         _net.RegisterPacket<PointerEvent, PointerEvent.Codec>();
+        _net.RegisterPacket<PointerAck, PointerAck.Codec>();
 
         _d.Add(sim.Aircraft.Take(1).Subscribe(_ => AddLink((ref Physics physics) =>
         {
@@ -71,7 +86,7 @@ public class Coordinator : IDisposable
             .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(interact => _net.SendAll(interact)));
         _d.Add(_net.Stream<Interact>()
-            .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
+            .Where(i => !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(update => _sim.Set(update)));
 
         // Pointer sync is symmetric like Interact - never gated on master. Outbound the
@@ -83,10 +98,15 @@ public class Coordinator : IDisposable
         // scheduling hop and could overtake.
         _d.Add(panels.Events
             .Where(e => _pointer.Keys.Contains(e.Key))
-            .Subscribe(e => _net.SendAll(e with { Session = _sessionId, Seq = NextSeq() })));
+            .Subscribe(e => SendPointer(e with { Session = _sessionId, Seq = NextSeq() })));
         _d.Add(_net.Stream<PointerEvent>()
+            .Where(e => Fresh(e.Session, e.Seq))
             .Where(e => _pointer.Keys.Contains(e.Key))
             .Subscribe(panels.Send));
+        // Acks mean "received by the app", not "applied by the panel"; app -> panel is
+        // loopback and the panel's own missed counter covers that hop.
+        _d.Add(_net.Stream<PointerAck>().Subscribe(OnAck));
+        _d.Add(Observable.Interval(AckInterval).Subscribe(_ => SendAcks()));
 
         // The sync state machine behind the panel overlays. The link is what the
         // transport shows: live (a connected peer), connecting (a handshake or a join
@@ -124,8 +144,8 @@ public class Coordinator : IDisposable
         _panels.Configure(definitions.Pointer);
     }
 
-    /// <summary>The user left on purpose: no outage to bridge, so panels return to
-    /// their resting state rather than locking.</summary>
+    /// <summary>The user left on purpose: no outage to bridge, so held pointer
+    /// history is dropped and panels return to their resting state.</summary>
     public void EndSync()
     {
         lock (_stateLock)
@@ -138,6 +158,8 @@ public class Coordinator : IDisposable
             // is not a transition, and the next live one is.
             _link = Link.None;
             _syncState = SyncState.None;
+            _history.Clear();
+            _acks.Clear();
             _panels.SetSync(_syncState, _masterSwitch.IsMaster);
         }
     }
@@ -156,9 +178,15 @@ public class Coordinator : IDisposable
                 case Link.Live:
                     _degradedTimer?.Dispose();
                     _degradedTimer = null;
+                    var recovered = _hadPeer;
                     _hadPeer = true;
                     _syncState = SyncState.Live;
                     _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+                    // Recovery replays; first contact does not. Everything held is what
+                    // no acker had when the link dropped - the slave was locked for the
+                    // whole gap, so ordered replay reconstructs sync exactly, and a peer
+                    // that kept running drops what it already applied by (Session, Seq).
+                    if (recovered) ResendHistory();
                     break;
 
                 case Link.Connecting:
@@ -206,6 +234,77 @@ public class Coordinator : IDisposable
     }
 
     private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
+
+    private void SendPointer(PointerEvent e)
+    {
+        lock (_stateLock)
+        {
+            // Nothing is held while sync has never been live: there is nobody to replay it to,
+            // and a first contact must not receive the local pilot's solo input.
+            if (_hadPeer)
+            {
+                _history.Add(e);
+                if (_history.Count > HistoryCap) _history.RemoveAt(0);
+            }
+        }
+        _net.SendAll(e);
+    }
+
+    /// <summary>A peer has our session up to ack.Seq: drop what every acker has.</summary>
+    private void OnAck(PointerAck ack)
+    {
+        if (ack.Session != _sessionId) return;
+        lock (_stateLock)
+        {
+            _acks[ack.From] = _acks.TryGetValue(ack.From, out var prev) ? Math.Max(prev, ack.Seq) : ack.Seq;
+            var floor = _acks.Values.Min();
+            var n = 0;
+            while (n < _history.Count && _history[n].Seq <= floor) n++;
+            if (n > 0) _history.RemoveRange(0, n);
+        }
+    }
+
+    /// <summary>Acknowledges each sender session whose high-water mark moved since the
+    /// last ack. Only while live: an ack sent into a dropped link is lost with it, and
+    /// marking it as sent would leave the sender holding more than it needs to.</summary>
+    private void SendAcks()
+    {
+        if (_syncState != SyncState.Live) return;
+        List<PointerAck> due = [];
+        lock (_lastSeq)
+        {
+            foreach (var (session, seq) in _lastSeq)
+            {
+                if (_acked.TryGetValue(session, out var acked) && acked == seq) continue;
+                _acked[session] = seq;
+                due.Add(new PointerAck(session, seq, _sessionId));
+            }
+        }
+        foreach (var ack in due) _net.SendAll(ack);
+    }
+
+    private void ResendHistory()
+    {
+        PointerEvent[] entries;
+        lock (_stateLock) entries = _history.OrderBy(e => e.Seq).ToArray();
+        foreach (var e in entries) _net.SendAll(e);
+        if (entries.Length > 0) Log.Debug("[Pointer] Re-sent {Count} unacknowledged events after reconnect", entries.Length);
+    }
+
+    private bool Fresh(ulong session, uint seq)
+    {
+        lock (_lastSeq)
+        {
+            if (_lastSeq.TryGetValue(session, out var last))
+            {
+                if (seq <= last) return false; // already applied; history re-sends overlap by design
+                if (seq > last + 1)
+                    Log.Warning("[Pointer] {Lost} events from the peer never arrived - panels may be desynced", seq - last - 1);
+            }
+            _lastSeq[session] = seq;
+            return true;
+        }
+    }
 
     private sealed class PointerFilter
     {
