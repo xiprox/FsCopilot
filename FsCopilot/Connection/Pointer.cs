@@ -2,6 +2,34 @@ namespace FsCopilot.Connection;
 
 using Network;
 
+/*
+ * The pointer-sync wire, complete, in one place.
+ *
+ *   PointerEvent   Key       string  full panel key: identifier, or identifier|query
+ *                  Session   u64     random per app run of the sender
+ *                  Seq       u32     monotonic per sender run; one space for presses and drags
+ *                  Flags     u8      reserved - flag bits do not change the schema, fields do
+ *                  Kind      u8      0 press, 1 drag
+ *                  Button    u8
+ *                  HoldMs    u16     press: down to up; drag: 0
+ *                  GapMs     u16     idle time before this gesture on the capturing side, <= 1000
+ *                  DownX/Y   f32 x2  rect fractions; press: the down point, drag: the first path point
+ *                  UpX/Y     f32 x2  press: the up point, drag: the last path point
+ *                  Path      u16 count, then (u16 DtMs, f32 X, f32 Y) each; empty for a press
+ *   PointerAck     Session   u64     the sender session being acknowledged
+ *                  Seq       u32     "I have your session up to here"
+ *                  From      u64     the acker's own session, so a restarted peer is a new acker
+ *
+ * Both are registered after Surfaces in the Coordinator. Not a packet, but part of the
+ * same change: the direct-path disconnect carries a "left" payload (P2PNetwork) and the
+ * relay's LinkClosed code is read, so a peer that left is told from one that was lost.
+ *
+ * Codecs.Schema hashes every registered type, so this build refuses every older one
+ * ("Both sides must use the same FS Copilot version"). Intended and unavoidable; it is
+ * why Session, Seq and Flags are on the wire from day one. The relay does not care -
+ * it checks that the two peers match each other, not that they match the relay.
+ */
+
 public enum PointerKind : byte
 {
     Press = 0,
