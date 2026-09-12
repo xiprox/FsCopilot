@@ -22,8 +22,8 @@ export default async function (t) {
 
   // The peer is told too, in the disconnect itself. "Left", not "lost": no outage
   // to bridge, so the session ends rather than degrading.
-  await w.b.waitForSession("none", { timeout: 30000 })
-  await w.B.waitForLog(/\[Pointer\] Peer left; session over/)
+  await w.b.waitForSync("none", { timeout: 30000 })
+  await w.B.waitForLog(/\[Pointer\] Peer left; sync ended/)
 
-  eq(w.b.state.session, "none", "B's session after A left")
+  eq(w.b.state.sync, "none", "B's sync after A left")
 }

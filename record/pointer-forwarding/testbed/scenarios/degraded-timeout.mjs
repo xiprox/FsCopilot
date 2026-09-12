@@ -21,20 +21,20 @@ export default async function (t) {
 
   await w.B.suspend()
   t.log("B suspended; waiting out the five-minute timeout")
-  await w.a.waitForSession("degraded", { timeout: 45000 })
+  await w.a.waitForSync("degraded", { timeout: 45000 })
 
   // Presses during the outage are held, and are what the timeout discards.
   for (let i = 0; i < 5; i++) w.a.press({ x: 0.3 + i / 100, y: 0.3 })
 
-  await w.a.waitForSession("none", { timeout: 7 * 60 * 1000 })
+  await w.a.waitForSync("none", { timeout: 7 * 60 * 1000 })
   await w.A.waitForLog(/Peer did not return within .*panels may be desynced/)
-  eq(w.a.state.session, "none", "A's session after the timeout")
+  eq(w.a.state.sync, "none", "A's sync after the timeout")
 
   await w.B.resume()
   // Rejoining after the session ended is a fresh session, not a recovery: the
   // history that would have been re-sent is gone.
   await w.B.join(w.A.peerId)
-  await w.a.waitForSession("live", { timeout: 45000 })
+  await w.a.waitForSync("live", { timeout: 45000 })
 
   const resent = w.A.logMatches(/Re-sent (\d+) unacknowledged events/)
   eq(resent.length, 0, "nothing re-sent after the session had ended")

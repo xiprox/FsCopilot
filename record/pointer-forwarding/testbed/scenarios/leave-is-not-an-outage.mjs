@@ -17,11 +17,11 @@ export default async function (t) {
 
   // The leaver ends its own session directly rather than waiting for a transport
   // event, so this is immediate on B and takes a disconnect on A.
-  await w.b.waitForSession("none", { timeout: 15000 })
-  eq(w.b.state.session, "none", "B's session after leaving")
+  await w.b.waitForSync("none", { timeout: 15000 })
+  eq(w.b.state.sync, "none", "B's sync after leaving")
 
-  await w.a.waitForSession("none", { timeout: 45000 })
-  await w.A.waitForLog(/\[Pointer\] Peer left; session over/)
+  await w.a.waitForSync("none", { timeout: 45000 })
+  await w.A.waitForLog(/\[Pointer\] Peer left; sync ended/)
 
   ok(w.A.logMatches(/Re-sent \d+ unacknowledged events/).length === 0,
     "nothing was re-sent to a peer that left")

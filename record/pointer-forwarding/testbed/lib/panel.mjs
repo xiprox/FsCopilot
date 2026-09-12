@@ -9,7 +9,7 @@
  * panel that is about to disappear).
  *
  * The app broadcasts {t:"state"} every two seconds, so this is also where the bench
- * observes the session state machine. There is no second channel for test state:
+ * observes the sync state machine. There is no second channel for test state:
  * what the bench asserts on is what a pilot's panel would have been told.
  */
 
@@ -39,7 +39,7 @@ export class Panel extends EventEmitter {
     this.received = []
     /** Just the replays, which is what most assertions are about. */
     this.replays = []
-    /** Last {t:"state"}: {session, role}. */
+    /** Last {t:"state"}: {sync, role}. */
     this.state = null
     /** Last {t:"config"} pointer list. */
     this.config = null
@@ -113,7 +113,7 @@ export class Panel extends EventEmitter {
     try { msg = JSON.parse(text) } catch { return }
     const entry = { at: now(), msg }
     this.received.push(entry)
-    if (msg.t === "state") this.state = { session: msg.session, role: msg.role }
+    if (msg.t === "state") this.state = { sync: msg.sync, role: msg.role }
     if (msg.t === "config") this.config = msg.pointer || []
     if (msg.t === "bye") this.saidBye = true
     if (msg.t === "pointer") this.replays.push({ at: entry.at, ...msg.msg })
@@ -171,18 +171,18 @@ export class Panel extends EventEmitter {
   }
 
   /*
-   * Waits for a session state. The app renews state every 2 s, so this settles on
+   * Waits for a sync state. The app renews state every 2 s, so this settles on
    * the next renewal at worst rather than only on a transition.
    *
    * Only the current state and what comes after it, never the backlog: a panel's
    * first state is "none", so a search from the start matches that one and a wait
-   * for the session to *end* returns immediately, before anything has happened. It
+   * for sync to *end* returns immediately, before anything has happened. It
    * cost three scenarios that reported the state they were about to be in anyway.
    */
-  waitForSession(session, opts = {}) {
-    if (this.state && this.state.session === session) return Promise.resolve(this.state)
-    return this.waitFor((m) => m.t === "state" && m.session === session,
-      { timeout: 20000, label: `session=${session}`, ...opts, from: this.received.length })
+  waitForSync(sync, opts = {}) {
+    if (this.state && this.state.sync === sync) return Promise.resolve(this.state)
+    return this.waitFor((m) => m.t === "state" && m.sync === sync,
+      { timeout: 20000, label: `sync=${sync}`, ...opts, from: this.received.length })
       .then(() => this.state)
   }
 

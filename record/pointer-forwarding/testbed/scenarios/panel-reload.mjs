@@ -18,7 +18,7 @@ export default async function (t) {
   // Config and state follow every hello, so a reloaded panel learns its mode
   // without waiting for the next renewal.
   ok(w.b.config && w.b.config.includes(w.b.key), "config after reload")
-  eq(w.b.state.session, "live", "session after reload")
+  eq(w.b.state.sync, "live", "sync after reload")
 
   const { sent, replay } = await w.pressAcross({ x: 0.9, y: 0.1 })
   eq(replay.key, sent.key, "routing resumed after reload")

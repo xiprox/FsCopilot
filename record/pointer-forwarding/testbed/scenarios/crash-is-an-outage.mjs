@@ -18,12 +18,12 @@ export default async function (t) {
 
   // LiteNetLib's DisconnectTimeout is 15 s, so this is the slowest transition the
   // fast scenarios wait for.
-  await w.b.waitForSession("degraded", { timeout: 45000 })
-  eq(w.b.state.session, "degraded", "B's session after A was killed")
+  await w.b.waitForSync("degraded", { timeout: 45000 })
+  eq(w.b.state.sync, "degraded", "B's sync after A was killed")
 
   // Degraded is a lock on the slave, and B is the joiner.
   eq(w.b.state.role, "slave", "B's role")
 
-  ok(w.B.logMatches(/Peer left; session over/).length === 0,
+  ok(w.B.logMatches(/Peer left; sync ended/).length === 0,
     "B did not treat a kill as a deliberate departure")
 }

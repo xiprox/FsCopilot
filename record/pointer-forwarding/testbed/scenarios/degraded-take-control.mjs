@@ -5,10 +5,10 @@
  * degraded until the five-minute timeout. What makes that survivable is that the
  * lock is not on both of them: pointer.js stands the amber overlay only while
  *
- *     fresh && session === 'degraded' && role === 'slave'
+ *     fresh && sync === 'degraded' && role === 'slave'
  *
  * and the card names the move - "Take control to keep flying". Take Control flips
- * the role, the Coordinator re-broadcasts the session state, and the overlay's own
+ * the role, the Coordinator re-broadcasts the sync state, and the overlay's own
  * condition stops holding.
  *
  * The overlay is DOM and a fake panel has none. What this settles is the state
@@ -31,7 +31,7 @@ export default async function (t) {
   await w.A.suspend()
   t.log("A suspended")
 
-  await w.b.waitForSession("degraded", { timeout: 45000 })
+  await w.b.waitForSync("degraded", { timeout: 45000 })
   eq(w.b.state.role, "slave", "B's role while degraded")
   // Both halves of the overlay's condition hold: this is the locked panel.
 
@@ -41,7 +41,7 @@ export default async function (t) {
     { timeout: 15000, label: "role=master", from: w.b.received.length })
 
   eq(w.b.state.role, "master", "B's role after taking control")
-  // The session is still degraded - taking control does not bring the peer back,
+  // Sync is still degraded - taking control does not bring the peer back,
   // it stops this side waiting for one.
-  eq(w.b.state.session, "degraded", "B's session after taking control")
+  eq(w.b.state.sync, "degraded", "B's sync after taking control")
 }

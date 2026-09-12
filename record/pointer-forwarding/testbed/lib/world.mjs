@@ -86,12 +86,12 @@ export class World {
     return p
   }
 
-  /** B joins A, and both sides see the session go live in their panels. */
+  /** B joins A, and both sides see sync go live in their panels. */
   async join() {
     await this.B.join(this.A.peerId)
     await Promise.all([
-      this.a ? this.a.waitForSession("live") : null,
-      this.b ? this.b.waitForSession("live") : null
+      this.a ? this.a.waitForSync("live") : null,
+      this.b ? this.b.waitForSync("live") : null
     ])
     // The ack timer is what clears send history, and it only runs while live. A
     // scenario that wants "acknowledged" rather than "delivered" waits for this.

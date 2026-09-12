@@ -18,13 +18,13 @@ export default async function (t) {
 
   await w.B.suspend()
   t.log("B suspended")
-  await w.a.waitForSession("degraded", { timeout: 45000 })
-  eq(w.a.state.session, "degraded", "A's session while B is frozen")
+  await w.a.waitForSync("degraded", { timeout: 45000 })
+  eq(w.a.state.sync, "degraded", "A's sync while B is frozen")
 
   await w.B.resume()
   t.log("B resumed; waiting to see whether the link returns unaided")
 
   // Three minutes: long enough that "it retries slowly" is not the answer.
-  await w.a.waitForSession("live", { timeout: 180000 })
-  eq(w.a.state.session, "live", "A's session after B came back")
+  await w.a.waitForSync("live", { timeout: 180000 })
+  eq(w.a.state.sync, "live", "A's sync after B came back")
 }

@@ -26,7 +26,7 @@ export default async function (t) {
 
   await w.B.suspend()
   t.log("B suspended")
-  await w.a.waitForSession("degraded", { timeout: 45000 })
+  await w.a.waitForSync("degraded", { timeout: 45000 })
 
   const during = [
     { x: 0.21, y: 0.31 },
@@ -43,7 +43,7 @@ export default async function (t) {
   // outage-and-recovery. Re-joining is what a pilot would do, and it is the
   // recovery this scenario is about.
   await w.B.join(w.A.peerId)
-  await w.a.waitForSession("live", { timeout: 45000 })
+  await w.a.waitForSync("live", { timeout: 45000 })
 
   const replays = await w.b.waitForReplays(1 + during.length, { timeout: 30000 })
   const after = replays.slice(1)
