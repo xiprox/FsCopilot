@@ -14,6 +14,7 @@ using Views;
 public class App : Application
 {
     private readonly CancellationTokenSource _appCts = new();
+    private BenchControl? _bench;
     
     public static readonly string Version =
         Assembly.GetEntryAssembly()?
@@ -39,6 +40,7 @@ public class App : Application
                 Locator.Current.GetService<PanelServer>()?.Shutdown();
                 Locator.Current.GetService<INetwork>()?.Disconnect();
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
+                _bench?.Dispose();
             };
             
             var args = desktop.Args ?? [];
@@ -65,7 +67,9 @@ public class App : Application
             else
             {
                 CreateWindow(desktop, dev);
-                _ = CheckForUpdatesAsync(Locator.Current.GetService<Updater>()!, _appCts.Token);
+                // Test-only, and does nothing without --bench <port>. See BenchControl.
+                _bench = BenchControl.Start(args, t => Locator.Current.GetService(t));
+                if (_bench == null) _ = CheckForUpdatesAsync(Locator.Current.GetService<Updater>()!, _appCts.Token);
             }
         }
 

@@ -60,11 +60,21 @@ sealed class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp([]);
 
+    /// <summary>The value after <paramref name="flag"/>, or null when it is absent or last.</summary>
+    private static string? Option(string[] args, string flag)
+    {
+        var i = Array.FindIndex(args, a => string.Equals(a, flag, StringComparison.OrdinalIgnoreCase));
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+    }
+
     public static AppBuilder BuildAvaloniaApp(string[] args)
     {
         var isDev = args.Any(a => string.Equals(a, "--dev", StringComparison.OrdinalIgnoreCase));
         // var isExperimental = args.Any(a => string.Equals(a, "--experimental", StringComparison.OrdinalIgnoreCase));
-        var peerId = Random.String(8);
+        // Test-only, with BenchControl: the bench runs two instances on one machine and
+        // needs a rendezvous it can restart, and ids it can name before either starts.
+        var host = Option(args, "--relay") ?? "p2p.fscopilot.com";
+        var peerId = Option(args, "--peer-id") ?? Random.String(8);
         var name = Environment.UserName;
 
         return AppBuilder.Configure<App>()
@@ -90,7 +100,7 @@ sealed class Program
                     
                     if (!isDev)
                     {
-                        services.AddSingleton<INetwork>(new HybridNetwork("p2p.fscopilot.com", peerId, name));
+                        services.AddSingleton<INetwork>(new HybridNetwork(host, peerId, name));
                         // services.AddSingleton<INetwork>(!isExperimental
                         //     ? new P2PNetwork("p2p.fscopilot.com", peerId, name)
                         //     : new HybridNetwork("p2p.fscopilot.com", peerId, name));
