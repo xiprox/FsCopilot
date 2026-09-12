@@ -89,11 +89,13 @@ public class Coordinator : IDisposable
             .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(update => _sim.Set(update)));
 
-        // Pointer sync is symmetric like Interact - never gated on master. The profile
-        // filter runs on both ends: outbound it is the opt-in, inbound it defends
-        // against a peer whose profile differs. Presses and drags share one stream in
-        // each direction, so Seq follows capture order and arrival order is delivery
-        // order - a second stream would be a second scheduling hop and could overtake.
+        // Pointer sync is symmetric like Interact - never gated on master. Outbound the
+        // profile filter is the opt-in. Inbound it is what gates delivery: a panel
+        // helloes its key before it has been told its mode, so the socket is registered
+        // either way and routing alone would deliver into a panel still in events mode.
+        // Presses and drags share one stream in each direction, so Seq follows capture
+        // order and arrival order is delivery order - a second stream would be a second
+        // scheduling hop and could overtake.
         _d.Add(panels.Events
             .Where(e => _pointer.Keys.Contains(e.Key))
             .Subscribe(e => SendPointer(e with { Session = _sessionId, Seq = NextSeq() })));
