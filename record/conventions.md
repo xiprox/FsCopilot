@@ -80,6 +80,59 @@ locally and desktop-app errors no longer come back from Visual Studio by hand.
 **The inspector is for inspecting, not for carrying data.** Its console channel silently drops
 a message identical to the one before it, which cost half a recording before it was found.
 
+## Writing
+
+Applies to documentation, code comments and commit messages alike. Nothing in this section is
+specific to this project — it is written to be lifted whole into another repository.
+
+**The test: can it be read once, at speed, and understood?** A sentence that needs a second pass
+to parse has failed, however accurate it is. Prose that is merely *correct* still wastes the
+reader, and a reader who has to work is a reader who stops.
+
+**Show the mechanism. Do not describe a property of it.** Naming a property makes the reader
+reconstruct the concrete case to check the claim. Showing the case carries the conclusion for
+free and costs fewer words.
+
+    ✗  The receiver's own hit-testing decides what got pressed — which is what a second
+       pilot reaching for the same button would do.
+    ✓  Nothing depends on how the display is built. Event at position x sent, event at
+       position x replayed.
+
+    ✗  It blocks input by being there, it says why on its face, and removing it is the
+       complete restore.
+    ✓  Clicks hit the overlay instead of the display, the overlay says why it is there,
+       and deleting it puts the panel back.
+
+    ✗  Nothing at capture time separates a useful name from a useless container name.
+    ✓  At capture time a container and a real button are both just a successful lookup.
+
+**Cut the trailing clause that restates the sentence.** The pattern is an em-dash followed by a
+clause that sounds like it explains the sentence and only repeats it in a more pleased-with-itself
+register. If the clause has no second term — "which is what X would do", where X does no such
+thing — it is decoration, not explanation. High em-dash density is the symptom; the clauses are
+the disease.
+
+**Say it once.** A restatement three paragraphs after the original, dressed up to feel like it is
+adding something, is the same failure at paragraph scale. If the point is already made, the
+sentence goes.
+
+**No rhetoric against a doubt nobody raised.** "Not a matter of trying harder" answers an
+accusation the reader has not made. Say what is true instead: what would have to change for the
+thing to become possible.
+
+**Headings name the content; they do not praise it.** "Known limits", not "Limits, stated rather
+than discovered".
+
+**Use first person where you are admitting something.** "I haven't chased it down" is a person
+talking. An impersonal register applied to an admission reads as evasion, and applied to
+everything reads as a machine.
+
+**In code comments the same rule is sharper**, because the code already states the *what*. A
+comment earns its place by showing the case the code cannot: the input that breaks, the ordering
+that matters, the thing that was tried and did not work. "Replaying 'next page' three times into
+a panel that reset to page one is three random inputs" is a comment worth having. "Handles the
+edge case correctly" is not.
+
 ## What the imported record says that no longer holds
 
 `record/pointer-forwarding/CLAUDE.md` was written for the standalone playground and is kept as
