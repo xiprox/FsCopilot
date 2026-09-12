@@ -10,7 +10,8 @@ using System.Text.Json;
 /// bus and its 512-byte single-slot buffer. Panels identify themselves per instrument
 /// with a hello message and receive the current pointer configuration and sync state
 /// in return; the state is re-broadcast every 2 seconds so a panel can treat silence as
-/// "the app is gone" and fail open.
+/// "the app is gone" and fail open. A deliberate shutdown says goodbye first; see
+/// <see cref="Shutdown"/>.
 /// </summary>
 public sealed class PanelServer : IDisposable
 {
@@ -19,6 +20,11 @@ public sealed class PanelServer : IDisposable
     private static readonly int[] Ports = [9020, 9021, 9022, 9023, 9024];
 
     private static readonly TimeSpan StateRenewal = TimeSpan.FromSeconds(2);
+
+    // How long a deliberate shutdown waits for the goodbye to reach its panels. Bounded
+    // hard: this runs on the way out of the process, and a wedged socket must not hold
+    // the app open. Loopback delivery is sub-millisecond when it works at all.
+    private static readonly TimeSpan ShutdownGrace = TimeSpan.FromMilliseconds(750);
 
     private readonly HttpListener? _listener;
     private readonly CancellationTokenSource _cts = new();
@@ -31,6 +37,7 @@ public sealed class PanelServer : IDisposable
     private volatile string[] _pointerKeys = [];
     private volatile string _syncState = SyncState.None;
     private volatile bool _isMaster = true;
+    private volatile bool _closing;
 
     public int Port { get; } = -1;
 
@@ -149,6 +156,62 @@ public sealed class PanelServer : IDisposable
         // is the safer outcome.
         var total = Interlocked.Increment(ref _undelivered);
         Log.Debug("[PanelServer] No panel for {Key}; event dropped ({Total} undelivered so far)", key, total);
+    }
+
+    /// <summary>
+    /// Announces a deliberate shutdown to every connected panel, then disposes. Without
+    /// it a panel sees only a dropped socket - indistinguishable from a crashed app - and
+    /// warns the pilot that sync broke when nothing broke. Only the app's own exit path
+    /// reaches this; a kill or a crash rightly does not, and the warning stands for those.
+    /// </summary>
+    public void Shutdown()
+    {
+        // The goodbye must be the last thing a panel hears: channel.js spends the
+        // flag on any later message, and a state renewal landing between the bye and
+        // the close would turn the quit back into a reported break. So the renewal
+        // timer (in _d) is disposed before the farewells, not after, and _closing
+        // makes the send path refuse anything but the goodbye - which also covers a
+        // Configure broadcast from a profile load landing in the same instant.
+        _closing = true;
+        _d.Dispose();
+
+        var sockets = _sockets.Keys.ToArray();
+        if (sockets.Length > 0)
+        {
+            var bye = Json(w => w.WriteString("t", "bye"));
+            try
+            {
+                // Task.Run, then Wait: this is called from the UI thread on the way out,
+                // and awaiting a socket write there would post its continuation back to
+                // the very thread the Wait is blocking. Off the pool there is no context
+                // to deadlock against, and the grace period bounds the wait either way.
+                Task.Run(() => Task.WhenAll(sockets.Select(s => Farewell(s, bye))))
+                    .Wait(ShutdownGrace);
+                Log.Debug("[PanelServer] Announced shutdown to {Count} panel socket(s)", sockets.Length);
+            }
+            catch (Exception e)
+            {
+                Log.Debug("[PanelServer] Shutdown announce failed: {Error}", e.Message);
+            }
+        }
+
+        Dispose();
+    }
+
+    /// <summary>Sends the goodbye and closes cleanly, so the frame is flushed rather than
+    /// discarded under the abort in <see cref="Dispose"/>.</summary>
+    private async Task Farewell(PanelSocket socket, string bye)
+    {
+        await SendAsync(socket, bye, farewell: true);
+        try
+        {
+            if (socket.Ws.State == WebSocketState.Open)
+            {
+                await socket.Ws.CloseOutputAsync(
+                    WebSocketCloseStatus.NormalClosure, "shutdown", CancellationToken.None);
+            }
+        }
+        catch (Exception) { /* the panel is losing us either way */ }
     }
 
     public void Dispose()
@@ -347,8 +410,9 @@ public sealed class PanelServer : IDisposable
 
     private void Send(PanelSocket socket, string text) => _ = SendAsync(socket, text);
 
-    private async Task SendAsync(PanelSocket socket, string text)
+    private async Task SendAsync(PanelSocket socket, string text, bool farewell = false)
     {
+        if (_closing && !farewell) return;
         var bytes = Encoding.UTF8.GetBytes(text);
         await socket.SendLock.WaitAsync();
         try
