@@ -100,10 +100,10 @@ class Channel extends Emitter {
             let msg;
             try { msg = JSON.parse(String(ev.data)); } catch (e) { return; }
             this._stats.received++;
-            // The app answers every hello, so any reply proves it is alive - and the
-            // goodbye is the last thing it ever sends. One assignment therefore both
-            // arms the flag on shutdown and spends it on any other traffic, which is
-            // what keeps a stale goodbye from silencing a later real break.
+            // The goodbye is the last thing the app ever sends, and any other reply
+            // proves it is alive. So one assignment covers both: a bye sets the flag,
+            // and the next message of any other kind clears it. A stale goodbye
+            // cannot then silence a later real break.
             this._deliberate = !!msg && msg.t === 'bye';
             if (this._deliberate) console.log('[FsCopilot] [Channel] App announced shutdown');
             this.dispatchEvent('message', msg);
@@ -156,10 +156,10 @@ Channel.MAX_QUEUE_AGE_MS = 30000;
 Channel.CONFIRM_MS = 10000;
 
 /*
- * The routing key for one instrument. instrumentIdentifier alone is not unique -
- * the A220 reports 'CTP' for both CTPs and 'FCP' for all four FCPs, with the side
- * carried only in the instrument's url attribute query (from panel.cfg, so it is
- * identical across machines) - the key appends it.
+ * The routing key for one instrument. instrumentIdentifier alone is not unique:
+ * the A220 reports 'CTP' for both CTPs and 'FCP' for all four FCPs. The side is
+ * carried only in the instrument's url attribute query, so the key appends that.
+ * The query comes from panel.cfg and is identical across machines.
  */
 Channel.keyFor = function (instrument) {
     const id = instrument.instrumentIdentifier || instrument.tagName.toLowerCase();

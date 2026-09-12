@@ -41,8 +41,7 @@ public enum PointerKind : byte
 /// with its full sampled path, sent at mouse-up. One type for both, not two: the two
 /// kinds share one sequence space, and a type is a stream - two types would ride two
 /// observables with independent scheduling hops, so a drag could be processed after the
-/// press that followed it and be dropped as a duplicate. One type is one ordered stream
-/// from the wire to the panel socket.
+/// press that followed it and be dropped as a duplicate.
 /// Coordinates are fractions of the instrument element's bounding rect on the capturing
 /// machine - the receiver resolves them against its own rect, so neither side needs to
 /// know the other's resolution. They can legitimately fall slightly outside [0,1] and
@@ -125,12 +124,11 @@ public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, Poin
 /// <summary>
 /// The receiver's acknowledgement: "I have your session up to Seq". Sent every few
 /// seconds, and only when the receiver's high-water mark for that session has moved.
-/// The sender keeps everything after the last ack - that is its whole history, no live
-/// ring and no age window - and resends it when the link recovers; the receiver's
-/// (Session, Seq) dedupe stays as the second line for the kept-running case. From is
-/// the acker's own session id: both ids are per app run, so a restarted peer is a new
-/// acker in every respect, and the sender resends from the lowest ack it holds, which
-/// is what catches that peer up.
+/// The sender keeps everything after the last ack - that is its whole history - and
+/// resends it when the link recovers; the receiver's (Session, Seq) dedupe stays as the
+/// second line for the kept-running case. From is the acker's own session id: both ids
+/// are per app run, so a restarted peer is a new acker in every respect, and the sender
+/// resends from the lowest ack it holds.
 /// </summary>
 public record PointerAck(ulong Session, uint Seq, ulong From)
 {

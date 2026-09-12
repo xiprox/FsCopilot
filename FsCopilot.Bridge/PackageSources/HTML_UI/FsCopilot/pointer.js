@@ -1,13 +1,13 @@
 /*
  * Pointer sync: capture and replay of cockpit pointer input by position.
  *
- * Forwards WHERE the pointer went - fractions of the instrument element's bounding
- * rect - and lets the receiving panel's own DOM hit-testing decide what got
- * pressed. This reaches displays the element-name scheme cannot: React-over-SVG
- * and canvas surfaces have nothing stable to name, but they hit-test their own
- * documents fine. It must never be enabled for WasmInstrument panels - the sim
- * owns their hit-testing and discards synthetic coordinates while latching the
- * press.
+ * Nothing depends on how the display is built. Event at position x sent, event
+ * at position x replayed, where x is a fraction of the instrument element's
+ * bounding rect. This reaches displays the element-name scheme cannot:
+ * React-over-SVG and canvas surfaces have nothing stable to name, but they
+ * hit-test their own documents fine. It must never be enabled for WasmInstrument
+ * panels: the sim owns their hit-testing and discards synthetic coordinates
+ * while latching the press.
  *
  * Deliberately additive: it only ADDS listeners and dispatches events; it wraps
  * and replaces nothing, so it cannot disable an aircraft, and stop() removes
@@ -19,8 +19,7 @@
  * the gesture, not idle time between gestures - and the idle time the pilot
  * left before each one is carried on the wire (gap) and preserved up to a
  * second, so a panel that loads something after a click gets the time the
- * pilot gave it. Live traffic waits nothing: only the gap not already elapsed
- * here is waited. While the queue is busy a blocking overlay keeps real input
+ * pilot gave it. While the queue is busy a blocking overlay keeps real input
  * off the panel, so the local pilot can neither race the replay nor diverge
  * from it unseen; a lone tap runs synchronously and shows nothing.
  *
@@ -42,9 +41,7 @@ class Pointer {
         this._pendingDown = null;
         this._lastGestureEnd = 0;   // capture side: when the previous gesture ended
 
-        // The replay queue. One gesture in flight at a time; the deadman releases a
-        // gesture whose timers never complete, so a stall costs one gesture, not
-        // the panel.
+        // The replay queue. One gesture in flight at a time; see _arm for the stall.
         this._queue = [];
         this._busy = false;
         this._pumping = false;
@@ -299,9 +296,9 @@ class Pointer {
         };
     }
 
-    /* Sampled only while a button is down. The listener still fires on every
-     * move MSFS delivers - and it delivers a great many - so the early return
-     * matters more than it looks. */
+    /* Sampled only while a button is down. The listener sees every move MSFS
+     * delivers, so the early return runs far more often than the sampling
+     * below it. */
     _onMove(ev) {
         const d = this._pendingDown;
         if (!d) return;
@@ -341,7 +338,7 @@ class Pointer {
         this._lastGestureEnd = now;
 
         // Far enough to be a drag, with somewhere to drag along. A flick faster
-        // than the sample interval is still a press, which is the right reading.
+        // than the sample interval is still a press.
         if (d && d.travelled >= Pointer.DRAG_MIN_PX && d.path.length > 1) {
             const path = d.path.slice();
             path.push([now - d.at, n.nx, n.ny]);
@@ -410,8 +407,7 @@ class Pointer {
                 const msg = this._queue.shift();
                 const wait = this._remainingGap(msg);
                 if (wait > 0) {
-                    // The pilot's own pacing before this gesture, less what has already
-                    // passed here. A busy step, so the overlay stands across it.
+                    // A busy step, so the overlay stands across the wait.
                     this._busy = true;
                     const go = this._once(() => {
                         this._disarm();
@@ -520,10 +516,10 @@ class Pointer {
     }
 
     /* A drag replays as its recorded path with its original timing. Each move is
-     * dispatched at whatever is under that point - what a real mouse does; there
-     * is no pointer capture to imitate in this engine. Deliberately no click at
-     * the end: a browser fires one only when down and up share a target, and a
-     * map pan that ended elsewhere should not also register as a selection. */
+     * dispatched at whatever is under that point: there is no pointer capture to
+     * imitate in this engine. Deliberately no click at the end: a browser fires
+     * one only when down and up share a target, and a map pan that ended
+     * elsewhere should not also register as a selection. */
     _replayDrag(msg, done) {
         const pts = msg.path;
         if (!pts || pts.length < 2) { this._stats.missed++; return -1; }

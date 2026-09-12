@@ -10,8 +10,8 @@ using System.Text.Json;
 /// bus and its 512-byte single-slot buffer. Panels identify themselves per instrument
 /// with a hello message and receive the current pointer configuration and session state
 /// in return; the state is re-broadcast every 2 seconds so a panel can treat silence as
-/// "the app is gone" and fail open. A deliberate shutdown says goodbye first, so a panel
-/// can tell a quit from a crash - a dropped socket looks identical either way.
+/// "the app is gone" and fail open. A deliberate shutdown says goodbye first; see
+/// <see cref="Shutdown"/>.
 /// </summary>
 public sealed class PanelServer : IDisposable
 {
@@ -164,10 +164,9 @@ public sealed class PanelServer : IDisposable
 
         // No panel has helloed this key: dropped, and counted. Not held for one that
         // appears later - a document that helloes later was (re)loaded by the sim and
-        // starts from its default state, while the peer's did not. It is desynced by
-        // construction, and presses made against the state it was in are not a
-        // replay into it: "next page" three times into a panel that reset to page
-        // one is three random inputs. Dropping is the safer outcome.
+        // starts from its default state, while the peer's did not. "Next page" three
+        // times into a panel that reset to page one is three random inputs. Dropping
+        // is the safer outcome.
         var total = Interlocked.Increment(ref _undelivered);
         Log.Debug("[PanelServer] No panel for {Key}; event dropped ({Total} undelivered so far)", key, total);
     }
@@ -176,8 +175,7 @@ public sealed class PanelServer : IDisposable
     /// Announces a deliberate shutdown to every connected panel, then disposes. Without
     /// it a panel sees only a dropped socket - indistinguishable from a crashed app - and
     /// warns the pilot that sync broke when nothing broke. Only the app's own exit path
-    /// reaches this; a kill or a crash rightly does not, which is what leaves the warning
-    /// for the cases that deserve it.
+    /// reaches this; a kill or a crash rightly does not, and the warning stands for those.
     /// </summary>
     public void Shutdown()
     {

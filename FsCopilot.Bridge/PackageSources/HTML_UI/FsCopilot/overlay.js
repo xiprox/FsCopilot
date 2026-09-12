@@ -4,10 +4,9 @@
  * degraded on the slave) or warned (sync broken).
  *
  * Pure renderer: which state shows, when it clears, muting, the deadman and the
- * debug hold are all Pointer's policy - this class only draws what it is told.
- * A blocking state swallows input by covering it (removing the node is the
- * complete restore, unlike listener suppression); a non-blocking state sets
- * pointer-events:none and must never eat a click.
+ * debug hold are all Pointer's policy. In a blocking state, clicks hit the
+ * overlay instead of the display and deleting the node puts the panel back; a
+ * non-blocking state sets pointer-events:none and must never eat a click.
  *
  * Coherent GT is Chrome 49: no optional chaining, no ??, no class fields.
  */
@@ -81,7 +80,6 @@ class Overlay {
             'width:' + (compact ? 6 : 8) + 'px;height:' + (compact ? 6 : 8) + 'px;border-radius:50%;' +
             'margin-right:' + (compact ? 8 : 11) + 'px;background:rgb(' + accent + ');' +
             'box-shadow:0 0 ' + (compact ? 6 : 10) + 'px rgba(' + accent + ',0.9);' +
-            // A live app renewing the lock earns a heartbeat; a dead link holds still.
             (spec.block ? 'animation:fscPulse 1.6s ease-in-out infinite;' : ''));
         title.appendChild(dot);
 
@@ -133,10 +131,11 @@ class Overlay {
      * hit-testing, then is restored in the finally. The page is single-threaded,
      * so no real click can be delivered in between - from the pilot's side the
      * overlay never opens. The synthetic events themselves are dispatched straight
-     * at the found element and never hit-test at all. Assumes the engine applies
-     * the style change synchronously before elementFromPoint, as Chrome does; if
-     * an in-sim check ever says otherwise, the fallback is to remove the node and
-     * reinsert it around the call. */
+     * at the found element and never hit-test at all. This assumes the engine
+     * applies the style change synchronously before elementFromPoint, as Chrome
+     * does; I haven't checked it in the sim. If an in-sim check ever says
+     * otherwise, the fallback is to remove the node and reinsert it around the
+     * call. */
     hitTest(x, y) {
         const el = this._el;
         if (!el) return document.elementFromPoint(x, y);

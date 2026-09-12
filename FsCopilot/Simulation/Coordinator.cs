@@ -14,10 +14,9 @@ public class Coordinator : IDisposable
     // the receiver acks its high-water mark every few seconds, the sender drops what
     // every acker has, and on recovery it resends the rest in Seq order. The receiver's
     // (Session, Seq) dedupe then covers the peer that kept running, and the ack floor
-    // covers the one that restarted. The cap is a safety bound only: ~60 B presses and
-    // <=2.4 KB drags keep 2000 well under a megabyte. It is what bounds the history
-    // when an acker goes quiet for good (a third peer that left mid-session keeps its
-    // last ack as the floor), which is accepted.
+    // covers the one that restarted. The cap catches the acker that goes quiet for
+    // good - a third peer that left mid-session keeps its last ack as the floor - and
+    // is otherwise slack: ~60 B presses and <=2.4 KB drags keep 2000 under a megabyte.
     private const int HistoryCap = 2000;
     private static readonly TimeSpan AckInterval = TimeSpan.FromSeconds(3);
 
@@ -185,8 +184,6 @@ public class Coordinator : IDisposable
                     // no acker had when the link dropped - the slave was locked for the
                     // whole gap, so ordered replay reconstructs sync exactly, and a peer
                     // that kept running drops what it already applied by (Session, Seq).
-                    // A fresh session has nothing to replay and nobody it would be right
-                    // for.
                     if (recovered) ResendHistory();
                     break;
 
