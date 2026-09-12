@@ -391,7 +391,25 @@ public sealed class P2PNetwork : INetwork, IDisposable
         return bytes.AsSpan().SequenceEqual(LeftPayload);
     }
 
-    public void Disconnect() => _net.DisconnectAll(LeftPayload, 0, LeftPayload.Length);
+    public void Disconnect()
+    {
+        _net.DisconnectAll(LeftPayload, 0, LeftPayload.Length);
+        // Send it on this pulse rather than the next 15 ms tick. Costs nothing when the
+        // process is staying up, and is most of the difference when it is not.
+        _net.TriggerUpdate();
+    }
+
+    /// <summary>
+    /// A peer leaves the manager once the far side acknowledges the shutdown, so on a
+    /// working link this returns in a round trip. On a dead one it spends the whole grace
+    /// and gives up, which is the right answer: there was nobody there to tell.
+    /// </summary>
+    public void DrainDisconnect(TimeSpan grace)
+    {
+        var waited = Stopwatch.StartNew();
+        while (_net.GetPeersCount(ConnectionState.Any) > 0 && waited.Elapsed < grace)
+            Thread.Sleep(5);
+    }
 
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {

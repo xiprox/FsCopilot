@@ -24,6 +24,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(15);
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan RelaySettle = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan ConnectAttemptTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(3);
 
@@ -204,7 +205,24 @@ public sealed class RelayNetwork : INetwork, IDisposable
         }
     }
 
-    public void Disconnect() => DisconnectAllVirtual();
+    public void Disconnect()
+    {
+        DisconnectAllVirtual();
+        _net.TriggerUpdate();
+    }
+
+    /// <summary>
+    /// Here the departure is a reliable control message to the relay server rather than a
+    /// LiteNetLib disconnect, and the local peer list is cleared the moment it is queued,
+    /// so there is nothing left to poll for. Pulse the logic thread and give it a slice to
+    /// put the bytes out. Short: the relay is one hop and the pilot is waiting for a window
+    /// to close.
+    /// </summary>
+    public void DrainDisconnect(TimeSpan grace)
+    {
+        _net.TriggerUpdate();
+        Thread.Sleep(grace < RelaySettle ? grace : RelaySettle);
+    }
 
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {

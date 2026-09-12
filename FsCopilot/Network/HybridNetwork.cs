@@ -85,6 +85,15 @@ public sealed class HybridNetwork : INetwork, IDisposable
         _relay.Disconnect();
     }
 
+    /// <summary>Drains both. A peer rides one transport or the other and the caller does
+    /// not know which, so both are given the grace; the relay's own drain is a short fixed
+    /// settle, which keeps the worst case near the grace rather than twice it.</summary>
+    public void DrainDisconnect(TimeSpan grace)
+    {
+        _p2p.DrainDisconnect(grace);
+        _relay.DrainDisconnect(grace);
+    }
+
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {
         // Assumption: peers won't be connected via both transports simultaneously.
