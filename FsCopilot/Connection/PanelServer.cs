@@ -37,8 +37,7 @@ public sealed class PanelServer : IDisposable
     private readonly ConcurrentDictionary<PanelSocket, byte> _sockets = new();
     private readonly BehaviorSubject<bool> _bindFailed = new(false);
     private readonly CompositeDisposable _d = new();
-    private readonly Subject<PointerPress> _presses = new();
-    private readonly Subject<PointerDrag> _drags = new();
+    private readonly Subject<PointerEvent> _events = new();
     private readonly ConcurrentDictionary<string, ConcurrentQueue<(string Json, DateTime At)>> _pending = new();
 
     private volatile string[] _pointerKeys = [];
@@ -50,11 +49,9 @@ public sealed class PanelServer : IDisposable
     /// <summary>True when every port in the range was taken and the feature is off.</summary>
     public IObservable<bool> BindFailed => _bindFailed.ObserveOn(TaskPoolScheduler.Default);
 
-    /// <summary>Presses captured by panels on this machine. Session/Seq are unstamped here.</summary>
-    public IObservable<PointerPress> Presses => _presses.ObserveOn(TaskPoolScheduler.Default);
-
-    /// <summary>Drags captured by panels on this machine. Session/Seq are unstamped here.</summary>
-    public IObservable<PointerDrag> Drags => _drags.ObserveOn(TaskPoolScheduler.Default);
+    /// <summary>Gestures captured by panels on this machine, presses and drags on one stream
+    /// in capture order. Session/Seq are unstamped here.</summary>
+    public IObservable<PointerEvent> Events => _events.ObserveOn(TaskPoolScheduler.Default);
 
     public PanelServer()
     {
@@ -104,8 +101,7 @@ public sealed class PanelServer : IDisposable
     /// </summary>
     public void EnableDevEcho()
     {
-        _d.Add(Presses.Subscribe(Send));
-        _d.Add(Drags.Subscribe(Send));
+        _d.Add(Events.Subscribe(Send));
         Log.Information("[PanelServer] Dev echo enabled: panel captures reflect back to their panels");
     }
 
@@ -118,46 +114,41 @@ public sealed class PanelServer : IDisposable
         Broadcast(StateJson());
     }
 
-    /// <summary>Replays a peer's press on every panel that helloed with its key, or holds it
+    /// <summary>Replays a peer's gesture on every panel that helloed with its key, or holds it
     /// for a panel that has not appeared yet (loading, or reloading on a view change).</summary>
-    public void Send(PointerPress p) => Route(p.Key, Json(w =>
+    public void Send(PointerEvent e) => Route(e.Key, Json(w =>
     {
         w.WriteString("t", "pointer");
         w.WriteStartObject("msg");
         w.WriteNumber("v", 5);
-        w.WriteString("k", "press");
-        w.WriteString("key", p.Key);
-        w.WriteNumber("nx", p.DownX);
-        w.WriteNumber("ny", p.DownY);
-        w.WriteNumber("ux", p.UpX);
-        w.WriteNumber("uy", p.UpY);
-        w.WriteNumber("hold", p.HoldMs);
-        w.WriteNumber("button", p.Button);
-        w.WriteEndObject();
-    }));
-
-    public void Send(PointerDrag d) => Route(d.Key, Json(w =>
-    {
-        w.WriteString("t", "pointer");
-        w.WriteStartObject("msg");
-        w.WriteNumber("v", 5);
-        w.WriteString("k", "drag");
-        w.WriteString("key", d.Key);
-        w.WriteNumber("button", d.Button);
-        w.WriteStartArray("path");
-        // The wire carries per-step deltas; the panel replays against absolute
-        // times from the gesture start, so rebuild them here.
-        var at = 0;
-        foreach (var point in d.Path)
+        w.WriteString("k", e.Kind == PointerKind.Drag ? "drag" : "press");
+        w.WriteString("key", e.Key);
+        w.WriteNumber("button", e.Button);
+        if (e.Kind == PointerKind.Drag)
         {
-            at += point.DtMs;
-            w.WriteStartArray();
-            w.WriteNumberValue(at);
-            w.WriteNumberValue(point.X);
-            w.WriteNumberValue(point.Y);
+            w.WriteStartArray("path");
+            // The wire carries per-step deltas; the panel replays against absolute
+            // times from the gesture start, so rebuild them here.
+            var at = 0;
+            foreach (var point in e.Path)
+            {
+                at += point.DtMs;
+                w.WriteStartArray();
+                w.WriteNumberValue(at);
+                w.WriteNumberValue(point.X);
+                w.WriteNumberValue(point.Y);
+                w.WriteEndArray();
+            }
             w.WriteEndArray();
         }
-        w.WriteEndArray();
+        else
+        {
+            w.WriteNumber("nx", e.DownX);
+            w.WriteNumber("ny", e.DownY);
+            w.WriteNumber("ux", e.UpX);
+            w.WriteNumber("uy", e.UpY);
+            w.WriteNumber("hold", e.HoldMs);
+        }
         w.WriteEndObject();
     }));
 
@@ -360,14 +351,15 @@ public sealed class PanelServer : IDisposable
         switch (msg.String("k"))
         {
             case "press":
-                _presses.OnNext(new PointerPress(key, 0, 0, 0, button,
+                var nx = (float)msg.Double("nx");
+                var ny = (float)msg.Double("ny");
+                _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Press, button,
                     (ushort)Math.Clamp(msg.Double("hold"), 0, 1500),
-                    (float)msg.Double("nx"), (float)msg.Double("ny"),
-                    (float)msg.Double("ux", msg.Double("nx")), (float)msg.Double("uy", msg.Double("ny"))));
+                    nx, ny, (float)msg.Double("ux", nx), (float)msg.Double("uy", ny), PointerEvent.NoPath));
                 break;
             case "drag":
                 if (!msg.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.Array) return;
-                var points = new List<PointerDrag.Point>();
+                var points = new List<PointerEvent.Point>();
                 var prev = 0.0;
                 foreach (var p in path.EnumerateArray())
                 {
@@ -376,10 +368,13 @@ public sealed class PanelServer : IDisposable
                     var at = p[0].GetDouble();
                     var dt = Math.Clamp(at - prev, 0, ushort.MaxValue);
                     prev = at;
-                    points.Add(new PointerDrag.Point((ushort)dt, (float)p[1].GetDouble(), (float)p[2].GetDouble()));
+                    points.Add(new PointerEvent.Point((ushort)dt, (float)p[1].GetDouble(), (float)p[2].GetDouble()));
                 }
                 if (points.Count < 2) return;
-                _drags.OnNext(new PointerDrag(key, 0, 0, 0, button, points.ToArray()));
+                var first = points[0];
+                var last = points[^1];
+                _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Drag, button, 0,
+                    first.X, first.Y, last.X, last.Y, points.ToArray()));
                 break;
         }
     }

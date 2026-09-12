@@ -2,63 +2,56 @@ namespace FsCopilot.Connection;
 
 using Network;
 
-/// <summary>
-/// One press (or press-and-hold) on a pointer-synced panel. Coordinates are fractions of
-/// the instrument element's bounding rect on the capturing machine - the receiver resolves
-/// them against its own rect, so neither side needs to know the other's resolution. They
-/// can legitimately fall slightly outside [0,1] and are never clamped.
-/// Session identifies one app run (random); Seq increases monotonically within it - together
-/// they let the receiver drop duplicates when history is re-sent after a reconnect, and
-/// notice gaps. Flags is reserved: adding a field later changes the codec schema and breaks
-/// compatibility with every older build, flag bits do not.
-/// </summary>
-public record PointerPress(string Key, ulong Session, uint Seq, byte Flags, byte Button,
-    ushort HoldMs, float DownX, float DownY, float UpX, float UpY)
+public enum PointerKind : byte
 {
-    public class Codec : IPacketCodec<PointerPress>
+    Press = 0,
+    Drag = 1
+}
+
+/// <summary>
+/// One pointer gesture on a pointer-synced panel: a press (or press-and-hold), or a drag
+/// with its full sampled path, sent at mouse-up. One type for both, not two: the two
+/// kinds share one sequence space, and a type is a stream - two types would ride two
+/// observables with independent scheduling hops, so a drag could be processed after the
+/// press that followed it and be dropped as a duplicate. One type is one ordered stream
+/// from the wire to the panel socket.
+/// Coordinates are fractions of the instrument element's bounding rect on the capturing
+/// machine - the receiver resolves them against its own rect, so neither side needs to
+/// know the other's resolution. They can legitimately fall slightly outside [0,1] and
+/// are never clamped. For a drag, Down is the first path point and Up the last; each
+/// path point's DtMs is the delta to the previous point (the capture side samples at
+/// ~30 Hz and clamps replay steps to 250 ms, so ushort never saturates in practice).
+/// Capture bounds the path at 240 points; decode rejects anything past 1024 as
+/// malformed rather than allocating. A press has an empty path.
+/// Session identifies one app run (random); Seq increases monotonically within it -
+/// together they let the receiver drop duplicates when history is re-sent after a
+/// reconnect, and notice gaps. Flags is reserved: adding a field later changes the
+/// codec schema and breaks compatibility with every older build, flag bits do not.
+/// </summary>
+public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, PointerKind Kind, byte Button,
+    ushort HoldMs, float DownX, float DownY, float UpX, float UpY, PointerEvent.Point[] Path)
+{
+    public readonly record struct Point(ushort DtMs, float X, float Y);
+
+    public static readonly Point[] NoPath = [];
+
+    public class Codec : IPacketCodec<PointerEvent>
     {
-        public void Encode(PointerPress packet, BinaryWriter bw)
+        private const int MaxPoints = 1024;
+
+        public void Encode(PointerEvent packet, BinaryWriter bw)
         {
             bw.Write(packet.Key);
             bw.Write(packet.Session);
             bw.Write(packet.Seq);
             bw.Write(packet.Flags);
+            bw.Write((byte)packet.Kind);
             bw.Write(packet.Button);
             bw.Write(packet.HoldMs);
             bw.Write(packet.DownX);
             bw.Write(packet.DownY);
             bw.Write(packet.UpX);
             bw.Write(packet.UpY);
-        }
-
-        public PointerPress Decode(BinaryReader br) => new(
-            br.ReadString(), br.ReadUInt64(), br.ReadUInt32(), br.ReadByte(), br.ReadByte(),
-            br.ReadUInt16(), br.ReadSingle(), br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
-    }
-}
-
-/// <summary>
-/// One complete drag gesture, sent at mouse-up with its full sampled path. Each point's
-/// DtMs is the delta to the previous point (the capture side samples at ~30 Hz and clamps
-/// replay steps to 250 ms, so ushort never saturates in practice). Capture bounds the path
-/// at 240 points; decode rejects anything past 1024 as malformed rather than allocating.
-/// </summary>
-public record PointerDrag(string Key, ulong Session, uint Seq, byte Flags, byte Button,
-    PointerDrag.Point[] Path)
-{
-    public readonly record struct Point(ushort DtMs, float X, float Y);
-
-    public class Codec : IPacketCodec<PointerDrag>
-    {
-        private const int MaxPoints = 1024;
-
-        public void Encode(PointerDrag packet, BinaryWriter bw)
-        {
-            bw.Write(packet.Key);
-            bw.Write(packet.Session);
-            bw.Write(packet.Seq);
-            bw.Write(packet.Flags);
-            bw.Write(packet.Button);
             var count = Math.Min(packet.Path.Length, MaxPoints);
             bw.Write((ushort)count);
             for (var i = 0; i < count; i++)
@@ -69,19 +62,27 @@ public record PointerDrag(string Key, ulong Session, uint Seq, byte Flags, byte 
             }
         }
 
-        public PointerDrag Decode(BinaryReader br)
+        public PointerEvent Decode(BinaryReader br)
         {
             var key = br.ReadString();
             var session = br.ReadUInt64();
             var seq = br.ReadUInt32();
             var flags = br.ReadByte();
+            var kind = br.ReadByte();
+            if (kind > (byte)PointerKind.Drag) throw new InvalidDataException($"Pointer kind {kind} rejected");
             var button = br.ReadByte();
+            var hold = br.ReadUInt16();
+            var downX = br.ReadSingle();
+            var downY = br.ReadSingle();
+            var upX = br.ReadSingle();
+            var upY = br.ReadSingle();
             var count = br.ReadUInt16();
             if (count > MaxPoints) throw new InvalidDataException($"Drag path of {count} points rejected");
-            var path = new Point[count];
+            var path = count == 0 ? NoPath : new Point[count];
             for (var i = 0; i < count; i++)
                 path[i] = new Point(br.ReadUInt16(), br.ReadSingle(), br.ReadSingle());
-            return new PointerDrag(key, session, seq, flags, button, path);
+            return new PointerEvent(key, session, seq, flags, (PointerKind)kind, button, hold,
+                downX, downY, upX, upY, path);
         }
     }
 }

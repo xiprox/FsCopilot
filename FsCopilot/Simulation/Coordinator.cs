@@ -30,7 +30,7 @@ public class Coordinator : IDisposable
     private readonly ulong _sessionId;
     private int _pointerSeq;
     private readonly object _stateLock = new();
-    private readonly Dictionary<string, List<(object Packet, DateTime At)>> _history = new();
+    private readonly Dictionary<string, List<(PointerEvent Packet, DateTime At)>> _history = new();
     private readonly Dictionary<ulong, uint> _lastSeq = new();
     private bool _accumulate;
     private bool _hadPeer;
@@ -57,8 +57,7 @@ public class Coordinator : IDisposable
         _sim.Register<Surfaces>();
         _net.RegisterPacket<Physics, Physics.Codec>();
         _net.RegisterPacket<Surfaces, Surfaces.Codec>();
-        _net.RegisterPacket<PointerPress, PointerPress.Codec>();
-        _net.RegisterPacket<PointerDrag, PointerDrag.Codec>();
+        _net.RegisterPacket<PointerEvent, PointerEvent.Codec>();
 
         _d.Add(sim.Aircraft.Take(1).Subscribe(_ => AddLink((ref Physics physics) =>
         {
@@ -83,20 +82,15 @@ public class Coordinator : IDisposable
 
         // Pointer sync is symmetric like Interact - never gated on master. The profile
         // filter runs on both ends: outbound it is the opt-in, inbound it defends
-        // against a peer whose profile differs.
-        _d.Add(panels.Presses
-            .Where(p => _pointer.Keys.Contains(p.Key))
-            .Subscribe(p => SendPointer(p with { Session = _sessionId, Seq = NextSeq() })));
-        _d.Add(panels.Drags
-            .Where(d => _pointer.Keys.Contains(d.Key))
-            .Subscribe(d => SendPointer(d with { Session = _sessionId, Seq = NextSeq() })));
-        _d.Add(_net.Stream<PointerPress>()
-            .Where(p => Fresh(p.Session, p.Seq))
-            .Where(p => _pointer.Keys.Contains(p.Key))
-            .Subscribe(panels.Send));
-        _d.Add(_net.Stream<PointerDrag>()
-            .Where(d => Fresh(d.Session, d.Seq))
-            .Where(d => _pointer.Keys.Contains(d.Key))
+        // against a peer whose profile differs. Presses and drags share one stream in
+        // each direction, so Seq follows capture order and arrival order is delivery
+        // order - a second stream would be a second scheduling hop and could overtake.
+        _d.Add(panels.Events
+            .Where(e => _pointer.Keys.Contains(e.Key))
+            .Subscribe(e => SendPointer(e with { Session = _sessionId, Seq = NextSeq() })));
+        _d.Add(_net.Stream<PointerEvent>()
+            .Where(e => Fresh(e.Session, e.Seq))
+            .Where(e => _pointer.Keys.Contains(e.Key))
             .Subscribe(panels.Send));
 
         // The session state machine behind the panel overlays: none -> live on the first
@@ -181,10 +175,9 @@ public class Coordinator : IDisposable
 
     private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
 
-    private void SendPointer(PointerPress p) { Record(p.Key, p); _net.SendAll(p); }
-    private void SendPointer(PointerDrag d) { Record(d.Key, d); _net.SendAll(d); }
+    private void SendPointer(PointerEvent e) { Record(e.Key, e); _net.SendAll(e); }
 
-    private void Record(string key, object packet)
+    private void Record(string key, PointerEvent packet)
     {
         lock (_stateLock)
         {
@@ -197,7 +190,7 @@ public class Coordinator : IDisposable
 
     private void ResendHistory(bool includeAll)
     {
-        List<(object Packet, DateTime At)> entries;
+        List<(PointerEvent Packet, DateTime At)> entries;
         lock (_stateLock)
         {
             entries = _history.Values.SelectMany(l => l).OrderBy(e => e.At).ToList();
@@ -206,11 +199,7 @@ public class Coordinator : IDisposable
         foreach (var (packet, at) in entries)
         {
             if (!includeAll && at < cutoff) continue;
-            switch (packet)
-            {
-                case PointerPress p: _net.SendAll(p); break;
-                case PointerDrag d: _net.SendAll(d); break;
-            }
+            _net.SendAll(packet);
         }
         if (entries.Count > 0) Log.Debug("[Pointer] Re-sent {Count} held events after reconnect", entries.Count);
     }
