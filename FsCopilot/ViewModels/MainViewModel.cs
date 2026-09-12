@@ -171,7 +171,12 @@ public class MainViewModel : ReactiveObject, IDisposable
                 : _errors & ~ViewErrors.PanelChannel)
             .DisposeWith(_d);
 
-        net.Peers
+        // A peer still handshaking is not shown, not counted and makes no sound: it may
+        // yet fail, and until it succeeds there is nothing to leave.
+        var connectedPeers = net.Peers
+            .Select(peers => (ICollection<Peer>)peers.Where(p => p.Connected).ToArray());
+
+        connectedPeers
             .Sample(TimeSpan.FromMilliseconds(250))
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(peers =>
@@ -189,7 +194,7 @@ public class MainViewModel : ReactiveObject, IDisposable
             })
             .DisposeWith(_d);
 
-        net.Peers
+        connectedPeers
             .Select(p => p.Count)
             .DistinctUntilChanged()
             .Scan(
@@ -249,6 +254,9 @@ public class MainViewModel : ReactiveObject, IDisposable
         {
             net.Disconnect();
             masterSwitch.TakeControl();
+            // Leaving on purpose is not an outage: panels return to their resting
+            // state instead of locking the slave.
+            coordinator.EndSync();
         });
 
         TakeControlCommand = ReactiveCommand.Create(masterSwitch.TakeControl);

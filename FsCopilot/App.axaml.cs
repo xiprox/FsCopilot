@@ -4,6 +4,7 @@ using System.Reflection;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Connection;
 using Network;
 using Simulation;
 using Splat;
@@ -13,6 +14,11 @@ using Views;
 public class App : Application
 {
     private readonly CancellationTokenSource _appCts = new();
+
+    // How long the way out waits for the peer departure to reach the wire. Bounded like
+    // PanelServer.ShutdownGrace and for the same reason: a wedged socket must not hold the
+    // window open. On a working link the departure leaves well inside this.
+    private static readonly TimeSpan DisconnectGrace = TimeSpan.FromMilliseconds(500);
     
     public static readonly string Version =
         Assembly.GetEntryAssembly()?
@@ -33,7 +39,17 @@ public class App : Application
             {
                 _appCts.Cancel();
 
-                Locator.Current.GetService<INetwork>()?.Disconnect();
+                // Before the sockets drop: tell pointer-synced panels this was a quit, not
+                // a fault. They cannot tell from the close alone and would warn the pilot.
+                Locator.Current.GetService<PanelServer>()?.Shutdown();
+
+                // Same shape as the goodbye above, for the same reason: the departure is
+                // queued, and the peer only learns this was a quit rather than an outage if
+                // the process lives long enough to send it.
+                var net = Locator.Current.GetService<INetwork>();
+                net?.Disconnect();
+                net?.DrainDisconnect(DisconnectGrace);
+
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
             };
             

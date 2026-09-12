@@ -10,8 +10,13 @@ using Open.Nat;
 public sealed class P2PNetwork : INetwork, IDisposable
 {
     private const int StunPort = 3480;
-    
+
     private static readonly TimeSpan IntroduceInterval = TimeSpan.FromSeconds(20);
+
+    // Rides on the disconnect itself (DisconnectAll's payload, read back from
+    // DisconnectInfo.AdditionalData on the other side), so it cannot be overtaken by
+    // the close the way a packet queued before Disconnect() could be.
+    private static readonly byte[] LeftPayload = "left"u8.ToArray();
     
     private readonly CancellationTokenSource _cts = new();
     private readonly EventBasedNatPunchListener _natListener = new();
@@ -31,8 +36,15 @@ public sealed class P2PNetwork : INetwork, IDisposable
     private readonly NetManager _net;
 
     private IPEndPoint? _stunEndpoint;
+    private int _connecting;
+    private readonly BehaviorSubject<int> _connectingCount = new(0);
+    private readonly Subject<string> _peerLeft = new();
 
     public IObservable<ICollection<Peer>> Peers { get; }
+
+    public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
+
+    public IObservable<string> PeerLeft => _peerLeft;
 
     public P2PNetwork(string host, string peerId, string name, bool autoConnect = true)
     {
@@ -61,14 +73,19 @@ public sealed class P2PNetwork : INetwork, IDisposable
             .ObserveOn(TaskPoolScheduler.Default)
             .Select(_ =>
             {
-                _net.GetPeersNonAlloc(peers, ConnectionState.Any);
+                // Live links and handshakes in progress, flagged apart. Not Any: a peer
+                // shutting down after a Leave would linger for seconds as if it were a
+                // failed handshake.
+                _net.GetPeersNonAlloc(peers,
+                    ConnectionState.Connected | ConnectionState.Outgoing | ConnectionState.EndPointChange);
                 return peers
                     .Where(p => p.Tag is string)
                     .Select(p => new Peer(
-                        (string)p.Tag, 
-                        _peerNames.TryGetValue((string)p.Tag, out var peerName) ? peerName : string.Empty, 
+                        (string)p.Tag,
+                        _peerNames.TryGetValue((string)p.Tag, out var peerName) ? peerName : string.Empty,
                         p.Ping,
-                        Peer.TransportKind.Direct))
+                        Peer.TransportKind.Direct,
+                        Connected: p.ConnectionState != ConnectionState.Outgoing))
                     .ToArray();
             })
             .Publish()
@@ -241,6 +258,14 @@ public sealed class P2PNetwork : INetwork, IDisposable
         if (string.IsNullOrEmpty(peerId))
             return;
 
+        // The other side said "left" on its way out; anything else - a timeout, a
+        // crash, a kill, a close with no payload - is an outage.
+        if (info.Reason == DisconnectReason.RemoteConnectionClose && IsLeft(info.AdditionalData))
+        {
+            Log.Debug("[Peer2Peer] LEFT {PeerId}", peerId);
+            _peerLeft.OnNext(peerId);
+        }
+
         if (info.Reason == DisconnectReason.ConnectionRejected)
         {
             if (_connectWaiters.TryGetValue(peerId, out var tcs))
@@ -325,6 +350,7 @@ public sealed class P2PNetwork : INetwork, IDisposable
         if (!_connectWaiters.TryAdd(target, tcs))
             return ConnectionResult.Failed;
 
+        _connectingCount.OnNext(Interlocked.Increment(ref _connecting));
         try
         {
             await EnsureIntroduced(ct).ConfigureAwait(false);
@@ -353,10 +379,37 @@ public sealed class P2PNetwork : INetwork, IDisposable
         finally
         {
             _connectWaiters.TryRemove(target, out _);
+            _connectingCount.OnNext(Interlocked.Decrement(ref _connecting));
         }
     }
 
-    public void Disconnect() => _net.DisconnectAll();
+    private static bool IsLeft(NetPacketReader? data)
+    {
+        if (data == null || data.AvailableBytes != LeftPayload.Length) return false;
+        var bytes = new byte[LeftPayload.Length];
+        data.GetBytes(bytes, bytes.Length);
+        return bytes.AsSpan().SequenceEqual(LeftPayload);
+    }
+
+    public void Disconnect()
+    {
+        _net.DisconnectAll(LeftPayload, 0, LeftPayload.Length);
+        // Send it on this pulse rather than the next 15 ms tick. Costs nothing when the
+        // process is staying up, and is most of the difference when it is not.
+        _net.TriggerUpdate();
+    }
+
+    /// <summary>
+    /// A peer leaves the manager once the far side acknowledges the shutdown, so on a
+    /// working link this returns in a round trip. On a dead one it spends the whole grace
+    /// and gives up, which is the right answer: there was nobody there to tell.
+    /// </summary>
+    public void DrainDisconnect(TimeSpan grace)
+    {
+        var waited = Stopwatch.StartNew();
+        while (_net.GetPeersCount(ConnectionState.Any) > 0 && waited.Elapsed < grace)
+            Thread.Sleep(5);
+    }
 
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {
