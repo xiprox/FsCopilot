@@ -20,8 +20,14 @@
                 two machines. **There is no in-flight work item.**
 
                 Everything this project set out to prove on one machine is proven.
-                What remains is stage 6, which is not a question about the
-                mechanism but about packaging it for someone else to run.
+
+                **A bench exists, and it found two things.** testbed/bench.mjs runs
+                two instances with fake panels and breaks the link on purpose, so
+                stage 6's outage paths no longer need a second machine
+                (14-test-bench). Ten of twelve scenarios green; the two red ones
+                are Q11, a deliberate quit reaching the peer as a timeout, and
+                Q12, a dropped peer link that never re-establishes. Both are the
+                app rather than the bench, and neither is fixed.
     Supersedes: nothing
     Log:        log.md
 
@@ -102,11 +108,20 @@ paired-panel test named here is cancelled too: EFBs are out of scope and the A22
 paired panels are bezel-driven rather than pointer-driven.
 
 ### Stage 6 · Two machines
-**Partially run.** A three-way session on 2026-09-08 over real links, read from this
-machine's app log: 70 replays on the display units, none missed, no pointer warnings. See
-"First multi-machine session" in [log.md](log.md). What it does not cover: the receiver
-side on the peers' machines, and every outage path (degraded, resend, timeout), none of
-which occurred.
+**Partially run, and mostly no longer blocked.** A three-way session on 2026-09-08 over
+real links, read from this machine's app log: 70 replays on the display units, none
+missed, no pointer warnings. See "First multi-machine session" in [log.md](log.md). What
+it did not cover: the receiver side on the peers' machines, and every outage path
+(degraded, resend, timeout), none of which occurred.
+
+The outage paths no longer need a second machine. `testbed/bench.mjs` runs two instances
+with fake panels and breaks the link on purpose — twelve scenarios, about three minutes,
+described in [14-test-bench](../14-test-bench.md). It found two things on its first day:
+a deliberate quit reaches the peer as a timeout (Q11), and a dropped peer link never
+re-establishes itself (Q12). Both are red scenarios and both are the app, not the bench.
+
+What still needs two machines: Q04 (do the rects agree), real-network behaviour, and
+anything about the receiver side in a real cockpit.
 
 Before that, the only other tester was in another country, and this waited on a packaged build they could run.
 [08-testbed](08-testbed.md) has the eventual shape. Q04, whether two machines agree on the

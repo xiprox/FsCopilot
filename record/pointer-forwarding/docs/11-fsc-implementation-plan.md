@@ -18,6 +18,13 @@
 > dropped and counted); and *connecting* is a real state on both sides, driven by pending
 > peers and a join in flight. The replay side gained a serial queue and a `replaying` lock.
 
+> **Amended 2026-09-12** by the bench ([14-test-bench](14-test-bench.md)). Two behaviours
+> this plan describes do not happen on one machine. A **deliberate quit** does not reach the
+> peer as a departure — the disconnect is enqueued and the process exits before it is sent, so
+> the peer sees a 15 s timeout and degrades (Q11). And **"degraded -> live on recovery"** has
+> nothing that re-establishes a dropped peer link, so the resend it triggers only happens when
+> a pilot presses Join (Q12). The held history and the resend themselves are correct.
+
 Decided 2026-09-01. This is the graduation plan [05-integration](05-integration.md) said
 would be its own piece of work. Where this file and `01-10` disagree, this file wins — the
 disagreements are called out below and pointered from the docs they amend. TDS, Fenix and

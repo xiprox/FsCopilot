@@ -1,0 +1,113 @@
+{
+  "stamp": "2026-09-12-10-42-26",
+  "exe": "C:\\Users\\wayne\\dev\\fsc\\ahead-pointer-forwarding\\FsCopilot\\bin\\Debug\\net9.0\\win-x64\\FsCopilot.exe",
+  "relayHost": "127.0.0.1",
+  "results": [
+    {
+      "name": "crash-is-an-outage",
+      "about": "a killed instance leaves the peer degraded, not ended",
+      "ok": true,
+      "seconds": 21.6,
+      "notes": []
+    },
+    {
+      "name": "drag-across",
+      "about": "a drag crosses with its full path and timing intact",
+      "ok": true,
+      "seconds": 6.5,
+      "notes": []
+    },
+    {
+      "name": "gap-on-the-wire",
+      "about": "gap survives the wire, capped at a second",
+      "ok": true,
+      "seconds": 6.4,
+      "notes": []
+    },
+    {
+      "name": "leave-is-not-an-outage",
+      "about": "leaving ends the session at once and unlocks panels",
+      "ok": true,
+      "seconds": 10.5,
+      "notes": []
+    },
+    {
+      "name": "outage-and-recovery",
+      "about": "whether a blackholed peer link re-establishes on its own",
+      "ok": false,
+      "kind": "ERROR",
+      "seconds": 206.6,
+      "error": "A005:BenchDisplay|index=1: timed out after 180000ms waiting for session=live",
+      "notes": [
+        {
+          "at": 1789209805193,
+          "m": "B suspended"
+        },
+        {
+          "at": 1789209820526,
+          "m": "B resumed; waiting to see whether the link returns unaided"
+        }
+      ]
+    },
+    {
+      "name": "oversized-path",
+      "about": "an over-long drag path is truncated, and the session survives it",
+      "ok": true,
+      "seconds": 6.5,
+      "notes": []
+    },
+    {
+      "name": "panel-reload",
+      "about": "a panel that reloads re-identifies and keeps receiving",
+      "ok": true,
+      "seconds": 7.1,
+      "notes": []
+    },
+    {
+      "name": "press-across",
+      "about": "a press on one machine replays on the other, unchanged",
+      "ok": true,
+      "seconds": 6.4,
+      "notes": []
+    },
+    {
+      "name": "profile-mismatch",
+      "about": "a peer that did not opt the panel in applies nothing it is sent",
+      "ok": true,
+      "seconds": 9.4,
+      "notes": []
+    },
+    {
+      "name": "quit-says-goodbye",
+      "about": "quitting tells panels it was deliberate, and ends the peer's session",
+      "ok": false,
+      "kind": "ERROR",
+      "seconds": 40.4,
+      "error": "B010:BenchDisplay|index=1: timed out after 30000ms waiting for session=none",
+      "notes": []
+    },
+    {
+      "name": "resend-after-rejoin",
+      "about": "presses made during an outage arrive, in order, on reconnect",
+      "ok": true,
+      "seconds": 27.8,
+      "notes": [
+        {
+          "at": 1789210082806,
+          "m": "B suspended"
+        },
+        {
+          "at": 1789210098642,
+          "m": "B resumed"
+        }
+      ]
+    },
+    {
+      "name": "unrouted-key",
+      "about": "an unconfigured key never leaves; a configured one with no panel is dropped and counted",
+      "ok": true,
+      "seconds": 8.4,
+      "notes": []
+    }
+  ]
+}

@@ -1,3 +1,7 @@
 node_modules/
 
 sim-sources/
+
+# One directory per bench run: two app logs each, regenerated every time.
+# A run worth keeping gets promoted into results/ by hand.
+testbed/runs/

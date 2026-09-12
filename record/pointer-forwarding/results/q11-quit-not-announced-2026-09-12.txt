@@ -1,0 +1,37 @@
+Q11 - a deliberate quit reaches the peer as an outage
+Bench run 2026-09-12-10-42-26, scenario quit-says-goodbye, build 833ea67 + BenchControl.
+A quits cleanly at 12:45:20 after a settled link. B is the peer.
+
+=== A (the instance that quit) ===
+[12:47:11.073] [Application] Loaded 1.2.1 version
+[12:47:11.443] [PanelServer] Listening on 127.0.0.1:9020
+[12:47:11.916] [Bench] Control channel on 127.0.0.1:9538
+[12:47:13.106] [Bench] Pointer keys: BenchDisplay|index=1, BenchDisplay|index=2
+[12:47:13.121] [PanelServer] Panel connected, origin (none) (1 total)
+[12:47:13.124] [PanelServer] Hello from BenchDisplay|index=1 (coui://bench/BenchDisplay|index=1)
+[12:47:13.508] [Relay] CON RELAY -> 127.0.0.1:3600
+[12:47:17.189] [Relay] CON BNCHB010
+[12:47:17.248] [Peer2Peer] DIR BNCHA010 -> BNCHB010
+[12:47:21.385] [PanelServer] Announced shutdown to 1 panel socket(s)
+[12:47:21.387] [PanelServer] Panel disconnected BenchDisplay|index=1 (0 left)
+
+=== B (the peer) ===
+[12:47:12.115] [Application] Loaded 1.2.1 version
+[12:47:12.490] [PanelServer] Port 9020 unavailable: Failed to listen on prefix 'http://127.0.0.1:9020/' because it conflicts with an existing registration on the machine.
+[12:47:12.492] [PanelServer] Listening on 127.0.0.1:9021
+[12:47:12.964] [Bench] Control channel on 127.0.0.1:9539
+[12:47:13.112] [Bench] Pointer keys: BenchDisplay|index=1, BenchDisplay|index=2
+[12:47:13.131] [PanelServer] Panel connected, origin (none) (1 total)
+[12:47:13.133] [PanelServer] Hello from BenchDisplay|index=1 (coui://bench/BenchDisplay|index=1)
+[12:47:13.154] [Peer2Peer] DIR BNCHB010 -> BNCHA010
+[12:47:14.552] [Relay] CON RELAY -> 127.0.0.1:3600
+[12:47:17.204] [Relay] CON BNCHA010
+[12:47:17.262] [Peer2Peer] DIR BNCHB010 -> BNCHA010
+[12:47:36.288] [Relay] DIS BNCHA010 (PEER_DISCONNECTED)
+[12:47:51.436] [PanelServer] Panel disconnected BenchDisplay|index=1 (0 left)
+
+Reading: A announces {t:bye} to its own panel ('Announced shutdown to 1 panel
+socket(s)') and emits no [Relay] or [Peer2Peer] departure at all. B's next word about A
+is PEER_DISCONNECTED, 15s later, which is the relay timeout - an outage, not a departure.
+Compare leave-is-not-an-outage in the same run, where B logs [Relay] DIS * (LEFT_ALL)
+immediately and A ends the session in about a second.

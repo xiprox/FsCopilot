@@ -36,6 +36,94 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-12 — A blackholed peer link never comes back on its own
+    Question:  opens Q12
+    Stage:     6, now partly runnable on one machine
+    Expected:  Coordinator treats degraded -> live as a recovery and re-sends held
+               history on it, so something was assumed to re-establish the link.
+    Found:     Nothing does. Suspending an instance blackholes the link, the peer
+               goes degraded after LiteNetLib's 15 s DisconnectTimeout as designed,
+               and resuming the process does not bring it back. Three minutes of
+               waiting, twice. RelayNetwork's ReconnectLoop reconnects the relay
+               *server* connection, not the peer links that rode it.
+
+               The resend itself is fine: the same outage with a Join pressed
+               afterwards delivers every held press, in order, deduped
+               (resend-after-rejoin, green). What is missing is anything that
+               would deliver it without the pilot acting.
+
+               For a pilot that reads as: a WiFi drop longer than 15 seconds ends
+               interaction sync until one of them rejoins, with the slave's panels
+               locked blue for the whole of it.
+    Changed:   Nothing yet. It is a real gap rather than a bench artifact, and
+               whether automatic reconnect belongs in this branch or upstream is
+               a decision, not a fix.
+    Affects:   11-fsc-implementation-plan (its "degraded -> live on recovery" reads
+               as automatic)
+    Evidence:  results/q12-outage-no-recovery-2026-09-12.txt
+
+## 2026-09-12 — A deliberate quit reaches the peer as an outage
+    Question:  opens Q11
+    Stage:     6, now partly runnable on one machine
+    Expected:  A quit is announced to the peer in the disconnect itself, so a peer
+               that quit is told apart from one that was lost. The branch commit
+               "Tell a peer that left from a peer that was lost" is exactly this.
+    Found:     The panel half works and the peer half does not. The quitting
+               instance's own panel gets {t:"bye"}. The peer gets nothing for 15
+               seconds and then PEER_DISCONNECTED, which is the relay's timeout,
+               so it goes degraded and holds history for someone who is never
+               coming back until the five-minute timeout ends the session.
+
+               P2PNetwork.Disconnect is _net.DisconnectAll(LeftPayload, ...), which
+               enqueues; the process exits before LiteNetLib's update thread sends
+               it. Leave works with the identical call because the process stays
+               alive to tick - and Leave is green in the bench.
+
+               First attempt at both scenarios had the departure ~70 ms after the
+               link came up, and there Leave failed too: the rendezvous re-linked
+               the pair four seconds later and the leaver was back in a session it
+               had left. With a settled link Leave is clean and quit still is not,
+               so the re-link is a separate race worth knowing about and not the
+               cause here.
+    Changed:   Nothing yet. The fix has an obvious shape - PanelServer already
+               drains its goodbye for up to 750 ms on the same exit path - but it
+               is shipping behaviour on a pre-PR branch.
+    Affects:   11-fsc-implementation-plan, 12-pre-pr-review (R05)
+    Evidence:  results/q11-quit-not-announced-2026-09-12.txt
+
+## 2026-09-12 — A two-instance bench, with the panel faked rather than driven
+    Question:  none directly; it is what makes Q11 and Q12 findable
+    Stage:     6, the half that needed a second machine
+    Expected:  Stage 6 was blocked on hardware. The happy path had been run
+               three-way over real links; degraded, resend and timeout had not,
+               because nothing broke during that session.
+    Found:     None of it needs a second machine or a simulator. The panel channel
+               is small enough to fake - hello, pointer, config, state, bye - so
+               two instances and four fake panels on one machine exercise the
+               transport, the session state machine and the routing, and reach
+               inputs capture cannot produce: a key nobody configured, a
+               1500-point path, a gesture into a panel that is about to reload.
+
+               Outages are made by suspending the process rather than killing it.
+               A kill closes sockets, which is a link that went; a suspended
+               process holds them open and answers nothing, which is a link that
+               stopped, and resuming brings back the same process with its dedupe
+               state intact.
+
+               Twelve scenarios, ten green, in about three minutes. The two red
+               ones are the two entries above.
+
+               The app needed one test-only file (BenchControl.cs, --bench) plus
+               --peer-id and --relay. Its configure goes through Coordinator.Load
+               rather than PanelServer.Configure: setting only the second gives
+               panels that capture and an app that drops everything they send,
+               which was the first run's only failure and took a log read to see.
+    Changed:   Stage 6 is no longer blocked on a second machine for anything but
+               Q04 and real-network behaviour.
+    Affects:   08-testbed (its single-machine scope note is now the built thing),
+               written up as 14-test-bench
+    Evidence:  results/bench-2026-09-12-10-42-26.json
+
 ## 2026-09-12 — The review register built: sixteen of seventeen land on the branch
     Question:  12-pre-pr-review R01–R17, from DECIDED to FIXED
     Stage:     pre-PR, after stage 6's partial run

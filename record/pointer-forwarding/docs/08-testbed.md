@@ -18,6 +18,12 @@ yes: the simulator hosts a remote inspector that will both inject and report.
 > keeping `agent.js` transport-agnostic is the part that survived, and it is what
 > made the switch cheap.
 
+> **Built, as something else, 2026-09-12.** The single-machine scope below is now a
+> running bench — two instances, fake panels, outages made by suspending a process —
+> described in [14-test-bench](14-test-bench.md). Recording and replay against a live
+> panel stayed the cockpit's job; what got built instead fakes the panel and tests the
+> app. See "A two-instance bench" in [build/log.md](build/log.md).
+
 > **Scope, decided 2026-08-30.** There is no second machine available — the only
 > other tester is in another country — so this is built **single-machine first**:
 > record a real interaction to a file, replay the file into a live panel, verify

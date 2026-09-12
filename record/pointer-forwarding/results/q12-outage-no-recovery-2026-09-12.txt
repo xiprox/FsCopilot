@@ -1,0 +1,35 @@
+Q12 - a blackholed peer link never comes back on its own
+Bench run 2026-09-12-10-42-26, scenario outage-and-recovery, build 833ea67 + BenchControl.
+B suspended with NtSuspendProcess, resumed ~20s later, then 180s of waiting.
+
+=== A (stayed up) ===
+[12:43:13.998] [Application] Loaded 1.2.1 version
+[12:43:14.381] [PanelServer] Listening on 127.0.0.1:9020
+[12:43:14.854] [Bench] Control channel on 127.0.0.1:9528
+[12:43:16.171] [Bench] Pointer keys: BenchDisplay|index=1, BenchDisplay|index=2
+[12:43:16.187] [PanelServer] Panel connected, origin (none) (1 total)
+[12:43:16.189] [PanelServer] Hello from BenchDisplay|index=1 (coui://bench/BenchDisplay|index=1)
+[12:43:16.445] [Relay] CON RELAY -> 127.0.0.1:3600
+[12:43:20.268] [Relay] CON BNCHB005
+[12:43:20.344] [Peer2Peer] DIR BNCHA005 -> BNCHB005
+[12:43:39.746] [Relay] DIS BNCHB005 (PEER_DISCONNECTED)
+[12:46:40.539] [PanelServer] Panel disconnected BenchDisplay|index=1 (0 left)
+
+=== B (suspended and resumed) ===
+[12:43:15.119] [Application] Loaded 1.2.1 version
+[12:43:15.535] [PanelServer] Port 9020 unavailable: Failed to listen on prefix 'http://127.0.0.1:9020/' because it conflicts with an existing registration on the machine.
+[12:43:15.537] [PanelServer] Listening on 127.0.0.1:9021
+[12:43:16.028] [Bench] Control channel on 127.0.0.1:9529
+[12:43:16.179] [Bench] Pointer keys: BenchDisplay|index=1, BenchDisplay|index=2
+[12:43:16.197] [PanelServer] Panel connected, origin (none) (1 total)
+[12:43:16.199] [PanelServer] Hello from BenchDisplay|index=1 (coui://bench/BenchDisplay|index=1)
+[12:43:16.221] [Peer2Peer] DIR BNCHB005 -> BNCHA005
+[12:43:17.592] [Relay] CON RELAY -> 127.0.0.1:3600
+[12:43:20.268] [Relay] CON BNCHA005
+[12:43:20.344] [Peer2Peer] DIR BNCHB005 -> BNCHA005
+[12:43:40.530] [Relay] DIS RELAY ("PeerNotFound")
+[12:43:40.560] [Relay] CON RELAY -> 127.0.0.1:3600
+[12:46:40.540] [PanelServer] Panel disconnected BenchDisplay|index=1 (0 left)
+
+Reading: A reaches degraded on the 15s DisconnectTimeout as designed, and never
+leaves it. No reconnect attempt appears on either side after the resume.

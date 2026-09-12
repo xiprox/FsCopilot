@@ -165,6 +165,44 @@ Evidence: `results/p10-drag-drift-2026-08-30.txt`.
 
 ---
 
+## Gate F — departures and recovery
+
+Both found by the bench ([14-test-bench](14-test-bench.md)) on 2026-09-12, and both are the
+same shape: the design says a case is handled, and on one machine it is not.
+
+### Q11 · Why does a deliberate quit reach the peer as an outage?
+**Status:** open, found · **Probe:** `testbed/scenarios/quit-says-goodbye.mjs` (red) · **Found by** "A deliberate quit reaches the peer as an outage" in [build/log.md](build/log.md)
+
+The panel half works: `PanelServer.Shutdown` announces `{t:"bye"}` and waits up to 750 ms for
+it to go out, and the quitting instance's own panel sees it. The peer half does not. The peer
+learns nothing for 15 seconds and then sees `PEER_DISCONNECTED`, which is the relay's timeout,
+so it goes degraded and holds history for someone who is never coming back until the
+five-minute timeout ends the session.
+
+`INetwork.Disconnect()` is called on the way out and `P2PNetwork.Disconnect` is
+`_net.DisconnectAll(LeftPayload, ...)`, which enqueues. The process exits before LiteNetLib's
+update thread sends it. Leaving with the same call works because the process stays alive to
+tick. The shape of the fix is the one `PanelServer` already has: a bounded drain after
+`Disconnect()` in the exit path.
+
+### Q12 · Does a link that went away ever come back on its own?
+**Status:** open, found · **Probe:** `testbed/scenarios/outage-and-recovery.mjs` (red) · **Found by** "A blackholed peer link never comes back on its own" in [build/log.md](build/log.md)
+
+Suspending an instance blackholes the link; the peer goes degraded after the 15 s timeout, as
+designed. Resuming it does not bring the link back, and three minutes later the peer is still
+degraded. `RelayNetwork` has a `ReconnectLoop`, but it reconnects the relay *server*
+connection, not the peer links that rode it.
+
+`Coordinator.OnLink` treats `degraded -> live` as a recovery and re-sends held history on it.
+That transition is reachable — `resend-after-rejoin` is green — but only when somebody presses
+Join again. So the held history is correct and the resend works; what is missing is anything
+that would deliver it without the pilot acting.
+
+The pilot-facing reading: a WiFi drop of more than 15 seconds ends interaction sync until one
+of them rejoins, and the panel stays locked blue meanwhile.
+
+---
+
 ## Settled
 
 - **Q00 — yes.** MSFS hosts a WebKit inspector on 127.0.0.1:19999; probes run over the wire.
