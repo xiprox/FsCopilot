@@ -18,12 +18,18 @@
 > dropped and counted); and *connecting* is a real state on both sides, driven by pending
 > peers and a join in flight. The replay side gained a serial queue and a `replaying` lock.
 
-> **Amended 2026-09-12** by the bench ([14-test-bench](14-test-bench.md)). Two behaviours
-> this plan describes do not happen on one machine. A **deliberate quit** does not reach the
-> peer as a departure — the disconnect is enqueued and the process exits before it is sent, so
-> the peer sees a 15 s timeout and degrades (Q11). And **"degraded -> live on recovery"** has
-> nothing that re-establishes a dropped peer link, so the resend it triggers only happens when
-> a pilot presses Join (Q12). The held history and the resend themselves are correct.
+> **Amended 2026-09-12** by the bench ([14-test-bench](14-test-bench.md)). A **deliberate
+> quit** did not reach the peer as a departure — the disconnect was enqueued and the process
+> exited before it was sent, so the peer saw a 15 s timeout and degraded (Q11). Fixed on the
+> branch. And **"degraded -> live on recovery"** has nothing that re-establishes a dropped
+> peer link, so the resend it triggers only happens when a pilot presses Join (Q12). The held
+> history and the resend themselves are correct.
+>
+> Separately: **§7 and the overlay table below give the degraded lock as blue. It is amber.**
+> `overlay.js` has `connecting` blue (96,165,250) and `degraded` amber (250,220,40), which is
+> what the amendment above this one means by "the blue/amber lock policy", and what
+> [12-pre-pr-review](12-pre-pr-review.md) and the log already describe. Reading §7 rather
+> than the log cost a session three wrong statements about what a pilot sees.
 
 Decided 2026-09-01. This is the graduation plan [05-integration](05-integration.md) said
 would be its own piece of work. Where this file and `01-10` disagree, this file wins — the

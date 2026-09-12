@@ -171,7 +171,7 @@ Both found by the bench ([14-test-bench](14-test-bench.md)) on 2026-09-12, and b
 same shape: the design says a case is handled, and on one machine it is not.
 
 ### Q11 · Why does a deliberate quit reach the peer as an outage?
-**Status:** open, found · **Probe:** `testbed/scenarios/quit-says-goodbye.mjs` (red) · **Found by** "A deliberate quit reaches the peer as an outage" in [build/log.md](build/log.md)
+**Status:** ANSWERED and fixed · **Probe:** `testbed/scenarios/quit-says-goodbye.mjs` (green) · **Answered by** "A deliberate quit reaches the peer as an outage" and fixed by "Stay alive long enough to say you left" in [build/log.md](build/log.md)
 
 The panel half works: `PanelServer.Shutdown` announces `{t:"bye"}` and waits up to 750 ms for
 it to go out, and the quitting instance's own panel sees it. The peer half does not. The peer
@@ -182,8 +182,12 @@ five-minute timeout ends the session.
 `INetwork.Disconnect()` is called on the way out and `P2PNetwork.Disconnect` is
 `_net.DisconnectAll(LeftPayload, ...)`, which enqueues. The process exits before LiteNetLib's
 update thread sends it. Leaving with the same call works because the process stays alive to
-tick. The shape of the fix is the one `PanelServer` already has: a bounded drain after
-`Disconnect()` in the exit path.
+tick.
+
+**Fixed** with the shape `PanelServer` already had: `Disconnect()` pulses `TriggerUpdate()`
+rather than waiting out the 15 ms tick, `INetwork.DrainDisconnect(grace)` waits for the
+departure to leave the socket, and the exit path drains for up to 500 ms. The peer now logs
+"Peer left; session over" in the same millisecond the departure is sent.
 
 ### Q12 · Does a link that went away ever come back on its own?
 **Status:** open, found · **Probe:** `testbed/scenarios/outage-and-recovery.mjs` (red) · **Found by** "A blackholed peer link never comes back on its own" in [build/log.md](build/log.md)
@@ -199,7 +203,9 @@ Join again. So the held history is correct and the resend works; what is missing
 that would deliver it without the pilot acting.
 
 The pilot-facing reading: a WiFi drop of more than 15 seconds ends interaction sync until one
-of them rejoins, and the panel stays locked blue meanwhile.
+of them rejoins. Meanwhile the slave's pointer panels hold the amber SYNC DEGRADED overlay,
+which does name the way out - "Take control to keep flying, or wait for the connection to
+return" - so the pilot is stopped rather than stranded.
 
 ---
 

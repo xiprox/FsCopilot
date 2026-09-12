@@ -125,8 +125,14 @@ Three more it cannot reach:
 
 ## Known failures
 
-Two scenarios are red against `833ea67`, and in both the bench is asserting the documented
-intent. They are [Q11](06-open-questions.md) and [Q12](06-open-questions.md).
+One scenario is red, and the bench is asserting the documented intent.
 
-`quit-says-goodbye` — a deliberate quit reaches the peer as a timeout.
-`outage-and-recovery` — a blackholed link does not re-establish in three minutes.
+`outage-and-recovery` — a blackholed link does not re-establish in three minutes
+([Q12](06-open-questions.md)). Not a pointer-sync defect: nothing in the transport
+re-establishes a peer link, and this is the first feature to build a state machine that
+assumes something does.
+
+`quit-says-goodbye` was the other one and is now green. It found that a deliberate quit
+reached the peer as a 15 s timeout ([Q11](06-open-questions.md)), fixed by draining the
+departure on the way out. The bench then measured the fix: the peer learns in the same
+millisecond the departure is sent.

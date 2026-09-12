@@ -24,10 +24,14 @@
                 **A bench exists, and it found two things.** testbed/bench.mjs runs
                 two instances with fake panels and breaks the link on purpose, so
                 stage 6's outage paths no longer need a second machine
-                (14-test-bench). Ten of twelve scenarios green; the two red ones
-                are Q11, a deliberate quit reaching the peer as a timeout, and
-                Q12, a dropped peer link that never re-establishes. Both are the
-                app rather than the bench, and neither is fixed.
+                (14-test-bench). Eleven of twelve scenarios green.
+
+                Q11, a deliberate quit reaching the peer as a timeout, is fixed
+                and the fix was measured on the bench. Q12, a dropped peer link
+                that never re-establishes itself, is open and is upstream's
+                transport rather than this branch: nothing reconnects a peer
+                link, and pointer sync is the first feature to build a state
+                machine that assumes something does.
     Supersedes: nothing
     Log:        log.md
 

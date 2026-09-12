@@ -36,6 +36,61 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-12 — Stay alive long enough to say you left: Q11 fixed and measured
+    Question:  Q11, from found to ANSWERED and fixed
+    Stage:     6
+    Expected:  A bounded drain on the exit path, the shape PanelServer already
+               uses for its goodbye. The uncertainty was the grace value.
+    Found:     The fix is two parts, not one. Disconnect() now pulses
+               TriggerUpdate() rather than waiting out LiteNetLib's 15 ms tick,
+               and INetwork gains DrainDisconnect(grace) for the way out. The
+               direct path polls until its peers leave the manager - one round
+               trip on a working link, the whole grace on a dead one, which is
+               the right answer because there was nobody to tell. The relay path
+               has nothing to poll: its departure is a control message to the
+               server and the local peer list clears the moment it is queued, so
+               it pulses and settles for 100 ms.
+
+               The grace did not need guessing. quit-says-goodbye went from a 40 s
+               failure to passing in 10.6 s, and the peer logs "Peer left; session
+               over" in the same millisecond the departure is sent - 45 ms from
+               the panel goodbye to the peer knowing, against 15 seconds before.
+               500 ms is what the exit path allows, which covers a 250 ms round
+               trip and is only spent in full when nobody answers.
+
+               Worth having both other departures in the suite while changing
+               this: it would have been easy to turn every exit into a "left".
+               crash-is-an-outage still degrades and leave-is-not-an-outage still
+               ends the session, so the two are still told apart. 11 of 12 green.
+    Changed:   Q11 closed. The remaining red scenario is Q12, which is the
+               transport rather than this branch.
+    Affects:   11-fsc-implementation-plan, 14-test-bench
+    Evidence:  testbed/scenarios/quit-says-goodbye.mjs, green from 1ccd554
+
+## 2026-09-12 — The degraded lock is amber, and 11-fsc-implementation-plan says blue
+    Question:  none; a correction to this session's own statements
+    Stage:     6
+    Expected:  Nothing. It was read out of a design doc and repeated.
+    Found:     overlay.js has connecting blue (96,165,250) and degraded amber
+               (250,220,40), with replaying teal and the non-blocking lost warning
+               red. 11-fsc-implementation-plan §7 and its overlay table give the
+               degraded lock as blue, which is stale: the split is described
+               correctly in 12-pre-pr-review, in this log's "blue CONNECTING /
+               amber SYNC DEGRADED" entry, and in that plan's own later
+               amendment.
+
+               Three statements about what a pilot sees during an outage were
+               wrong because §7 was read instead of the log. The convention that
+               catches this is already written down - treat the design docs as
+               amended by the log wherever they disagree - and was not followed.
+
+               The amber card also names the way out: "Take control to keep
+               flying, or wait for the connection to return." That matters for
+               how bad Q12 is. A pilot in a long outage is stopped, not stranded.
+    Changed:   Q12's pilot-facing description, here and in the register.
+    Affects:   11-fsc-implementation-plan (pointer added; §7 not rewritten)
+    Evidence:  FsCopilot.Bridge/PackageSources/HTML_UI/FsCopilot/overlay.js
+
 ## 2026-09-12 — A blackholed peer link never comes back on its own
     Question:  opens Q12
     Stage:     6, now partly runnable on one machine
@@ -54,7 +109,10 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
                For a pilot that reads as: a WiFi drop longer than 15 seconds ends
                interaction sync until one of them rejoins, with the slave's panels
-               locked blue for the whole of it.
+               under the amber SYNC DEGRADED overlay for the whole of it. That
+               card names the way out ("Take control to keep flying, or wait for
+               the connection to return"), so this stops a pilot rather than
+               stranding one.
     Changed:   Nothing yet. It is a real gap rather than a bench artifact, and
                whether automatic reconnect belongs in this branch or upstream is
                a decision, not a fix.
