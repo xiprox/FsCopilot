@@ -48,8 +48,12 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     private IPEndPoint? _relayEndpoint;
     private volatile NetPeer? _relayPeer;
+    private int _connecting;
+    private readonly BehaviorSubject<int> _connectingCount = new(0);
 
     public IObservable<ICollection<Peer>> Peers { get; }
+
+    public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
 
     public RelayNetwork(string host, string peerId, string name, bool autoConnect = true)
     {
@@ -167,7 +171,8 @@ public sealed class RelayNetwork : INetwork, IDisposable
     public async Task<ConnectionResult> Connect(string target, CancellationToken ct)
     {
         if (target.Trim().Equals(_peerId, StringComparison.OrdinalIgnoreCase)) return ConnectionResult.Failed;
-        
+
+        _connectingCount.OnNext(Interlocked.Increment(ref _connecting));
         try
         {
             await EnsureRelayConnected(ct).ConfigureAwait(false);
@@ -192,6 +197,7 @@ public sealed class RelayNetwork : INetwork, IDisposable
         finally
         {
             _connectWaiters.TryRemove(target, out _);
+            _connectingCount.OnNext(Interlocked.Decrement(ref _connecting));
         }
     }
 
@@ -386,7 +392,10 @@ public sealed class RelayNetwork : INetwork, IDisposable
 
     private void OnLinkReady(string otherPeerId)
     {
-        _peers.TryAdd(otherPeerId, new(otherPeerId, Name: string.Empty, Ping: 0, Transport: Peer.TransportKind.Relay));
+        // LinkReady arrives only after the relay has checked the target is connected
+        // and the schemas match, so a relay peer is a real link from the first tick.
+        _peers.TryAdd(otherPeerId, new(otherPeerId, Name: string.Empty, Ping: 0,
+            Transport: Peer.TransportKind.Relay, Connected: true));
         _publish.OnNext(Unit.Default);
 
         if (_connectWaiters.TryGetValue(otherPeerId, out var tcs))

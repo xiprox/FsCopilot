@@ -90,6 +90,10 @@ public sealed class PanelServer : IDisposable
     {
         _pointerKeys = pointerKeys.ToArray();
         Broadcast(ConfigJson());
+        // A panel entering pointer mode locks itself until it hears a state, so state
+        // follows config here as it does on hello - or every profile load onto
+        // already-connected panels would show the blue lock until the next renewal.
+        Broadcast(StateJson());
     }
 
     /// <summary>

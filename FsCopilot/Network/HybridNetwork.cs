@@ -15,8 +15,14 @@ public sealed class HybridNetwork : INetwork, IDisposable
 
     private readonly P2PNetwork _p2p;
     private readonly RelayNetwork _relay;
+    private int _connecting;
+    private readonly BehaviorSubject<int> _connectingCount = new(0);
 
     public IObservable<ICollection<Peer>> Peers { get; }
+
+    // The whole attempt, direct try and relay fallback together, not the children's
+    // flags: those would blink off between the two.
+    public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
 
     public HybridNetwork(string host, string peerId, string name)
     {
@@ -24,7 +30,8 @@ public sealed class HybridNetwork : INetwork, IDisposable
         _p2p = new(host, peerId, name, false);
         _relay = new(host, peerId, name, false);
 
-        // Merge peers from both networks. Prefer Direct if both exist for same PeerId.
+        // Merge peers from both networks. Prefer connected, then Direct, if both exist
+        // for the same PeerId.
         Peers = Observable.CombineLatest(
                 _p2p.Peers.StartWith(),
                 _relay.Peers.StartWith(),
@@ -44,20 +51,28 @@ public sealed class HybridNetwork : INetwork, IDisposable
 
     public async Task<ConnectionResult> Connect(string target, CancellationToken ct)
     {
-        // 1) Try Direct with timeout = 5s (implemented here, not inside P2PNetwork)
-        using var directCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        directCts.CancelAfter(DirectAttemptTimeout);
-        
-        var directResult = await _p2p.Connect(target, directCts.Token).ConfigureAwait(false);
-        if (directResult == ConnectionResult.Success)
-            return ConnectionResult.Success;
-        
-        // If caller cancelled - stop here
-        if (ct.IsCancellationRequested)
-            return ConnectionResult.Failed;
+        _connectingCount.OnNext(Interlocked.Increment(ref _connecting));
+        try
+        {
+            // 1) Try Direct with timeout = 5s (implemented here, not inside P2PNetwork)
+            using var directCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            directCts.CancelAfter(DirectAttemptTimeout);
 
-        // 2) Fallback to Relay (use original token, no hidden timeout)
-        return await _relay.Connect(target, ct).ConfigureAwait(false);
+            var directResult = await _p2p.Connect(target, directCts.Token).ConfigureAwait(false);
+            if (directResult == ConnectionResult.Success)
+                return ConnectionResult.Success;
+
+            // If caller cancelled - stop here
+            if (ct.IsCancellationRequested)
+                return ConnectionResult.Failed;
+
+            // 2) Fallback to Relay (use original token, no hidden timeout)
+            return await _relay.Connect(target, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connectingCount.OnNext(Interlocked.Decrement(ref _connecting));
+        }
     }
 
     public void Disconnect()
@@ -93,8 +108,13 @@ public sealed class HybridNetwork : INetwork, IDisposable
         var dict = new Dictionary<string, Peer>(StringComparer.Ordinal);
 
         foreach (var p in p2pPeers) dict[p.PeerId] = p;
-        // Prefer direct
-        foreach (var p in relayPeers) dict.TryAdd(p.PeerId, p);
+        // Prefer connected before direct: a direct handshake still in progress beside
+        // a live relay link must not report the peer as connecting.
+        foreach (var p in relayPeers)
+        {
+            if (!dict.TryGetValue(p.PeerId, out var direct) || (p.Connected && !direct.Connected))
+                dict[p.PeerId] = p;
+        }
 
         return dict.Values.ToArray();
     }

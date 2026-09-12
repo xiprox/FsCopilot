@@ -38,6 +38,7 @@ public class Coordinator : IDisposable
     private readonly Dictionary<ulong, uint> _lastSeq = new(); // sender session -> last Seq applied
     private readonly Dictionary<ulong, uint> _acked = new();   // sender session -> last Seq we acked
     private bool _hadPeer;
+    private Link _link = Link.None;
     private volatile string _session = SessionState.None;
     private IDisposable? _degradedTimer;
 
@@ -102,14 +103,19 @@ public class Coordinator : IDisposable
         _d.Add(_net.Stream<PointerAck>().Subscribe(OnAck));
         _d.Add(Observable.Interval(AckInterval).Subscribe(_ => SendAcks()));
 
-        // The session state machine behind the panel overlays: none -> live on the first
-        // peer, live -> degraded when the last peer drops, back to live on reconnect
-        // (re-sending held history), and degraded -> none when the outage outlives the
-        // timeout. An intentional Leave calls EndSession directly.
-        _d.Add(net.Peers
-            .Select(peers => peers.Count > 0)
-            .DistinctUntilChanged()
-            .Subscribe(OnPeersChanged));
+        // The session state machine behind the panel overlays. The link is what the
+        // transport shows: live (a connected peer), connecting (a handshake or a join
+        // in flight, nobody connected yet), or none. The session follows it: none ->
+        // connecting -> live on first contact; live -> degraded when the last peer
+        // drops (connecting instead, if a reconnect is already in flight), back to live
+        // on recovery with the unacked history resent, and to none when the outage
+        // outlives the timeout. A failed first attempt goes connecting -> none, never
+        // degraded: it was never live. An intentional Leave calls EndSession directly.
+        _d.Add(Observable.CombineLatest(net.Peers, net.Connecting,
+                (peers, joining) => peers.Any(p => p.Connected) ? Link.Live
+                    : joining || peers.Count > 0 ? Link.Connecting
+                    : Link.None)
+            .Subscribe(OnLink));
         _d.Add(masterSwitch.Master
             .DistinctUntilChanged()
             .Subscribe(_ => { lock (_stateLock) _panels.SetSession(_session, _masterSwitch.IsMaster); }));
@@ -141,6 +147,9 @@ public class Coordinator : IDisposable
             _degradedTimer?.Dispose();
             _degradedTimer = null;
             _hadPeer = false;
+            // Forget the link too, so the next tick that still shows the departing peer
+            // is not a transition, and the next live one is.
+            _link = Link.None;
             _session = SessionState.None;
             _history.Clear();
             _acks.Clear();
@@ -148,36 +157,65 @@ public class Coordinator : IDisposable
         }
     }
 
-    private void OnPeersChanged(bool hasPeers)
+    private enum Link { None, Connecting, Live }
+
+    private void OnLink(Link link)
     {
         lock (_stateLock)
         {
-            if (hasPeers)
+            if (link == _link) return;
+            _link = link;
+            switch (link)
             {
-                _degradedTimer?.Dispose();
-                _degradedTimer = null;
-                var recovered = _session == SessionState.Degraded;
-                _hadPeer = true;
-                _session = SessionState.Live;
-                _panels.SetSession(_session, _masterSwitch.IsMaster);
-                // Recovery replays; first contact does not. Everything held is what no
-                // acker had when the link dropped - the slave was locked for the whole
-                // gap, so ordered replay reconstructs sync exactly, and a peer that kept
-                // running drops what it already applied by (Session, Seq). A fresh
-                // session has nothing to replay and nobody it would be right for.
-                if (recovered) ResendHistory();
-            }
-            else if (_hadPeer && _session == SessionState.Live)
-            {
-                _session = SessionState.Degraded;
-                _panels.SetSession(_session, _masterSwitch.IsMaster);
-                _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
-                {
-                    Log.Warning("[Pointer] Peer did not return within {Timeout}; session over, panels may be desynced", DegradedTimeout);
-                    EndSession();
-                });
+                case Link.Live:
+                    _degradedTimer?.Dispose();
+                    _degradedTimer = null;
+                    var recovered = _hadPeer;
+                    _hadPeer = true;
+                    _session = SessionState.Live;
+                    _panels.SetSession(_session, _masterSwitch.IsMaster);
+                    // Recovery replays; first contact does not. Everything held is what
+                    // no acker had when the link dropped - the slave was locked for the
+                    // whole gap, so ordered replay reconstructs sync exactly, and a peer
+                    // that kept running drops what it already applied by (Session, Seq).
+                    // A fresh session has nothing to replay and nobody it would be right
+                    // for.
+                    if (recovered) ResendHistory();
+                    break;
+
+                case Link.Connecting:
+                    // Before first contact the lock keeps input off the panels while
+                    // there is no peer to send it to - up to ~10 s on the joiner. Mid-
+                    // session it is an outage with a reconnect in flight, and the
+                    // outage clock runs regardless of how the attempt ends.
+                    _session = SessionState.Connecting;
+                    _panels.SetSession(_session, _masterSwitch.IsMaster);
+                    if (_hadPeer) StartDegradedTimer();
+                    break;
+
+                case Link.None:
+                    if (!_hadPeer)
+                    {
+                        _session = SessionState.None;
+                        _panels.SetSession(_session, _masterSwitch.IsMaster);
+                        break;
+                    }
+                    _session = SessionState.Degraded;
+                    _panels.SetSession(_session, _masterSwitch.IsMaster);
+                    StartDegradedTimer();
+                    break;
             }
         }
+    }
+
+    private void StartDegradedTimer()
+    {
+        if (_degradedTimer != null) return;
+        _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
+        {
+            Log.Warning("[Pointer] Peer did not return within {Timeout}; session over, panels may be desynced", DegradedTimeout);
+            EndSession();
+        });
     }
 
     private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);

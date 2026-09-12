@@ -31,8 +31,12 @@ public sealed class P2PNetwork : INetwork, IDisposable
     private readonly NetManager _net;
 
     private IPEndPoint? _stunEndpoint;
+    private int _connecting;
+    private readonly BehaviorSubject<int> _connectingCount = new(0);
 
     public IObservable<ICollection<Peer>> Peers { get; }
+
+    public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
 
     public P2PNetwork(string host, string peerId, string name, bool autoConnect = true)
     {
@@ -61,14 +65,19 @@ public sealed class P2PNetwork : INetwork, IDisposable
             .ObserveOn(TaskPoolScheduler.Default)
             .Select(_ =>
             {
-                _net.GetPeersNonAlloc(peers, ConnectionState.Any);
+                // Live links and handshakes in progress, flagged apart. Not Any: a peer
+                // shutting down after a Leave would linger for seconds as if it were a
+                // failed handshake.
+                _net.GetPeersNonAlloc(peers,
+                    ConnectionState.Connected | ConnectionState.Outgoing | ConnectionState.EndPointChange);
                 return peers
                     .Where(p => p.Tag is string)
                     .Select(p => new Peer(
-                        (string)p.Tag, 
-                        _peerNames.TryGetValue((string)p.Tag, out var peerName) ? peerName : string.Empty, 
+                        (string)p.Tag,
+                        _peerNames.TryGetValue((string)p.Tag, out var peerName) ? peerName : string.Empty,
                         p.Ping,
-                        Peer.TransportKind.Direct))
+                        Peer.TransportKind.Direct,
+                        Connected: p.ConnectionState != ConnectionState.Outgoing))
                     .ToArray();
             })
             .Publish()
@@ -325,6 +334,7 @@ public sealed class P2PNetwork : INetwork, IDisposable
         if (!_connectWaiters.TryAdd(target, tcs))
             return ConnectionResult.Failed;
 
+        _connectingCount.OnNext(Interlocked.Increment(ref _connecting));
         try
         {
             await EnsureIntroduced(ct).ConfigureAwait(false);
@@ -353,6 +363,7 @@ public sealed class P2PNetwork : INetwork, IDisposable
         finally
         {
             _connectWaiters.TryRemove(target, out _);
+            _connectingCount.OnNext(Interlocked.Decrement(ref _connecting));
         }
     }
 
