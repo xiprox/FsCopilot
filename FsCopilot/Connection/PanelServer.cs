@@ -255,13 +255,20 @@ public sealed class PanelServer : IDisposable
                 continue;
             }
 
-            // Logged so one sim session shows what Coherent actually sends. The next
-            // step, once that is known, is to reject an Origin starting with http:// or
-            // https:// - a browser tab on the same machine always sends one, Coherent
-            // is expected to send coui:// or nothing - closing the local surface where
-            // any page could read the peer's events or inject its own. Not before:
-            // rejecting on a guess could lock out the sim itself.
-            var origin = ctx.Request.Headers["Origin"];
+            // The port is open on loopback, so any page in any browser on this machine
+            // could otherwise connect and read the peer's gestures or inject its own.
+            // A browser always sends an http(s) Origin; the simulator sends coui://.
+            // Measured, not assumed: every panel connection in a full A350 cockpit
+            // reported coui://html_ui.
+            var origin = ctx.Request.Headers["Origin"] ?? string.Empty;
+            if (origin.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                origin.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Warning("[PanelServer] Refused a connection from web origin {Origin}", origin);
+                ctx.Response.StatusCode = 403;
+                ctx.Response.Close();
+                continue;
+            }
 
             _ = Task.Run(async () =>
             {
