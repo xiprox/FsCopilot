@@ -36,6 +36,48 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-12 — Q12 is survivable and it is not a two-pilot special case
+    Question:  Q12, still open, but bounded at both ends
+    Stage:     6
+    Expected:  Two things, one hoped and one feared. That Take Control really does
+               clear the degraded lock, so a pilot in a long outage is stopped
+               rather than stranded. And that a three-way session self-heals,
+               which would make Q12 a two-pilot edge case.
+    Found:     The first holds. pointer.js stands the overlay only while
+               fresh && session === 'degraded' && role === 'slave', and the new
+               degraded-take-control scenario measures both halves either side of
+               the button: the role flips to master, the session stays degraded,
+               the condition stops holding. One click, and the amber card already
+               names it.
+
+               The second is false, and reading settled it before a third instance
+               was built. PeerTags - the packet that feeds the only automatic
+               re-link path, HybridNetwork.OnPeerTags -> ConnectBurstAsync - is
+               emitted from exactly two places, P2PNetwork.OnConnectionSuccess and
+               RelayNetwork.OnLinkReady. Both are *link established*. Nothing emits
+               it on link loss and nothing emits it on a timer, so a third pilot
+               has no event to speak on and is silent about a link they did not
+               just make. The children's own _autoConnect handling is dead in this
+               configuration: HybridNetwork constructs both with autoConnect:false.
+
+               Which leaves Join as the root of every peer link there is. The one
+               accidental exception is not a mechanism: the relay's OnLinkReady
+               does SendAll(peerList) to every peer rather than only the new one,
+               so a fourth pilot joining C later would re-link A and B as a side
+               effect.
+
+               No three-instance world was built. The experiment could only have
+               confirmed a negative that two handlers state outright, and the
+               link-surgery it needs - force-dropping one peer link while leaving
+               the others up - is tooling whose own correctness would then be the
+               thing in question.
+    Changed:   Q12 stays open and stays out of the PR, now with a reason rather
+               than a shrug: the cause is upstream's transport, the failure is
+               safe, and the way out is one click. It belongs in the PR's known
+               limits as a stated consequence.
+    Affects:   none
+    Evidence:  testbed/scenarios/degraded-take-control.mjs
+
 ## 2026-09-12 — Stay alive long enough to say you left: Q11 fixed and measured
     Question:  Q11, from found to ANSWERED and fixed
     Stage:     6

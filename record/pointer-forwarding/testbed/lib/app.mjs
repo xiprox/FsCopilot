@@ -133,6 +133,9 @@ export class App {
   /** What pressing Leave does: not an outage, so history is dropped and panels unlock. */
   leave() { return this.control("leave") }
 
+  /** What pressing Take Control does. The degraded overlay stands on the slave only. */
+  takeControl() { return this.control("take-control") }
+
   peers() { return this.control("peers").then((r) => r) }
 
   /** LiteNetLib's own loss and latency simulation, on both networks. */

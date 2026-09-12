@@ -204,8 +204,33 @@ that would deliver it without the pilot acting.
 
 The pilot-facing reading: a WiFi drop of more than 15 seconds ends interaction sync until one
 of them rejoins. Meanwhile the slave's pointer panels hold the amber SYNC DEGRADED overlay,
-which does name the way out - "Take control to keep flying, or wait for the connection to
-return" - so the pilot is stopped rather than stranded.
+which names the way out - "Take control to keep flying, or wait for the connection to return".
+
+**The way out works**, and is one click. `pointer.js` stands the overlay only while
+`fresh && session === 'degraded' && role === 'slave'`, and `degraded-take-control` measures
+both halves either side of the button: the role flips to master while the session stays
+degraded, so the condition stops holding. Taking control does not bring the peer back; it
+stops this side waiting for one.
+
+**A larger session does not heal either**, which was worth asking because the three-way
+session on 2026-09-08 never hit this. Settled by reading rather than by a third instance,
+because the code says it plainly and the experiment could only confirm a negative. Everything
+that can create a peer link:
+
+| | |
+| --- | --- |
+| `MainViewModel.Connect(ConnectionCode)` | the Join button |
+| `HybridNetwork.OnPeerTags` → `ConnectBurstAsync` | needs a `PeerTags` packet |
+| `P2PNetwork`/`RelayNetwork` `_autoConnect` on `PeerTags` | dead: `HybridNetwork` constructs both with `autoConnect: false` |
+
+and `PeerTags` is emitted from exactly two places, `P2PNetwork.OnConnectionSuccess` and
+`RelayNetwork.OnLinkReady` - both *link established*. Nothing emits it when a link is lost and
+nothing emits it on a timer. So a third pilot is silent about a link they did not just make:
+after A-B drops, C has no event to speak on, and A and B never hear about each other again.
+
+One accidental exception, not a mechanism: the relay's version does `SendAll(peerList)` to
+every peer rather than only the new one, so a fourth pilot joining C later would broadcast C's
+list to A and B and re-link them.
 
 ---
 

@@ -130,7 +130,8 @@ One scenario is red, and the bench is asserting the documented intent.
 `outage-and-recovery` — a blackholed link does not re-establish in three minutes
 ([Q12](06-open-questions.md)). Not a pointer-sync defect: nothing in the transport
 re-establishes a peer link, and this is the first feature to build a state machine that
-assumes something does.
+assumes something does. It stays red on purpose. `degraded-take-control` is the green
+scenario beside it, holding the other end down: the pilot's way out of the lock works.
 
 `quit-says-goodbye` was the other one and is now green. It found that a deliberate quit
 reached the peer as a 15 s timeout ([Q11](06-open-questions.md)), fixed by draining the
