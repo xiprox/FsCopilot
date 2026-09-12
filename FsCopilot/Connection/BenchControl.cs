@@ -156,6 +156,12 @@ public sealed class BenchControl : IDisposable
                     await _vm.LeaveCommand.Execute();
                     return Ok(id, _ => { });
 
+                case "take-control":
+                    // The way out of a degraded lock: the overlay stands only on the slave,
+                    // so taking control is what clears it without the peer coming back.
+                    _master.TakeControl();
+                    return Ok(id, w => w.WriteBoolean("master", _master.IsMaster));
+
                 case "peers":
                     return Ok(id, w =>
                     {
