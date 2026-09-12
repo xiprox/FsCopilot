@@ -149,6 +149,10 @@ class Overlay {
     /* Which state is on screen, or null. Lets policy retract one specific overlay
      * without stepping on a different one that replaced it meanwhile. */
     showing() { return this._el ? this._name : null; }
+
+    /* The overlay node, or null. Capture uses it to tell a press on the lock apart
+     * from a press outside the instrument. */
+    element() { return this._el; }
 }
 
 /* The overlay states. block also decides the heartbeat: a live app renewing a

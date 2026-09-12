@@ -38,7 +38,7 @@ class Pointer {
         // exactly 2:1. missed is a replay with no target. Anything rejected for any
         // other reason gets its own counter, never a shared one, so a discrepancy
         // shows up in the reports instead of hiding inside them.
-        this._stats = {captured: 0, replayed: 0, missed: 0, echo: 0, stalled: 0};
+        this._stats = {captured: 0, replayed: 0, missed: 0, echo: 0, outside: 0, locked: 0, stalled: 0};
         this._pendingDown = null;
         this._lastGestureEnd = 0;   // capture side: when the previous gesture ended
 
@@ -256,10 +256,38 @@ class Pointer {
         return gap > Pointer.GAP_MAX_MS ? Pointer.GAP_MAX_MS : gap;
     }
 
+    /* Capture listens on document, so it sees the whole document; only a gesture
+     * that began inside this instrument is forwarded. In a multi-instrument
+     * document a click on a neighbour is on the element-name path and would
+     * otherwise actuate twice on the other side. The test is the target, not the
+     * point: a press on our own blocking overlay is counted apart (locked), and
+     * only when there is no element to test does the normalised point stand in,
+     * with a small tolerance for edge presses on the owner. A drag that starts
+     * inside and leaves is still forwarded whole - this bounds the press, not the
+     * path. */
+    _inside(ev, n) {
+        const t = ev.target;
+        const lock = this._overlay.element();
+        if (t && lock && (t === lock || (typeof lock.contains === 'function' && lock.contains(t)))) {
+            this._stats.locked++;
+            return false;
+        }
+        let inside;
+        if (t && t.nodeType === 1 && typeof this._instrument.contains === 'function') {
+            inside = this._instrument.contains(t);
+        } else {
+            const tol = Pointer.EDGE_TOLERANCE;
+            inside = n.nx >= -tol && n.nx <= 1 + tol && n.ny >= -tol && n.ny <= 1 + tol;
+        }
+        if (!inside) this._stats.outside++;
+        return inside;
+    }
+
     _onDown(ev) {
         if (this._isOurs(ev)) { this._stats.echo++; return; }
         const n = this._normalise(ev);
         if (!n) return;
+        if (!this._inside(ev, n)) return;
         this._pendingDown = {
             nx: n.nx, ny: n.ny,
             x: ev.clientX, y: ev.clientY,        // raw, for the pixel thresholds
@@ -300,10 +328,11 @@ class Pointer {
         if (!n) return;
 
         // Hold duration is carried rather than a constant, so a press-and-hold
-        // replays as one. Without a matching down - the press began outside the
-        // panel - fall back to a nominal press.
+        // replays as one. Without a matching down, the up stands alone and must
+        // pass the same test the down would have; then it is a nominal press.
         const now = Date.now();
         const d = this._pendingDown;
+        if (!d && !this._inside(ev, n)) return;
         const held = d ? now - d.at : 0;
         const from = d || n;
         const button = typeof ev.button === 'number' ? ev.button : 0;
@@ -553,6 +582,7 @@ Pointer.DRAG_SAMPLE_MS = 33;    // ~30 Hz
 Pointer.DRAG_MIN_STEP_PX = 2;   // ignore jitter between samples
 Pointer.DRAG_MAX_POINTS = 240;  // bounds the message; ~8s of dragging
 Pointer.DRAG_MAX_STEP_MS = 250; // a mid-drag pause replays as a bounded pause
+Pointer.EDGE_TOLERANCE = 0.02;  // rect fraction allowed outside [0,1] when only the point can be tested
 Pointer.GAP_MAX_MS = 1000;      // idle time between gestures is preserved up to this
 Pointer.REPLAY_DEADMAN_MS = 3000; // past a gesture's expected end, release the queue
 Pointer.STATE_DEADMAN_MS = 8000;

@@ -37,6 +37,7 @@ public sealed class PanelServer : IDisposable
     private volatile string[] _pointerKeys = [];
     private volatile string _session = SessionState.None;
     private volatile bool _isMaster = true;
+    private volatile bool _closing;
 
     public int Port { get; } = -1;
 
@@ -180,6 +181,15 @@ public sealed class PanelServer : IDisposable
     /// </summary>
     public void Shutdown()
     {
+        // The goodbye must be the last thing a panel hears: channel.js spends the
+        // flag on any later message, and a state renewal landing between the bye and
+        // the close would turn the quit back into a reported break. So the renewal
+        // timer (in _d) is disposed before the farewells, not after, and _closing
+        // makes the send path refuse anything but the goodbye - which also covers a
+        // Configure broadcast from a profile load landing in the same instant.
+        _closing = true;
+        _d.Dispose();
+
         var sockets = _sockets.Keys.ToArray();
         if (sockets.Length > 0)
         {
@@ -207,7 +217,7 @@ public sealed class PanelServer : IDisposable
     /// discarded under the abort in <see cref="Dispose"/>.</summary>
     private async Task Farewell(PanelSocket socket, string bye)
     {
-        await SendAsync(socket, bye);
+        await SendAsync(socket, bye, farewell: true);
         try
         {
             if (socket.Ws.State == WebSocketState.Open)
@@ -247,6 +257,14 @@ public sealed class PanelServer : IDisposable
                 continue;
             }
 
+            // Logged so one sim session shows what Coherent actually sends. The next
+            // step, once that is known, is to reject an Origin starting with http:// or
+            // https:// - a browser tab on the same machine always sends one, Coherent
+            // is expected to send coui:// or nothing - closing the local surface where
+            // any page could read the peer's events or inject its own. Not before:
+            // rejecting on a guess could lock out the sim itself.
+            var origin = ctx.Request.Headers["Origin"];
+
             _ = Task.Run(async () =>
             {
                 WebSocketContext wsCtx;
@@ -259,7 +277,8 @@ public sealed class PanelServer : IDisposable
 
                 var socket = new PanelSocket(wsCtx.WebSocket);
                 _sockets.TryAdd(socket, 0);
-                Log.Debug("[PanelServer] Panel connected ({Count} total)", _sockets.Count);
+                Log.Debug("[PanelServer] Panel connected, origin {Origin} ({Count} total)",
+                    string.IsNullOrEmpty(origin) ? "(none)" : origin, _sockets.Count);
                 try { await ReceiveLoop(socket, ct); }
                 finally
                 {
@@ -390,8 +409,9 @@ public sealed class PanelServer : IDisposable
 
     private void Send(PanelSocket socket, string text) => _ = SendAsync(socket, text);
 
-    private async Task SendAsync(PanelSocket socket, string text)
+    private async Task SendAsync(PanelSocket socket, string text, bool farewell = false)
     {
+        if (_closing && !farewell) return;
         var bytes = Encoding.UTF8.GetBytes(text);
         await socket.SendLock.WaitAsync();
         try
