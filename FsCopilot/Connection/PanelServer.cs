@@ -331,7 +331,8 @@ public sealed class PanelServer : IDisposable
                 var name = json.String("name");
                 if (name.Length == 0) return;
                 socket.AddName(name);
-                Log.Debug("[PanelServer] Hello from {Name} ({Url})", name, json.String("url"));
+                Log.Debug("[PanelServer] Hello from {Name} rect {Rect} ({Url})",
+                    name, Rect(json), json.String("url"));
                 // Reply with the current config and state so a panel that came up after the
                 // profile loaded still learns its mode; Configure() broadcasts later changes.
                 Send(socket, ConfigJson());
@@ -345,6 +346,14 @@ public sealed class PanelServer : IDisposable
                 break;
         }
     }
+
+    /// <summary>The instrument's own bounding rect as the panel measured it. Coordinates are
+    /// normalised against it, so two machines reporting different rects here is the thing
+    /// that would make normalising load-bearing rather than free insurance.</summary>
+    private static string Rect(JsonElement json) =>
+        json.TryGetProperty("rect", out var r) && r.ValueKind == JsonValueKind.Array && r.GetArrayLength() >= 2
+            ? $"{r[0].GetRawText()}x{r[1].GetRawText()}"
+            : "(none)";
 
     private void HandlePointer(JsonElement json)
     {

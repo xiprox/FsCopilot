@@ -59,7 +59,7 @@ Include.addImports(['/FsCopilot/pointer.js'], () =>
 Include.addImports(['/FsCopilot/bus.js'], () =>
 Include.addImports(['/FsCopilot/events.js'], () =>
 Include.addImports(['/FsCopilot/hook.js'], () => {
-    console.log('[Hook] References loaded.');
+    console.log('[Hook] References loaded; ' + templatesToLoad.length + ' instrument(s) waited.');
     jsLoaded = true;
     while (templatesToLoad.length > 0) {
         try { hook = new Hook(templatesToLoad.shift()); }
