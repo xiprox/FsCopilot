@@ -14,9 +14,12 @@ using Network;
  *                DownX/Y   f32 x2  rect fractions; press: down point, drag: first path point
  *                UpX/Y     f32 x2  press: up point, drag: last path point
  *                Path      u16 count, then (u16 DtMs, f32 X, f32 Y) each; empty for a press
+ * PointerAck     Session   u64     the sender session being acknowledged
+ *                Seq       u32     highest Seq received from it
+ *                From      u64     the acker's own session
  *
- * Codecs.Schema hashes every registered type, so adding it breaks pairing with older
- * builds. Flags exists so later additions can be bits instead of fields.
+ * Codecs.Schema hashes every registered type, so adding either breaks pairing with
+ * older builds. Flags exists so later additions can be bits instead of fields.
  */
 
 public enum PointerKind : byte
@@ -88,5 +91,24 @@ public record PointerEvent(string Key, ulong Session, uint Seq, byte Flags, Poin
             return new PointerEvent(key, session, seq, flags, (PointerKind)kind, button, hold, gap,
                 downX, downY, upX, upY, path);
         }
+    }
+}
+
+/// <summary>
+/// "I have your Session up to Seq." From is the acker's session, so a restarted peer
+/// counts as a new acker.
+/// </summary>
+public record PointerAck(ulong Session, uint Seq, ulong From)
+{
+    public class Codec : IPacketCodec<PointerAck>
+    {
+        public void Encode(PointerAck packet, BinaryWriter bw)
+        {
+            bw.Write(packet.Session);
+            bw.Write(packet.Seq);
+            bw.Write(packet.From);
+        }
+
+        public PointerAck Decode(BinaryReader br) => new(br.ReadUInt64(), br.ReadUInt32(), br.ReadUInt64());
     }
 }
