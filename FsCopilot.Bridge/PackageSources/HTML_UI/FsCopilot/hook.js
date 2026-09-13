@@ -7,6 +7,18 @@ class Hook {
 
         const bus = new Bus();
 
+        // One channel per document, shared by every hook in it.
+        if (!window.fscChannel) window.fscChannel = new Channel();
+        const channel = window.fscChannel;
+        this.key = Channel.keyFor(instrument);
+        this._announce(instrument, channel);
+
+        if (!window.fscStatsTimer) {
+            window.fscStatsTimer = setInterval(() => {
+                channel.send({t: 'stats', link: channel.stats()});
+            }, 60000);
+        }
+
         const interact = instrument.onInteractionEvent;
         instrument.onInteractionEvent = (_args) => {
             interact.call(instrument, _args);
@@ -24,5 +36,31 @@ class Hook {
             if (id !== msg.instrument) return;
             events.dispatch(msg.event, msg.id, msg.value);
         });
+    }
+
+    /* An instrument not laid out yet measures as zero, so retry until it answers. */
+    _announce(instrument, channel) {
+        const measure = () => {
+            try {
+                const r = instrument.getBoundingClientRect();
+                if (r && r.width > 0) return [Math.round(r.width), Math.round(r.height)];
+            } catch (e) { /* not laid out */ }
+            return null;
+        };
+
+        const rect = measure();
+        channel.hello(this.key, rect ? {rect: rect} : null);
+        if (rect) return;
+
+        let tries = 0;
+        const timer = setInterval(() => {
+            const late = measure();
+            if (late) {
+                channel.hello(this.key, {rect: late});
+                console.log('[FsCopilot] [Hook] ' + this.key + ' measured late: ' +
+                    late[0] + 'x' + late[1] + ' after ' + (tries + 1) + 's');
+            }
+            if (late || ++tries >= 60) clearInterval(timer);
+        }, 1000);
     }
 }
