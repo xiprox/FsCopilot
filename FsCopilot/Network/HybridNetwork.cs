@@ -22,6 +22,8 @@ public sealed class HybridNetwork : INetwork, IDisposable
 
     public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
 
+    public IObservable<string> PeerLeft => Observable.Merge(_p2p.PeerLeft, _relay.PeerLeft);
+
     public HybridNetwork(string host, string peerId, string name)
     {
         _peerId = peerId;
@@ -79,6 +81,12 @@ public sealed class HybridNetwork : INetwork, IDisposable
         // Here we call both to keep state consistent.
         _p2p.Disconnect();
         _relay.Disconnect();
+    }
+
+    public void DrainDisconnect(TimeSpan grace)
+    {
+        _p2p.DrainDisconnect(grace);
+        _relay.DrainDisconnect(grace);
     }
 
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
