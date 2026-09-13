@@ -162,7 +162,11 @@ public class MainViewModel : ReactiveObject, IDisposable
                 : _errors & ~ViewErrors.Conflict)
             .DisposeWith(_d);
 
-        net.Peers
+        // A handshake may still fail, so it is not shown, counted or announced.
+        var connectedPeers = net.Peers
+            .Select(peers => (ICollection<Peer>)peers.Where(p => p.Connected).ToArray());
+
+        connectedPeers
             .Sample(TimeSpan.FromMilliseconds(250))
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(peers =>
@@ -180,7 +184,7 @@ public class MainViewModel : ReactiveObject, IDisposable
             })
             .DisposeWith(_d);
 
-        net.Peers
+        connectedPeers
             .Select(p => p.Count)
             .DistinctUntilChanged()
             .Scan(
