@@ -3,7 +3,9 @@ namespace FsCopilot.Network;
 public interface INetwork
 {
     IObservable<ICollection<Peer>> Peers { get; }
-    
+
+    IObservable<bool> Connecting { get; }
+
     Task<ConnectionResult> Connect(string target, CancellationToken ct);
 
     void Disconnect();
