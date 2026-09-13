@@ -13,6 +13,8 @@ using Views;
 public class App : Application
 {
     private readonly CancellationTokenSource _appCts = new();
+
+    private static readonly TimeSpan DisconnectGrace = TimeSpan.FromMilliseconds(500);
     
     public static readonly string Version =
         Assembly.GetEntryAssembly()?
@@ -33,7 +35,10 @@ public class App : Application
             {
                 _appCts.Cancel();
 
-                Locator.Current.GetService<INetwork>()?.Disconnect();
+                var net = Locator.Current.GetService<INetwork>();
+                net?.Disconnect();
+                net?.DrainDisconnect(DisconnectGrace);
+
                 Locator.Current.GetService<MasterSwitch>()?.TakeControl();
             };
             

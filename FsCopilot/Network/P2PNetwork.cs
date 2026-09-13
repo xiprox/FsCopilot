@@ -13,6 +13,8 @@ public sealed class P2PNetwork : INetwork, IDisposable
 
     private static readonly TimeSpan IntroduceInterval = TimeSpan.FromSeconds(20);
 
+    private static readonly byte[] LeftPayload = "left"u8.ToArray();
+    
     private readonly CancellationTokenSource _cts = new();
     private readonly EventBasedNatPunchListener _natListener = new();
     private readonly EventBasedNetListener _netListener = new();
@@ -33,10 +35,13 @@ public sealed class P2PNetwork : INetwork, IDisposable
     private IPEndPoint? _stunEndpoint;
     private int _connecting;
     private readonly BehaviorSubject<int> _connectingCount = new(0);
+    private readonly Subject<string> _peerLeft = new();
 
     public IObservable<ICollection<Peer>> Peers { get; }
 
     public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
+
+    public IObservable<string> PeerLeft => _peerLeft;
 
     public P2PNetwork(string host, string peerId, string name, bool autoConnect = true)
     {
@@ -247,6 +252,12 @@ public sealed class P2PNetwork : INetwork, IDisposable
         if (string.IsNullOrEmpty(peerId))
             return;
 
+        if (info.Reason == DisconnectReason.RemoteConnectionClose && IsLeft(info.AdditionalData))
+        {
+            Log.Debug("[Peer2Peer] LEFT {PeerId}", peerId);
+            _peerLeft.OnNext(peerId);
+        }
+
         if (info.Reason == DisconnectReason.ConnectionRejected)
         {
             if (_connectWaiters.TryGetValue(peerId, out var tcs))
@@ -364,7 +375,26 @@ public sealed class P2PNetwork : INetwork, IDisposable
         }
     }
 
-    public void Disconnect() => _net.DisconnectAll();
+    private static bool IsLeft(NetPacketReader? data)
+    {
+        if (data == null || data.AvailableBytes != LeftPayload.Length) return false;
+        var bytes = new byte[LeftPayload.Length];
+        data.GetBytes(bytes, bytes.Length);
+        return bytes.AsSpan().SequenceEqual(LeftPayload);
+    }
+
+    public void Disconnect()
+    {
+        _net.DisconnectAll(LeftPayload, 0, LeftPayload.Length);
+        _net.TriggerUpdate();
+    }
+
+    public void DrainDisconnect(TimeSpan grace)
+    {
+        var waited = Stopwatch.StartNew();
+        while (_net.GetPeersCount(ConnectionState.Any) > 0 && waited.Elapsed < grace)
+            Thread.Sleep(5);
+    }
 
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {
