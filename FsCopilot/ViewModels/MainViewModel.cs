@@ -220,6 +220,9 @@ public class MainViewModel : ReactiveObject, IDisposable
                 IsBusy = false;;
             }
 
+            // Join() made us slave before the attempt.
+            if (result != ConnectionResult.Success) masterSwitch.TakeControl();
+
             if (result == ConnectionResult.Failed)
             {
                 Errors |= ViewErrors.Failed;
