@@ -9,20 +9,28 @@ public class Coordinator : IDisposable
     private readonly INetwork _net;
     private readonly MasterSwitch _masterSwitch;
     private readonly SimClient _sim;
+    private readonly PanelServer _panels;
     private readonly CompositeDisposable _d = new();
     private CompositeDisposable _cSubs = new();
     private HashSet<string> _ignore = [];
+    private volatile PointerFilter _pointer = PointerFilter.Empty;
 
-    public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch)
+    private readonly ulong _sessionId;
+    private int _pointerSeq;
+    private readonly Dictionary<ulong, uint> _lastSeq = new(); // sender session -> last Seq applied
+
+    public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch, PanelServer panels)
     {
         _net = net;
         _masterSwitch = masterSwitch;
         _sim = sim;
+        _panels = panels;
         var sw = Stopwatch.StartNew();
 
         Span<byte> sessionBytes = stackalloc byte[8];
         RandomNumberGenerator.Fill(sessionBytes);
         var sessionId = BitConverter.ToUInt64(sessionBytes);
+        _sessionId = sessionId;
 
         net.RegisterPacket<Update, Update.Codec>();
         net.RegisterPacket<Interact, InteractCodec>();
@@ -31,6 +39,7 @@ public class Coordinator : IDisposable
         _sim.Register<Surfaces>();
         _net.RegisterPacket<Physics, Physics.Codec>();
         _net.RegisterPacket<Surfaces, Surfaces.Codec>();
+        _net.RegisterPacket<PointerEvent, PointerEvent.Codec>();
 
         _d.Add(sim.Aircraft.Take(1).Subscribe(_ => AddLink((ref Physics physics) =>
         {
@@ -44,11 +53,24 @@ public class Coordinator : IDisposable
             surfaces.TimeMs = (uint)sw.ElapsedMilliseconds;
         })));
 
+        // Pointer-synced instruments are left out, or one press would actuate twice.
         _d.Add(_sim.Interactions
-            .Where(i => !_ignore.Contains(i.Instrument))
+            .Where(i => !_ignore.Contains(i.Instrument) && !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(interact => _net.SendAll(interact)));
         _d.Add(_net.Stream<Interact>()
+            .Where(i => !_pointer.Instruments.Contains(i.Instrument))
             .Subscribe(update => _sim.Set(update)));
+
+        // Not gated on master, like Interact. Presses and drags share one stream, so
+        // they arrive in capture order. Filtered on receive too, because a panel connects
+        // before it learns its mode.
+        _d.Add(panels.Events
+            .Where(e => _pointer.Contains(e.Key))
+            .Subscribe(e => _net.SendAll(e with { Session = _sessionId, Seq = NextSeq() })));
+        _d.Add(_net.Stream<PointerEvent>()
+            .Where(e => Fresh(e.Session, e.Seq))
+            .Where(e => _pointer.Contains(e.Key))
+            .Subscribe(panels.Send));
     }
 
     public void Dispose()
@@ -64,6 +86,57 @@ public class Coordinator : IDisposable
         _cSubs = new();
         foreach (var def in definitions) AddLink(def);
         foreach (var i in definitions.Ignore) _ignore.Add(i);
+        _pointer = new PointerFilter(definitions.Pointer);
+        _panels.Configure(definitions.Pointer);
+    }
+
+    private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
+
+    private bool Fresh(ulong session, uint seq)
+    {
+        lock (_lastSeq)
+        {
+            if (_lastSeq.TryGetValue(session, out var last))
+            {
+                if (seq <= last) return false; // already applied; history re-sends overlap by design
+                if (seq > last + 1)
+                    Log.Warning("[Pointer] {Lost} events from the peer never arrived - panels may be desynced", seq - last - 1);
+            }
+            _lastSeq[session] = seq;
+            return true;
+        }
+    }
+
+    /* Which panels the profile opted in. An entry without a '|' is an identifier and takes
+     * every panel carrying it: the A220 declares DisplayUnits as ?config=[config], so the key
+     * carries the livery and no profile can name it. An entry with one names a single panel,
+     * for the aircraft that reuses an identifier across four. Routing is by full key either
+     * way, so the left CTP reaches the left CTP. */
+    private sealed class PointerFilter
+    {
+        public static readonly PointerFilter Empty = new([]);
+
+        private readonly HashSet<string> _keys;
+        private readonly HashSet<string> _identifiers;
+
+        /// <summary>Interact carries the bare identifier, so the double-actuation guard
+        /// matches on that.</summary>
+        public HashSet<string> Instruments { get; }
+
+        public PointerFilter(string[] entries)
+        {
+            _keys = [..entries.Where(e => e.Contains('|'))];
+            _identifiers = [..entries.Where(e => !e.Contains('|'))];
+            Instruments = entries.Select(Identifier).ToHashSet();
+        }
+
+        public bool Contains(string key) => _identifiers.Contains(Identifier(key)) || _keys.Contains(key);
+
+        private static string Identifier(string key)
+        {
+            var i = key.IndexOf('|');
+            return i < 0 ? key : key[..i];
+        }
     }
 
     private void AddLink<TPacket>(RefAction<TPacket> modify)

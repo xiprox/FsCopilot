@@ -5,8 +5,8 @@ using System.Net.WebSockets;
 using System.Text.Json;
 
 /// <summary>
-/// Loopback WebSocket endpoint for panel documents (channel.js). Carries the sync state
-/// out to panels.
+/// Loopback WebSocket endpoint for panel documents (channel.js). Carries pointer
+/// gestures both ways, and the pointer config and sync state out to panels.
 /// </summary>
 public sealed class PanelServer : IDisposable
 {
@@ -23,7 +23,10 @@ public sealed class PanelServer : IDisposable
     private readonly ConcurrentDictionary<PanelSocket, byte> _sockets = new();
     private readonly BehaviorSubject<bool> _bindFailed = new(false);
     private readonly CompositeDisposable _d = new();
+    private readonly Subject<PointerEvent> _events = new();
+    private int _undelivered;
 
+    private volatile string[] _pointerKeys = [];
     private volatile string _syncState = SyncState.None;
     private volatile bool _isMaster = true;
     private volatile bool _closing;
@@ -32,6 +35,9 @@ public sealed class PanelServer : IDisposable
 
     /// <summary>True when every port in the range was taken and the feature is off.</summary>
     public IObservable<bool> BindFailed => _bindFailed.ObserveOn(TaskPoolScheduler.Default);
+
+    /// <summary>Gestures from local panels, unstamped (no Session/Seq yet).</summary>
+    public IObservable<PointerEvent> Events => _events.ObserveOn(TaskPoolScheduler.Default);
 
     public PanelServer()
     {
@@ -65,12 +71,73 @@ public sealed class PanelServer : IDisposable
         _d.Add(Observable.Interval(StateRenewal).Subscribe(_ => Broadcast(StateJson())));
     }
 
+    public void Configure(IReadOnlyCollection<string> pointerKeys)
+    {
+        _pointerKeys = pointerKeys.ToArray();
+        Broadcast(ConfigJson());
+        // A panel entering pointer mode stays locked until it hears a state.
+        Broadcast(StateJson());
+    }
+
     public void SetSync(string sync, bool isMaster)
     {
         if (_syncState == sync && _isMaster == isMaster) return;
         _syncState = sync;
         _isMaster = isMaster;
         Broadcast(StateJson());
+    }
+
+    public void Send(PointerEvent e) => Route(e.Key, Json(w =>
+    {
+        w.WriteString("t", "pointer");
+        w.WriteStartObject("msg");
+        w.WriteNumber("v", 5);
+        w.WriteString("k", e.Kind == PointerKind.Drag ? "drag" : "press");
+        w.WriteString("key", e.Key);
+        w.WriteNumber("button", e.Button);
+        w.WriteNumber("gap", e.GapMs);
+        if (e.Kind == PointerKind.Drag)
+        {
+            w.WriteStartArray("path");
+            // The wire carries per-step deltas; the panel replays against times from the start.
+            var at = 0;
+            foreach (var point in e.Path)
+            {
+                at += point.DtMs;
+                w.WriteStartArray();
+                w.WriteNumberValue(at);
+                w.WriteNumberValue(point.X);
+                w.WriteNumberValue(point.Y);
+                w.WriteEndArray();
+            }
+            w.WriteEndArray();
+        }
+        else
+        {
+            w.WriteNumber("nx", e.DownX);
+            w.WriteNumber("ny", e.DownY);
+            w.WriteNumber("ux", e.UpX);
+            w.WriteNumber("uy", e.UpY);
+            w.WriteNumber("hold", e.HoldMs);
+        }
+        w.WriteEndObject();
+    }));
+
+    private void Route(string key, string text)
+    {
+        var delivered = false;
+        foreach (var socket in _sockets.Keys)
+        {
+            if (!socket.HasName(key)) continue;
+            Send(socket, text);
+            delivered = true;
+        }
+        if (delivered) return;
+
+        // Dropped, not held: a panel that connects later was reloaded and starts from its
+        // default state, so replaying earlier gestures into it would press the wrong things.
+        var total = Interlocked.Increment(ref _undelivered);
+        Log.Debug("[PanelServer] No panel for {Key}; event dropped ({Total} undelivered so far)", key, total);
     }
 
     /// <summary>
@@ -229,8 +296,12 @@ public sealed class PanelServer : IDisposable
                 socket.AddName(name);
                 Log.Debug("[PanelServer] Hello from {Name} rect {Rect} ({Url})",
                     name, Rect(json), json.String("url"));
-                // Replying at once is also the liveness signal: a panel drops a silent socket.
+                // Config and state, so a panel that loads after the profile still learns its mode.
+                Send(socket, ConfigJson());
                 Send(socket, StateJson());
+                break;
+            case "pointer":
+                HandlePointer(json);
                 break;
             case "stats":
                 Log.Debug("[PanelServer] Panel stats: {Stats}", text);
@@ -242,6 +313,53 @@ public sealed class PanelServer : IDisposable
         json.TryGetProperty("rect", out var r) && r.ValueKind == JsonValueKind.Array && r.GetArrayLength() >= 2
             ? $"{r[0].GetRawText()}x{r[1].GetRawText()}"
             : "(none)";
+
+    private void HandlePointer(JsonElement json)
+    {
+        if (!json.TryGetProperty("msg", out var msg)) return;
+        var key = msg.String("key");
+        if (key.Length == 0) return;
+        var button = (byte)msg.Double("button");
+        var gap = (ushort)Math.Clamp(msg.Double("gap"), 0, 1000);
+
+        switch (msg.String("k"))
+        {
+            case "press":
+                var nx = (float)msg.Double("nx");
+                var ny = (float)msg.Double("ny");
+                _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Press, button,
+                    (ushort)Math.Clamp(msg.Double("hold"), 0, 1500), gap,
+                    nx, ny, (float)msg.Double("ux", nx), (float)msg.Double("uy", ny), PointerEvent.NoPath));
+                break;
+            case "drag":
+                if (!msg.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.Array) return;
+                var points = new List<PointerEvent.Point>();
+                var prev = 0.0;
+                foreach (var p in path.EnumerateArray())
+                {
+                    if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() < 3) continue;
+                    // Capture reports absolute ms from the gesture start; the wire carries deltas.
+                    var at = p[0].GetDouble();
+                    var dt = Math.Clamp(at - prev, 0, ushort.MaxValue);
+                    prev = at;
+                    points.Add(new PointerEvent.Point((ushort)dt, (float)p[1].GetDouble(), (float)p[2].GetDouble()));
+                }
+                if (points.Count < 2) return;
+                var first = points[0];
+                var last = points[^1];
+                _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Drag, button, 0, gap,
+                    first.X, first.Y, last.X, last.Y, points.ToArray()));
+                break;
+        }
+    }
+
+    private string ConfigJson() => Json(w =>
+    {
+        w.WriteString("t", "config");
+        w.WriteStartArray("pointer");
+        foreach (var key in _pointerKeys) w.WriteStringValue(key);
+        w.WriteEndArray();
+    });
 
     private string StateJson() => Json(w =>
     {
