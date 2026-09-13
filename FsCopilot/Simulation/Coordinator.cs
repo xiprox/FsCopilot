@@ -6,6 +6,9 @@ using Network;
 
 public class Coordinator : IDisposable
 {
+    // After this long without the peer, sync ends and slaves unlock.
+    private static readonly TimeSpan DegradedTimeout = TimeSpan.FromMinutes(5);
+
     private readonly INetwork _net;
     private readonly MasterSwitch _masterSwitch;
     private readonly SimClient _sim;
@@ -17,7 +20,15 @@ public class Coordinator : IDisposable
 
     private readonly ulong _sessionId;
     private int _pointerSeq;
+    private readonly object _stateLock = new();
     private readonly Dictionary<ulong, uint> _lastSeq = new(); // sender session -> last Seq applied
+    private bool _hadPeer;
+    // Set by PeerLeft, cleared by any tick with a live link, so a third peer leaving
+    // does not turn the next real outage into an end of sync.
+    private bool _peerLeft;
+    private Link _link = Link.None;
+    private volatile string _syncState = SyncState.None;
+    private IDisposable? _degradedTimer;
 
     public Coordinator(SimClient sim, INetwork net, MasterSwitch masterSwitch, PanelServer panels)
     {
@@ -71,6 +82,18 @@ public class Coordinator : IDisposable
             .Where(e => Fresh(e.Session, e.Seq))
             .Where(e => _pointer.Contains(e.Key))
             .Subscribe(panels.Send));
+
+        // live: a peer is connected. connecting: a join or handshake is in flight.
+        // A dropped live link becomes degraded until the peer returns or the timeout ends it.
+        _d.Add(Observable.CombineLatest(net.Peers, net.Connecting,
+                (peers, joining) => peers.Any(p => p.Connected) ? Link.Live
+                    : joining || peers.Count > 0 ? Link.Connecting
+                    : Link.None)
+            .Subscribe(OnLink));
+        _d.Add(net.PeerLeft.Subscribe(_ => { lock (_stateLock) _peerLeft = true; }));
+        _d.Add(masterSwitch.Master
+            .DistinctUntilChanged()
+            .Subscribe(_ => { lock (_stateLock) _panels.SetSync(_syncState, _masterSwitch.IsMaster); }));
     }
 
     public void Dispose()
@@ -88,6 +111,78 @@ public class Coordinator : IDisposable
         foreach (var i in definitions.Ignore) _ignore.Add(i);
         _pointer = new PointerFilter(definitions.Pointer);
         _panels.Configure(definitions.Pointer);
+    }
+
+    public void EndSync()
+    {
+        lock (_stateLock)
+        {
+            _degradedTimer?.Dispose();
+            _degradedTimer = null;
+            _hadPeer = false;
+            _peerLeft = false;
+            // Forgotten too, so the departing peer's last tick is not read as a transition.
+            _link = Link.None;
+            _syncState = SyncState.None;
+            _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+        }
+    }
+
+    private enum Link { None, Connecting, Live }
+
+    private void OnLink(Link link)
+    {
+        lock (_stateLock)
+        {
+            if (link == Link.Live) _peerLeft = false;
+            if (link == _link) return;
+            _link = link;
+            switch (link)
+            {
+                case Link.Live:
+                    _degradedTimer?.Dispose();
+                    _degradedTimer = null;
+                    _hadPeer = true;
+                    _syncState = SyncState.Live;
+                    _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+                    break;
+
+                case Link.Connecting:
+                    // Mid-session this is an outage with a reconnect in flight, so the timeout runs.
+                    _syncState = SyncState.Connecting;
+                    _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+                    if (_hadPeer) StartDegradedTimer();
+                    break;
+
+                case Link.None:
+                    if (!_hadPeer)
+                    {
+                        _syncState = SyncState.None;
+                        _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+                        break;
+                    }
+                    if (_peerLeft)
+                    {
+                        Log.Information("[Pointer] Peer left; sync ended");
+                        EndSync();
+                        break;
+                    }
+                    _syncState = SyncState.Degraded;
+                    _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+                    StartDegradedTimer();
+                    break;
+            }
+        }
+    }
+
+    private void StartDegradedTimer()
+    {
+        if (_degradedTimer != null) return;
+        _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
+        {
+            Log.Warning("[Pointer] Peer did not return within {Timeout}; sync ended, panels may be desynced", DegradedTimeout);
+            EndSync();
+        });
     }
 
     private uint NextSeq() => (uint)Interlocked.Increment(ref _pointerSeq);
