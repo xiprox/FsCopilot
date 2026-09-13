@@ -252,6 +252,8 @@ public class MainViewModel : ReactiveObject, IDisposable
         {
             net.Disconnect();
             masterSwitch.TakeControl();
+            // Leaving is not an outage: unlock panels instead of holding for a return.
+            coordinator.EndSync();
         });
 
         TakeControlCommand = ReactiveCommand.Create(masterSwitch.TakeControl);
