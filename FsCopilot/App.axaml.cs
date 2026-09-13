@@ -4,6 +4,7 @@ using System.Reflection;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Connection;
 using Network;
 using Simulation;
 using Splat;
@@ -34,6 +35,9 @@ public class App : Application
             desktop.Exit += (_, _) =>
             {
                 _appCts.Cancel();
+
+                // Before the sockets drop, so panels can tell a quit from a crash.
+                Locator.Current.GetService<PanelServer>()?.Shutdown();
 
                 var net = Locator.Current.GetService<INetwork>();
                 net?.Disconnect();

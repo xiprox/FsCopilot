@@ -7,6 +7,23 @@ class Hook {
 
         const bus = new Bus();
 
+        // One channel per document, shared by every hook in it.
+        if (!window.fscChannel) window.fscChannel = new Channel();
+        const channel = window.fscChannel;
+        this.key = Channel.keyFor(instrument);
+        let rect = null;
+        try {
+            const r = instrument.getBoundingClientRect();
+            if (r && r.width > 0) rect = [Math.round(r.width), Math.round(r.height)];
+        } catch (e) { /* not laid out yet; stats reports it later */ }
+        channel.hello(this.key, rect ? {rect: rect} : null);
+
+        if (!window.fscStatsTimer) {
+            window.fscStatsTimer = setInterval(() => {
+                channel.send({t: 'stats', link: channel.stats()});
+            }, 60000);
+        }
+
         const interact = instrument.onInteractionEvent;
         instrument.onInteractionEvent = (_args) => {
             interact.call(instrument, _args);
