@@ -1,0 +1,52 @@
+p03-panel-watch, second run, 2026-09-17
+FSC: ahead-pointer-forwarding at 7f8bbd6, Debug build
+Bridge package: the branch's own, copied into Community over the 1.2.0 build from ahead
+Sim: restarted for the new panel scripts, Synaptic A220, livery N324DU, panels loaded about
+four minutes before FSC started
+
+FSC panel port 9020
+PASS  watch replies config, state, panels (got config,state,panels)
+PASS  a hello with a rect appears with that rect
+PASS  an identical re-hello sends nothing (0 panels messages after it)
+PASS  a changed rect is re-sent
+PASS  a hello without a rect appears with rect null
+PASS  a closed panel drops out, the other stays
+PASS  panels that never watch never receive panels
+
+Cockpit panels seen by the watcher (real sim):
+  CTP|side=left                                           260x260
+  CTP|side=right                                          260x260
+  DisplayUnits|config=N324DU                              7410x1110
+  FCP|type=alt                                            460x102
+  FCP|type=hdg                                            460x102
+  FCP|type=speed                                          460x102
+  FCP|type=vs                                             460x102
+  ISI                                                     250x250
+  MKP|side=left                                           1608x186
+  MKP|side=right                                          1608x186
+  Sentry                                                  10x10
+  WasmInstrument|wasm_module=systems.wasm&wasm_gauge=a220 10x10
+  efbA220_1|Index=1                                       2048x1476
+  efbA220_2|Index=2                                       2048x1476
+
+all passed
+
+14 of 14, against 5 of 14 before the fix. The app log shows one hello per key, each already
+carrying its rect:
+
+[20:36:09.611] [PanelServer] Hello from Sentry rect 10x10
+[20:36:12.374] [PanelServer] Hello from MKP|side=right rect 1608x186
+[20:36:12.376] [PanelServer] Hello from CTP|side=right rect 260x260
+[20:36:12.409] [PanelServer] Hello from MKP|side=left rect 1608x186
+[20:36:12.410] [PanelServer] Hello from CTP|side=left rect 260x260
+[20:36:12.744] [PanelServer] Hello from DisplayUnits|config=N324DU rect 7410x1110
+
+No panel helloed twice here, which is the fix working rather than not working: the documents
+had been up for minutes, so the late measurement had already replaced the stored hello before
+FSC existed to connect to. An app started alongside the sim would see the empty hello first
+and the sized one within seconds.
+
+Sentry and WasmInstrument report 10x10. Both are placeholder elements rather than displays.
+
+Bench, same build, sim closed: 12/13, the failure being outage-and-recovery, which is red on
+purpose (Q12).

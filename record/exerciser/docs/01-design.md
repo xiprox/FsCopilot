@@ -162,11 +162,12 @@ Panels never send `watch` and never receive `panels`.
 Rejected: the pop-out's initial size (6.90 against the true 6.68, and wrong once resized),
 and reading `panel.cfg` (needs the package path, and per-aircraft parsing).
 
-**OPEN: most hellos have no rect** (p03). hook.js measures once, when the Hook is built and
-before most instruments are laid out; 9 of 14 A220 panels, CTP and MKP included, reported
-none, and a reconnect re-sends the same hello. The fix is in the bridge package: measure when
-the hello is sent, and hello again when a rect first appears. Until then a panel with a null
-rect has no automatic mapping.
+Panels used to measure once, when the Hook was built and before most instruments were laid
+out: 9 of 14 A220 panels reported no rect, CTP and MKP among them, and a reconnect re-sent
+the same empty hello. 7f8bbd6 keeps measuring until there is a size and helloes again with
+the first one it sees; 14 of 14 now report a rect (p03, second run). A null rect now means a
+sizeless element - Sentry and WasmInstrument report 10x10 placeholders - and the page asks
+for those.
 
 ### View
 

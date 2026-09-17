@@ -9,6 +9,30 @@ design sections an entry amends.
 
 ---
 
+## 2026-09-17 — Measuring until there is a size to send: 14 of 14 panels report their rect
+
+    Question:  closes the OPEN left by the entry below
+    Expected:  That measuring when the hello goes out, and again once a size appears,
+               would cover the panels that reported nothing.
+    Found:     It does. 14 of 14 on the A220, against 5 before: CTP 260x260, MKP
+               1608x186, ISI 250x250, the EFBs 2048x1476. Sentry and WasmInstrument
+               report 10x10, and both are placeholder elements rather than displays.
+
+               The app log shows one hello per key, each already carrying its rect. That
+               is the fix working: the documents had been up for minutes, so the late
+               measurement had replaced the stored hello before FSC existed to connect
+               to. The replacement is the load-bearing half - without it channel.js
+               would re-send the empty hello it already held on every reconnect, and the
+               app would hold two hellos for one panel.
+
+               7f8bbd6 measures in a one-second poll for a minute. There is no event to
+               wait for: Chrome 49 has no ResizeObserver, and load fires long before a
+               hook is built.
+    Changed:   The pointer page can map any panel's capture without asking. A rect of
+               null now means a genuinely sizeless element rather than a timing miss.
+    Affects:   01-design "Mapping"
+    Evidence:  results/p03-panel-watch-after-fix-2026-09-17.txt
+
 ## 2026-09-17 — FSC sends panel rects to a watcher, and most cockpit hellos have none
 
     Question:  where the pointer page gets the instrument's aspect ratio (01-design OPEN)
