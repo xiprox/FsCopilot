@@ -50,7 +50,7 @@ public class MasterSwitch : IDisposable
 
     public void Dispose() => _d.Dispose();
 
-    private record SetMaster(string Peer)
+    internal record SetMaster(string Peer)
     {
         public class Codec : IPacketCodec<SetMaster>
         {

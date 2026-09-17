@@ -426,7 +426,7 @@ public class Coordinator : IDisposable
             }));
     }
 
-    private record Update(string Name, object Value)
+    internal record Update(string Name, object Value)
     {
         public class Codec : IPacketCodec<Update>
         {
@@ -483,7 +483,7 @@ public class Coordinator : IDisposable
         }
     }
 
-    private class InteractCodec : IPacketCodec<Interact>
+    internal class InteractCodec : IPacketCodec<Interact>
     {
         public void Encode(Interact packet, BinaryWriter bw)
         {
