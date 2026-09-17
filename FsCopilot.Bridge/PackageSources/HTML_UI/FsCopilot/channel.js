@@ -35,10 +35,22 @@ class Channel extends Emitter {
      * Registers this hook's identity. Sent now if the socket is open and again on
      * every reconnect. extra is merged into the hello (e.g. the instrument rect,
      * so the app can compare geometry across machines).
+     *
+     * Calling it again with the same name replaces the stored hello rather than
+     * adding one: an instrument that had no layout when its hook was built helloes
+     * again once it has a size, and the app must not then hold two hellos for it,
+     * one of which is the empty one and would come back on the next reconnect.
      */
     hello(name, extra) {
         const msg = Object.assign({t: 'hello', name: name, url: location.href}, extra || {});
-        this._hellos.push(msg);
+        let replaced = false;
+        for (let i = 0; i < this._hellos.length; i++) {
+            if (this._hellos[i].name !== name) continue;
+            this._hellos[i] = msg;
+            replaced = true;
+            break;
+        }
+        if (!replaced) this._hellos.push(msg);
         if (this._ws && this._ws.readyState === 1) this._rawSend(JSON.stringify(msg));
     }
 

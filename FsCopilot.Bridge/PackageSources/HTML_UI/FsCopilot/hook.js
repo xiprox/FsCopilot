@@ -12,12 +12,13 @@ class Hook {
         if (!window.fscChannel) window.fscChannel = new Channel();
         const channel = window.fscChannel;
         this.key = Channel.keyFor(instrument);
-        let rect = null;
-        try {
-            const r = instrument.getBoundingClientRect();
-            if (r && r.width > 0) rect = [Math.round(r.width), Math.round(r.height)];
-        } catch (e) { /* not laid out yet; stats reports it later */ }
-        channel.hello(this.key, rect ? {rect: rect} : null);
+        // The rect is the instrument's own size, which is what pointer coordinates are
+        // fractions of. A hook is built before its instrument is laid out, and on an A220
+        // that is most of them: measured here at construction, 9 of 14 panels reported
+        // nothing, CTP and MKP among them. So measure, and keep measuring until there is
+        // a size to send - a hello with no rect is not corrected by a reconnect, which
+        // re-sends the hello it already has.
+        this._announce(instrument, channel);
 
         // Pointer mode is a per-instrument profile opt-in delivered over the channel.
         // While on, this instrument's element-name sync is suppressed in both
@@ -79,6 +80,38 @@ class Hook {
             if (id !== msg.instrument) return;
             events.dispatch(msg.event, msg.id, msg.value);
         });
+    }
+
+    /*
+     * Helloes now with whatever the instrument measures, and again when a size first
+     * appears. Retries are a poll because there is no event for "laid out": Chrome 49
+     * has no ResizeObserver, and load and DOMContentLoaded have both long fired by the
+     * time a hook is built. One second apart for a minute, then it gives up and the
+     * panel stays sizeless, which the app reports as rect null rather than guessing.
+     */
+    _announce(instrument, channel) {
+        const measure = () => {
+            try {
+                const r = instrument.getBoundingClientRect();
+                if (r && r.width > 0) return [Math.round(r.width), Math.round(r.height)];
+            } catch (e) { /* not laid out */ }
+            return null;
+        };
+
+        const rect = measure();
+        channel.hello(this.key, rect ? {rect: rect} : null);
+        if (rect) return;
+
+        let tries = 0;
+        const timer = setInterval(() => {
+            const late = measure();
+            if (late) {
+                channel.hello(this.key, {rect: late});
+                console.log('[FsCopilot] [Hook] ' + this.key + ' measured late: ' +
+                    late[0] + 'x' + late[1] + ' after ' + (tries + 1) + 's');
+            }
+            if (late || ++tries >= 60) clearInterval(timer);
+        }, 1000);
     }
 
     _configure(pointerKeys, instrument, channel) {
