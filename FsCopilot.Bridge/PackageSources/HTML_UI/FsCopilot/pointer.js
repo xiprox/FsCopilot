@@ -21,7 +21,10 @@
  * second, so a panel that loads something after a click gets the time the
  * pilot gave it. While the queue is busy a blocking overlay keeps real input
  * off the panel, so the local pilot can neither race the replay nor diverge
- * from it unseen; a lone tap runs synchronously and shows nothing.
+ * from it unseen. It paints nothing while it does: a replay is the panel
+ * working, and a veil over every drag would cover the instrument at the one
+ * moment the pilot is watching it change. It becomes visible only once the
+ * block has outlasted any single gesture - see REPLAY_NOTICE_MS.
  *
  * Coherent GT is Chrome 49: MouseEvent only (PointerEvent does not exist), no
  * optional chaining, no ??, no class fields.
@@ -47,6 +50,8 @@ class Pointer {
         this._pumping = false;
         this._deadman = null;
         this._lastReplayEnd = 0;    // replay side: when the previous gesture finished here
+        this._replayStart = 0;      // when the current unbroken run of blocking began
+        this._noticeTimer = null;
 
         this._overlay = new Overlay(() => this._rect());
         this._overlayMuted = false;
@@ -82,6 +87,7 @@ class Pointer {
             this._overlayMuted = true;
             this._debugHold = false;
             this._clearLostTimer();
+            this._endReplayNotice();
             this._overlay.remove();
         };
 
@@ -130,6 +136,7 @@ class Pointer {
         this._queue = [];
         this._busy = false;
         this._disarm();
+        this._endReplayNotice();
         clearInterval(this._watchdog);
         this._clearLostTimer();
         this._overlay.remove();
@@ -166,10 +173,33 @@ class Pointer {
         let want = null;
         if (fresh && this._syncState === 'connecting') want = 'connecting';
         else if (fresh && this._syncState === 'degraded' && this._role === 'slave') want = 'degraded';
-        else if (fresh && (this._busy || this._queue.length)) want = 'replaying';
+        else if (fresh && (this._busy || this._queue.length)) want = this._replayOverlay();
 
         if (want) this._overlay.apply(want);
         else this._overlay.remove();
+        if (want !== 'replayingQuiet' && want !== 'replaying') this._endReplayNotice();
+    }
+
+    /* Silent until the block has run longer than one gesture could, then visible.
+     * The escalation needs its own timer: _refreshOverlay is driven by gestures
+     * starting and finishing, so a single long drag never re-enters it. */
+    _replayOverlay() {
+        if (!this._replayStart) {
+            this._replayStart = Date.now();
+            this._noticeTimer = setTimeout(() => {
+                this._noticeTimer = null;
+                this._refreshOverlay(true);
+            }, Pointer.REPLAY_NOTICE_MS);
+        }
+        return Date.now() - this._replayStart >= Pointer.REPLAY_NOTICE_MS
+            ? 'replaying' : 'replayingQuiet';
+    }
+
+    _endReplayNotice() {
+        this._replayStart = 0;
+        if (!this._noticeTimer) return;
+        clearTimeout(this._noticeTimer);
+        this._noticeTimer = null;
     }
 
     /* The channel closed. Either way the app can no longer lift a lock, so a
@@ -581,5 +611,12 @@ Pointer.DRAG_MAX_STEP_MS = 250; // a mid-drag pause replays as a bounded pause
 Pointer.EDGE_TOLERANCE = 0.02;  // rect fraction allowed outside [0,1] when only the point can be tested
 Pointer.GAP_MAX_MS = 1000;      // idle time between gestures is preserved up to this
 Pointer.REPLAY_DEADMAN_MS = 3000; // past a gesture's expected end, release the queue
+/* How long the replay interlock blocks silently before it paints the notice. One
+ * honest gesture has to fit underneath: a drag carries at most DRAG_MAX_POINTS
+ * samples taken DRAG_SAMPLE_MS apart, so a pilot dragging a map for a minute
+ * still replays in about eight seconds, and one that then stalls is released by
+ * the deadman around eleven. Past that the block is a backlog, which nothing
+ * bounds, and a panel that will not answer owes the pilot a reason. */
+Pointer.REPLAY_NOTICE_MS = 12000;
 Pointer.STATE_DEADMAN_MS = 8000;
 Pointer.LOST_LINGER_MS = 10000;  // how long the red warning stands before retracting itself

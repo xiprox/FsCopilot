@@ -8,6 +8,9 @@
  * overlay instead of the display and deleting the node puts the panel back; a
  * non-blocking state sets pointer-events:none and must never eat a click.
  *
+ * Blocking and painting are separate. A silent state blocks exactly as a visible
+ * one does and draws nothing at all - the interlock without the notice.
+ *
  * Coherent GT is Chrome 49: no optional chaining, no ??, no class fields.
  */
 class Overlay {
@@ -27,6 +30,24 @@ class Overlay {
         const spec = Overlay.STATES[name];
         this.remove();
 
+        const r = this._rectFn();
+        const w = r.width || window.innerWidth;
+        const h = r.height || window.innerHeight;
+        const box =
+            'position:fixed;z-index:2147483647;box-sizing:border-box;overflow:hidden;' +
+            'left:' + (r.width ? r.left : 0) + 'px;top:' + (r.height ? r.top : 0) + 'px;' +
+            'width:' + w + 'px;height:' + h + 'px;';
+
+        // Same node, same place, same clicks stopped - no paint, so no fade-in and
+        // no stylesheet either.
+        if (spec.silent) {
+            const bare = document.createElement('div');
+            bare.setAttribute('style', box);
+            document.body.appendChild(bare);
+            this._el = bare;
+            return;
+        }
+
         if (!window.fscOverlayCss) {
             const css = document.createElement('style');
             css.textContent =
@@ -36,18 +57,13 @@ class Overlay {
             window.fscOverlayCss = true;
         }
 
-        const r = this._rectFn();
-        const w = r.width || window.innerWidth;
-        const h = r.height || window.innerHeight;
         const accent = spec.accent;
         const font = 'font-family:"Segoe UI",Roboto,Arial,sans-serif;';
         const weave = 'rgba(' + spec.line + ',' + Overlay.WEAVE_ALPHA + ')';
 
         const el = document.createElement('div');
         el.setAttribute('style',
-            'position:fixed;z-index:2147483647;box-sizing:border-box;overflow:hidden;' +
-            'left:' + (r.width ? r.left : 0) + 'px;top:' + (r.height ? r.top : 0) + 'px;' +
-            'width:' + w + 'px;height:' + h + 'px;' +
+            box +
             'background-color:' + spec.veil + ';' +
             // A quiet diagonal weave reads as "disabled" at any panel size. Built
             // as a tiny tile repeated by background-size, NOT one repeating
@@ -170,6 +186,10 @@ Overlay.STATES = {
         desc: 'The connection to the other pilot dropped; this panel is paused to prevent desync. ' +
             'Take control to keep flying, or wait for the connection to return.'
     },
+    /* The replay interlock as it stands for almost every gesture: blocking, unseen.
+     * Policy swaps it for the visible one below once the block has outlasted any
+     * single gesture - see Pointer.REPLAY_NOTICE_MS. */
+    replayingQuiet: {block: true, silent: true},
     replaying: {
         block: true, accent: '94,234,212', line: '18,84,76', card: '8,24,22', veil: 'rgba(6,20,18,0.40)',
         title: 'REPLAYING',
