@@ -114,8 +114,15 @@ class Hook {
         }, 1000);
     }
 
+    /*
+     * An entry without a '|' is an instrument identifier and takes every panel with it;
+     * an entry with one names a single panel. The app filters the same way - a profile
+     * naming a whole key the panel does not have would otherwise capture here and be
+     * dropped there, which looks like a panel that ignores the pilot.
+     */
     _configure(pointerKeys, instrument, channel) {
-        const want = pointerKeys.indexOf(this.key) >= 0;
+        const id = this.key.split('|')[0];
+        const want = pointerKeys.indexOf(this.key) >= 0 || pointerKeys.indexOf(id) >= 0;
         if (want && !this._pointerMode) {
             if (window.fscPointer && window.fscPointer.key !== this.key) {
                 // v1 restriction: one pointer agent per document; first opted

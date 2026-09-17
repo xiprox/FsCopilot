@@ -71,6 +71,12 @@ include:
   # - modules/FSDT_GSX.yaml
 
 pointer:
+  # An identifier takes every panel with it, whatever query the aircraft gives it. The
+  # A220 declares this display as ?config=[config], so its key carries the livery's
+  # registration: config=Default on one livery, config=N324DU on another.
+  - DisplayUnits
+  # For older builds, which match the whole key and would take nothing from the line
+  # above. Drop it once nobody is running one.
   - DisplayUnits|config=Default
 
 master:

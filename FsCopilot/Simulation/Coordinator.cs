@@ -97,11 +97,11 @@ public class Coordinator : IDisposable
         // order and arrival order is delivery order - a second stream would be a second
         // scheduling hop and could overtake.
         _d.Add(panels.Events
-            .Where(e => _pointer.Keys.Contains(e.Key))
+            .Where(e => _pointer.Contains(e.Key))
             .Subscribe(e => SendPointer(e with { Session = _sessionId, Seq = NextSeq() })));
         _d.Add(_net.Stream<PointerEvent>()
             .Where(e => Fresh(e.Session, e.Seq))
-            .Where(e => _pointer.Keys.Contains(e.Key))
+            .Where(e => _pointer.Contains(e.Key))
             .Subscribe(panels.Send));
         // Acks mean "received by the app", not "applied by the panel"; app -> panel is
         // loopback and the panel's own missed counter covers that hop.
@@ -306,21 +306,45 @@ public class Coordinator : IDisposable
         }
     }
 
+    /*
+     * Which panels the profile opted in. An entry without a '|' names an instrument
+     * identifier and takes every panel with it; an entry with one names a single panel
+     * exactly.
+     *
+     * Identifiers are the useful default because a query string is not the profile
+     * author's to predict: the A220 declares its DisplayUnits as ?config=[config] and
+     * helloes as config=N324DU on that livery, so the key naming config=Default matched
+     * that one livery and nothing else. Exact entries stay for the case an identifier
+     * covers more than one panel - the A220 has two CTPs, two MKPs and four FCPs - and
+     * only some should sync.
+     *
+     * Opting in by identifier still routes by full key, so the left CTP's gestures reach
+     * the other machine's left CTP and not its right one.
+     */
     private sealed class PointerFilter
     {
         public static readonly PointerFilter Empty = new([]);
 
-        public HashSet<string> Keys { get; }
+        private readonly HashSet<string> _keys;
+        private readonly HashSet<string> _identifiers;
+
+        /// <summary>Identifiers of every opted-in panel. Interact carries the bare
+        /// identifier, so the double-actuation guard matches on that.</summary>
         public HashSet<string> Instruments { get; }
 
-        public PointerFilter(string[] keys)
+        public PointerFilter(string[] entries)
         {
-            Keys = [..keys];
-            // pointer: entries are full keys (identifier|query); Interact carries the bare
-            // identifier, so the double-actuation guard matches on the prefix.
-            Instruments = keys
-                .Select(k => { var i = k.IndexOf('|'); return i < 0 ? k : k[..i]; })
-                .ToHashSet();
+            _keys = [..entries.Where(e => e.Contains('|'))];
+            _identifiers = [..entries.Where(e => !e.Contains('|'))];
+            Instruments = entries.Select(Identifier).ToHashSet();
+        }
+
+        public bool Contains(string key) => _identifiers.Contains(Identifier(key)) || _keys.Contains(key);
+
+        private static string Identifier(string key)
+        {
+            var i = key.IndexOf('|');
+            return i < 0 ? key : key[..i];
         }
     }
 
