@@ -12,6 +12,9 @@ using System.Text.Json;
 /// in return; the state is re-broadcast every 2 seconds so a panel can treat silence as
 /// "the app is gone" and fail open. A deliberate shutdown says goodbye first; see
 /// <see cref="Shutdown"/>.
+/// A client that is not a panel (the exerciser) sends {t:"watch"} instead of a hello. It gets
+/// the same config and state, plus {t:"panels"}: every helloed key with its rect, re-sent
+/// when that list changes. Panels never watch, so they never receive it.
 /// </summary>
 public sealed class PanelServer : IDisposable
 {
@@ -291,6 +294,7 @@ public sealed class PanelServer : IDisposable
                     socket.Close();
                     Log.Debug("[PanelServer] Panel disconnected {Names} ({Count} left)",
                         socket.NamesSnapshot(), _sockets.Count);
+                    if (socket.HasAnyName()) BroadcastPanels();
                 }
             }, ct);
         }
@@ -337,13 +341,23 @@ public sealed class PanelServer : IDisposable
             case "hello":
                 var name = json.String("name");
                 if (name.Length == 0) return;
-                socket.AddName(name);
+                var rect = RectOf(json);
+                var changed = socket.SetName(name, rect);
                 Log.Debug("[PanelServer] Hello from {Name} rect {Rect} ({Url})",
-                    name, Rect(json), json.String("url"));
+                    name, rect == null ? "(none)" : $"{rect[0]}x{rect[1]}", json.String("url"));
                 // Reply with the current config and state so a panel that came up after the
                 // profile loaded still learns its mode; Configure() broadcasts later changes.
                 Send(socket, ConfigJson());
                 Send(socket, StateJson());
+                // channel.js re-sends every hello on reconnect, so most hellos change nothing.
+                if (changed) BroadcastPanels();
+                break;
+            case "watch":
+                socket.Watching = true;
+                Log.Debug("[PanelServer] Watcher connected");
+                Send(socket, ConfigJson());
+                Send(socket, StateJson());
+                Send(socket, PanelsJson());
                 break;
             case "pointer":
                 HandlePointer(json);
@@ -356,11 +370,14 @@ public sealed class PanelServer : IDisposable
 
     /// <summary>The instrument's own bounding rect as the panel measured it. Coordinates are
     /// normalised against it, so two machines reporting different rects here is the thing
-    /// that would make normalising load-bearing rather than free insurance.</summary>
-    private static string Rect(JsonElement json) =>
+    /// that would make normalising load-bearing rather than free insurance. Watchers get it
+    /// for another reason: a pop-out draws the instrument fitted and centred, and mapping a
+    /// click on a capture back to rect fractions takes the instrument's aspect ratio.</summary>
+    private static int[]? RectOf(JsonElement json) =>
         json.TryGetProperty("rect", out var r) && r.ValueKind == JsonValueKind.Array && r.GetArrayLength() >= 2
-            ? $"{r[0].GetRawText()}x{r[1].GetRawText()}"
-            : "(none)";
+            && r[0].ValueKind == JsonValueKind.Number && r[1].ValueKind == JsonValueKind.Number
+            ? [(int)Math.Round(r[0].GetDouble()), (int)Math.Round(r[1].GetDouble())]
+            : null;
 
     private void HandlePointer(JsonElement json)
     {
@@ -416,6 +433,47 @@ public sealed class PanelServer : IDisposable
         w.WriteString("role", _isMaster ? "master" : "slave");
     });
 
+    /// <summary>Every helloed key with its rect, one entry per key. Two sockets can hold one
+    /// key while a reloading document's old socket is still closing; a known rect wins over
+    /// none.</summary>
+    private string PanelsJson()
+    {
+        var panels = new SortedDictionary<string, int[]?>(StringComparer.Ordinal);
+        foreach (var socket in _sockets.Keys)
+        foreach (var (key, rect) in socket.NamesWithRects())
+        {
+            if (!panels.TryGetValue(key, out var known) || known == null) panels[key] = rect;
+        }
+
+        return Json(w =>
+        {
+            w.WriteString("t", "panels");
+            w.WriteStartArray("panels");
+            foreach (var (key, rect) in panels)
+            {
+                w.WriteStartObject();
+                w.WriteString("key", key);
+                if (rect == null) w.WriteNull("rect");
+                else
+                {
+                    w.WriteStartArray("rect");
+                    w.WriteNumberValue(rect[0]);
+                    w.WriteNumberValue(rect[1]);
+                    w.WriteEndArray();
+                }
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+        });
+    }
+
+    private void BroadcastPanels()
+    {
+        var text = PanelsJson();
+        foreach (var socket in _sockets.Keys)
+            if (socket.Watching) Send(socket, text);
+    }
+
     private void Broadcast(string text)
     {
         foreach (var socket in _sockets.Keys) Send(socket, text);
@@ -460,11 +518,30 @@ public sealed class PanelServer : IDisposable
         public WebSocket Ws { get; } = ws;
         public SemaphoreSlim SendLock { get; } = new(1, 1);
 
-        private readonly HashSet<string> _names = [];
+        // Key -> the instrument size its latest hello reported, or null when it had none.
+        private readonly Dictionary<string, int[]?> _names = new();
 
-        public void AddName(string name) { lock (_names) _names.Add(name); }
-        public bool HasName(string name) { lock (_names) return _names.Contains(name); }
-        public string NamesSnapshot() { lock (_names) return string.Join(", ", _names); }
+        /// <summary>Set by {t:"watch"}. Only watchers receive the panel list.</summary>
+        public volatile bool Watching;
+
+        /// <summary>Records a hello. True when the key is new to this socket or its rect changed.</summary>
+        public bool SetName(string name, int[]? rect)
+        {
+            lock (_names)
+            {
+                if (_names.TryGetValue(name, out var old) && SameRect(old, rect)) return false;
+                _names[name] = rect;
+                return true;
+            }
+        }
+
+        public bool HasName(string name) { lock (_names) return _names.ContainsKey(name); }
+        public bool HasAnyName() { lock (_names) return _names.Count > 0; }
+        public string NamesSnapshot() { lock (_names) return string.Join(", ", _names.Keys); }
+        public KeyValuePair<string, int[]?>[] NamesWithRects() { lock (_names) return _names.ToArray(); }
+
+        private static bool SameRect(int[]? a, int[]? b) =>
+            a == null ? b == null : b != null && a[0] == b[0] && a[1] == b[1];
 
         public void Close()
         {
