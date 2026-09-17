@@ -1,0 +1,11 @@
+--- fscOverlay('replayingQuiet') ---
+apply: holding replayingQuiet - fscOverlay('clear') to release
+node : {"bg":"rgba(0, 0, 0, 0)","bgImage":"none","opacity":"1","animation":"none","children":0,"rect":"7410x1110","blocksCentre":true}
+
+--- fscOverlay('replaying') (the visible one, unchanged) ---
+apply: holding replaying - fscOverlay('clear') to release
+node : {"bg":"rgba(6, 20, 18, 0.4)","bgImage":"linear-gradient(45deg, rgba(18, 84, 76, ","opacity":"0.27135923504829407","animation":"fscFadeIn","children":1,"rect":"7410x1110","blocksCentre":false}
+
+--- release ---
+cleared - next state renewal restores truth
+debugHold cleared, overlay node present?: gone

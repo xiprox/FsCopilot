@@ -78,8 +78,17 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
                block without painting.
     Affects:   none - no design doc describes the overlay states
     Evidence:  results/p13-overlay-silence-2026-09-17.txt (probes/p13-overlay-silence.mjs,
-               npm run probe:13). Stub DOM, so it settles the policy and the rendering
-               branch and says nothing about how Coherent paints a background-less div.
+               npm run probe:13) for the policy and the rendering branch, under a stub DOM.
+
+               Then confirmed in the engine the next morning, on the A220 DisplayUnits
+               panel at 7410x1110:
+               results/p13-overlay-silence-in-sim-2026-09-18.txt. Holding the state with
+               fscOverlay('replayingQuiet'), the node computes background-color
+               rgba(0,0,0,0), background-image none, animation none, zero children - and
+               elementFromPoint at the centre of the instrument returns the node itself.
+               Coherent paints it as nothing and it still takes the click, which is the
+               whole claim. The visible state next to it still paints its veil, weave and
+               card, so nothing was lost by sharing the code path.
 
 ## 2026-09-17 — A peer's press drove the real A220 ND, opted in by identifier alone
     Question:  closes the entry below; first cockpit replay from a peer rather than an echo
