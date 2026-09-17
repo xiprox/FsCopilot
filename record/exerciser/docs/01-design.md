@@ -22,6 +22,13 @@ The shell owns what every feature shares: the connection to FSC, the session, an
 controls that break the session on purpose. A page owns one feature's view and inputs.
 Pointer forwarding is the first page. The next PR adds a page.
 
+The window is three numbered cards - the app, the session, the panel - each saying where it
+stands, with one line underneath saying what to do next. That line and every card's text are
+computed from state in one place, so there is a single answer to "what does the window say
+now" rather than one per event handler. Buttons that do not apply yet are hidden rather than
+disabled: Join disappears once joined, and Take control, Drop link and Leave appear.
+Recording, the rendezvous and the log live in an expander.
+
 A page gets from the shell:
 
 - the peer link: send a packet, subscribe to a packet type
@@ -105,9 +112,18 @@ replaces it.
 
 ### Pop-out
 
-The user pops the instrument out in the sim (Right-Alt + click). The pop-out is a
-top-level window of class `AceApp` titled with the instrument identifier; on the A220,
-`DISPLAYUNITS` for `DisplayUnits|config=Default` (p02).
+**Built, and it automates.** The instrument has to be its own window before it can be
+captured. The simulator has no command for that - pop-out is bound to Right-Alt + click in
+the cockpit - so the exerciser sends that click (p06): front the simulator, prime it with
+two bare move events, then Right-Alt + click. A plain click primes it just as well and
+presses whatever is under the cursor, which on a display is a button.
+
+The one thing nothing supplies is where the panel is in a 3D cockpit under an arbitrary
+camera. So the pilot points at it and presses F9, once per panel: the pop-out persists. The
+new window is then found by watching for one that appeared.
+
+The pop-out is a top-level window of class `AceApp` titled with the instrument identifier;
+on the A220, `DISPLAYUNITS` for `DisplayUnits|config=N324DU` (p02).
 
 Matching by title is a shortcut, not the mechanism:
 

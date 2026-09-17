@@ -9,6 +9,41 @@ design sections an entry amends.
 
 ---
 
+## 2026-09-17 — The exerciser exists, and pops the panel out by sending the cockpit's own click
+
+    Question:  whether the design holds when built, and what a first run needs told
+    Expected:  That capture and mapping would work, and that popping a panel out would be
+               the pilot's job because the simulator has no command for it.
+    Found:     Built and run against the simulator: adf1c60 and 5599643 on
+               ahead-pointer-forwarding. A press on the captured pop-out switched the
+               A220's ND mode, and the panel list, the opt-in rule and the sync state all
+               came from the app, so nothing in the exerciser reads a profile.
+
+               Pop-out turned out to be automatable, which the design doubted. The
+               simulator binds it to Right-Alt + click and SendInput can produce that, but
+               three things had to be measured (p06):
+
+               The simulator must be fronted, or the alt-click does nothing. The first
+               input after fronting is swallowed, so something must precede the click: a
+               plain click works and presses whatever the pilot is pointing at, while two
+               bare move events prime it and press nothing. And "is the cursor over the
+               simulator" has to be answered from the window's bounds, because the
+               exerciser's own window is usually the one on top at that point.
+
+               What no mechanism supplies is where the panel is in a 3D cockpit under an
+               arbitrary camera, so the pilot points once and presses F9. Then the new
+               window is found by watching for one that appeared and checked against the
+               panel's identifier. A 120 ms tap was invisible to a 250 ms poll of
+               GetAsyncKeyState's "is down" bit; the "pressed since last call" bit catches
+               it.
+    Changed:   01-design's pop-out section: the pilot points, but nothing else is manual.
+               The window is three numbered cards with one computed line saying what to do
+               next, so the manual is the window.
+    Affects:   01-design "Pop-out", "Shape"
+    Evidence:  results/p06-popout-input-2026-09-17.txt,
+               results/exerciser-capturing-popout-2026-09-17.png,
+               results/exerciser-live-strip-2026-09-17.png, probes/p06-popout-input/
+
 ## 2026-09-17 — Measuring until there is a size to send: 14 of 14 panels report their rect
 
     Question:  closes the OPEN left by the entry below

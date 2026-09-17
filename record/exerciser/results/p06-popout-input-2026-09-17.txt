@@ -1,0 +1,44 @@
+p06-popout-input, 2026-09-17
+MSFS 2024 1.8.16.0, Synaptic A220 in the cockpit, one 5120x1440 monitor
+Sim window client 2401x1360; the point used is client (720, 1080), on the synoptic display
+
+Which input sequence makes the simulator pop a panel out, sent with SendInput from another
+process. Each run listed the simulator's windows before and after.
+
+1. right-alt down, click, right-alt up, after SetForegroundWindow
+   foreground before: (another app)
+   foreground after raise: Microsoft Flight Simulator 2024
+   -> no new window
+
+2. the same, with a plain left click first
+   foreground after a plain click: Microsoft Flight Simulator 2024
+   -> new window: 'DISPLAYUNITS' 7394x1071
+
+3. the same as 1, with two bare move events instead of the plain click
+   (SetCursorPos +1px, MOUSEEVENTF_MOVE, back, MOUSEEVENTF_MOVE)
+   -> new window: 'DISPLAYUNITS' 7394x1071
+
+4. as 3, but with right-alt already held while priming
+   -> no new window (the point was covered by the existing pop-out; inconclusive)
+
+Reading: the window must be fronted, and the first input after that is swallowed, so
+something has to precede the click. A plain click does the job and presses whatever is
+under the cursor, which on a display is a button. A bare move event does the job and
+presses nothing, so that is what the exerciser sends.
+
+Also observed: a click sent at a point covered by another window goes to that window, so
+"is the cursor over the simulator" has to be judged by the simulator window's bounds, not by
+what is on top at that point - the exerciser's own window is usually over the spot.
+
+--- the exerciser's own flow, end to end -------------------------------------------------
+
+[22:03:32.647] pop out: point at the panel in the simulator and press F9
+[22:03:37.266] join: Success
+[22:03:45.544] pop out: sent Right-Alt + click into Microsoft Flight Simulator 2024 - 1.8.16.0
+[22:03:45.816] capturing DISPLAYUNITS  7394x1071
+
+The keypress was missed at first: a 120 ms tap between two 250 ms polls is invisible to
+GetAsyncKeyState's "is down" bit. Reading the "pressed since last call" bit as well fixes it.
+
+Screenshots: exerciser-capturing-popout-2026-09-17.png (after this run),
+exerciser-live-strip-2026-09-17.png (capturing, with a press sent to the ND's MAP button).
