@@ -1,0 +1,230 @@
+p04-panel-identifiers, 2026-09-17
+Scanned: MSFS 2024 Community packages on this machine (93 panel.cfg, 19 aircraft with HTML gauges)
+Identifiers resolved from each instrument's templateID; (unresolved) means the scan could not
+find one in the package JavaScript, not that the instrument has none.
+
+
+=== ?  (1 html, 0 wasm)
+  (unresolved)                                         
+
+=== A350  (4 html, 11 wasm)
+  (unresolved)|[airline]                                 [livery variable]
+  (unresolved)                                         
+  iniFAPA350|[airline]                                 x2 same identifier  [livery variable]
+  iniFAPA350                                           x2 same identifier
+
+=== FNX_32X  (7 html, 14 wasm)
+  FenixLiveView|type=0                                 x2 same identifier
+  FenixLiveView|type=1                                 x2 same identifier
+  EfbHost                                              x2 same identifier
+  EfbHost                                              x2 same identifier
+  LOD                                                  
+  ReflectionElement                                    
+  RefuelPanelGauge                                     
+
+=== FSLTL_Asobo_208B  (4 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+
+=== FSLTL_Asobo_C152  (4 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)                                         
+
+=== FSLTL_Asobo_C172SP  (3 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+
+=== FSLTL_Asobo_C25C  (7 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)                                         
+  (unresolved)                                         
+
+=== FSLTL_Asobo_DA40_NG  (3 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+
+=== FSLTL_Asobo_DA62  (4 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+
+=== FSLTL_Asobo_G36  (3 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+
+=== PMDG 777-300ER  (2 html, 20 wasm)
+  PMDGTablet                                           x2 same identifier
+  PMDGTablet                                           x2 same identifier
+
+=== Synaptic_A220  (13 html, 1 wasm)
+  DisplayUnits|config=[config]                           [livery variable]
+  MKP|side=left                                        x2 same identifier
+  MKP|side=right                                       x2 same identifier
+  CTP|side=left                                        x2 same identifier
+  CTP|side=right                                       x2 same identifier
+  ISI                                                  
+  FCP|type=speed                                       x4 same identifier
+  FCP|type=hdg                                         x4 same identifier
+  FCP|type=alt                                         x4 same identifier
+  FCP|type=vs                                          x4 same identifier
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  Sentry                                               
+
+=== aerostar600  (9 html, 13 wasm)
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)                                         
+  WTT1_INT|index=1                                     x5 same identifier
+  WTT1_INT|index=2                                     x5 same identifier
+  WTT1_INT                                             x5 same identifier
+  WTT1_INT                                             x5 same identifier
+  WTT1_INT                                             x5 same identifier
+  KLN90B                                               
+
+=== bksq-aircraft-baronpro  (18 html, 2 wasm)
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT|index=2                                     x4 same identifier
+  (unresolved)                                         
+  (unresolved)                                         
+  KLN90B                                               
+  KX155B|Index=1                                       x2 same identifier
+  KX155B|Index=2                                       x2 same identifier
+  KR87A                                                
+  (unresolved)                                         
+  KDI572R                                              
+  KNS81|Index=1                                        
+  bksq_wradar1                                         
+  KAS297B|Index=1                                      
+  EDM760|Index=1                                       
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT                                             x4 same identifier
+  BlackSquareTablet                                    
+  WeatherSquare4000_int                                
+
+=== bksq-aircraft-bonanzapro  (18 html, 2 wasm)
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT|index=2                                     x4 same identifier
+  (unresolved)                                         
+  (unresolved)                                         
+  KLN90B                                               
+  KX155B|Index=1                                       x2 same identifier
+  KX155B|Index=2                                       x2 same identifier
+  KR87A                                                
+  (unresolved)                                         
+  KDI572R                                              
+  KNS81|Index=1                                        
+  bksq_wradar1                                         
+  KAS297B|Index=1                                      
+  EDM800|Index=1                                       
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT                                             x4 same identifier
+  BlackSquareTablet                                    
+  WeatherSquare4000_int                                
+
+=== bksq-aircraft-bonanzaproturbine  (19 html, 2 wasm)
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT|index=2                                     x4 same identifier
+  (unresolved)                                         
+  (unresolved)                                         
+  KLN90B                                               
+  KX155B|Index=1                                       x2 same identifier
+  KX155B|Index=2                                       x2 same identifier
+  KR87A                                                
+  (unresolved)                                         
+  KDI572R                                              
+  KNS81|Index=1                                        
+  bksq_wradar1                                         
+  KAS297B|Index=1                                      
+  EngineTrendMonitor|Index=1                           
+  EngineInstrumentReadouts                             
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT                                             x4 same identifier
+  BlackSquareTablet                                    
+  WeatherSquare4000_int                                
+
+=== bksq-aircraft-starship  (17 html, 0 wasm)
+  LcdReadouts                                          
+  Chronometers                                         
+  SDU                                                  
+  ASI                                                  
+  ALT                                                  
+  EICAS                                                
+  RTU                                                  
+  HF                                                   
+  PFD                                                  
+  CDU                                                  
+  ND|Index=1                                           x2 same identifier
+  ND|Index=2                                           x2 same identifier
+  MFD                                                  
+  BlackSquareTablet                                    
+  WeatherSquare4000_int                                
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+
+=== inibuilds-l1011  (19 html, 0 wasm)
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)|Index=1                                 x3 same identifier
+  (unresolved)                                         
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)                                         
+  (unresolved)|Index=2                                 x3 same identifier
+  (unresolved)                                         
+  (unresolved)                                         
+  (unresolved)|Index=3                                 x3 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)                                         
+
+=== pa24-250  (10 html, 9 wasm)
+  (unresolved)|Index=1                                 x2 same identifier
+  (unresolved)|Index=2                                 x2 same identifier
+  (unresolved)                                         
+  WTT1_INT|index=2                                     x4 same identifier
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT                                             x4 same identifier
+  WTT1_INT                                             x4 same identifier
+  KLN90B                                               
+  AS5_a2amod|Index=1                                   x2 same identifier
+  AS5_a2amod|Index=2                                   x2 same identifier
+
+--- 19 aircraft scanned, 165 html gauges
+identifier resolved: 96/165
+query holds a livery variable: 3
+identifiers used by more than one instrument in one aircraft: 17
+  A350:iniFAPA350
+  FNX_32X:FenixLiveView
+  FNX_32X:EfbHost
+  PMDG 777-300ER:PMDGTablet
+  Synaptic_A220:MKP
+  Synaptic_A220:CTP
+  Synaptic_A220:FCP
+  aerostar600:WTT1_INT
+  bksq-aircraft-baronpro:WTT1_INT
+  bksq-aircraft-baronpro:KX155B
+  bksq-aircraft-bonanzapro:WTT1_INT
+  bksq-aircraft-bonanzapro:KX155B
+  bksq-aircraft-bonanzaproturbine:WTT1_INT
+  bksq-aircraft-bonanzaproturbine:KX155B
+  bksq-aircraft-starship:ND
+  pa24-250:WTT1_INT
+  pa24-250:AS5_a2amod
