@@ -1,0 +1,19 @@
+[FsCopilot] [Pointer] Active on PFD rect=800x600
+ok   | lone tap: nothing at all | got: none | want: none
+ok   | hold: blocks | got: true | want: true
+ok   | hold: paints nothing | got: silent | want: silent
+ok   | hold: covers the instrument | got: true | want: true
+ok   | hold: a real press on it counts locked | got: false | want: false
+ok   | hold: locked counter moved | got: 1 | want: 1
+ok   | hold: gone once drained | got: none | want: none
+ok   | drag: silent at start | got: silent | want: silent
+ok   | drag: still silent under the threshold | got: silent | want: silent
+ok   | drag: visible over the threshold | got: visible | want: visible
+ok   | drag: the visible one is REPLAYING | got: replaying | want: replaying
+ok   | drag: gone once drained | got: none | want: none
+ok   | notice timer released | got: null | want: null
+ok   | block start cleared | got: 0 | want: 0
+ok   | next hold: silent again | got: silent | want: silent
+ok   | stop(): overlay removed | got: none | want: none
+
+all 16 passed

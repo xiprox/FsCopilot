@@ -36,6 +36,51 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-17 — The replay interlock blocks silently; twelve seconds is where it speaks
+    Question:  none - a decision taken while building, recorded so it is not re-derived
+    Stage:     6
+    Expected:  That the replaying overlay cost nothing, because replays are short.
+    Found:     It painted for every held press and every drag. In the air that means a
+               peer panning a map veils the instrument here for as long as the pan
+               takes, at the one moment the pilot is watching the display change.
+
+               Blocking and painting turned out to be separable, and are now separate.
+               An Overlay state carrying silent: true gets the same fixed node over the
+               same rect stopping the same clicks and draws nothing. The interlock uses
+               it. The visible REPLAYING veil is kept and now means a backlog rather
+               than a gesture.
+
+               The threshold derivation is the part worth keeping, because the obvious
+               reasoning gives the wrong answer:
+
+                 A drag records at most DRAG_MAX_POINTS (240) samples taken
+                 DRAG_SAMPLE_MS (33) apart, and _onMove samples only on movement of
+                 DRAG_MIN_STEP_PX or more. A pilot who stops mid-drag to think records
+                 nothing across the pause, and _replayDrag caps each recorded gap at
+                 DRAG_MAX_STEP_MS (250). Thinking time therefore compresses away and
+                 only continuous motion costs replay time: a minute of active map
+                 dragging still replays in about 240 x 33 = 8s. One such gesture that
+                 then stalls is released by the deadman at expect + REPLAY_DEADMAN_MS,
+                 so about 11s.
+
+               Twelve seconds sits clear of anything a single gesture can hold. Past it
+               the block is a queue backlog, which nothing bounds: every gesture re-arms
+               its own deadman, and a resend burst waits up to GAP_MAX_MS between each
+               one. A panel that will not answer for that long owes the pilot a reason.
+
+               The first value tried was 3s, reasoning from when a person notices a
+               control is unresponsive - about 500ms. Wrong axis. The veil is not an
+               acknowledgement of delay, it is a fault report, and a correct replay of a
+               long drag is not a fault. Anchoring on what one gesture can legitimately
+               cost gives 12s, and 3s would have put the veil up in the middle of the
+               very map pan that prompted the change.
+    Changed:   Nothing in the plan. The Overlay contract gains one clause: a state may
+               block without painting.
+    Affects:   none - no design doc describes the overlay states
+    Evidence:  results/p13-overlay-silence-2026-09-17.txt (probes/p13-overlay-silence.mjs,
+               npm run probe:13). Stub DOM, so it settles the policy and the rendering
+               branch and says nothing about how Coherent paints a background-less div.
+
 ## 2026-09-17 — A peer's press drove the real A220 ND, opted in by identifier alone
     Question:  closes the entry below; first cockpit replay from a peer rather than an echo
     Stage:     6

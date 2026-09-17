@@ -10,6 +10,7 @@
     "probe:00": "node probes/p00-debugger.mjs",
     "probe:05-server": "node probes/p05-server.mjs",
     "probe:11": "node probes/p11-replay-queue.mjs",
+    "probe:13": "node probes/p13-overlay-silence.mjs",
     "sources": "node probes/sources.mjs",
     "rec": "node testbed/session.mjs rec",
     "play": "node testbed/session.mjs play",
