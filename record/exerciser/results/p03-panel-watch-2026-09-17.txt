@@ -1,0 +1,56 @@
+p03-panel-watch, 2026-09-17
+FSC: ahead-pointer-forwarding at b9a03a4, Debug build
+Sim: MSFS 2024 1.8.16.0, Synaptic A220, livery N324DU, in the cockpit; cockpit panels connected
+to this FSC instance (no peer joined, so nothing was synced)
+
+FSC panel port 9020
+PASS  watch replies config, state, panels (got config,state,panels)
+PASS  a hello with a rect appears with that rect
+PASS  an identical re-hello sends nothing (0 panels messages after it)
+PASS  a changed rect is re-sent
+PASS  a hello without a rect appears with rect null
+PASS  a closed panel drops out, the other stays
+PASS  panels that never watch never receive panels
+
+Cockpit panels seen by the watcher (real sim):
+  CTP|side=left                                           null
+  CTP|side=right                                          null
+  DisplayUnits|config=N324DU                              7410x1110
+  FCP|type=alt                                            460x102
+  FCP|type=hdg                                            460x102
+  FCP|type=speed                                          null
+  FCP|type=vs                                             460x102
+  ISI                                                     null
+  MKP|side=left                                           null
+  MKP|side=right                                          null
+  Sentry                                                  null
+  WasmInstrument|wasm_module=systems.wasm&wasm_gauge=a220 10x10
+  efbA220_1|Index=1                                       null
+  efbA220_2|Index=2                                       null
+
+all passed
+
+The panel documents had been loaded for about 25 minutes when they connected. hook.js measures
+the rect once, in the Hook constructor, and channel.js re-sends that same hello on every
+reconnect. A null here was null at construction and stays null until the document reloads.
+
+FSC's app log, the cockpit hellos:
+
+[19:49:39.381] [SimConnect] Loaded aircraft: Synaptic_A220
+[19:49:42.572] [PanelServer] Hello from DisplayUnits|config=N324DU rect 7410x1110 (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:42.572] [PanelServer] Hello from efbA220_1|Index=1 rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:42.572] [PanelServer] Hello from efbA220_2|Index=2 rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:42.697] [PanelServer] Hello from ISI rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:42.706] [PanelServer] Hello from MKP|side=left rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:42.706] [PanelServer] Hello from FCP|type=vs rect 460x102 (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.330] [PanelServer] Hello from FCP|type=hdg rect 460x102 (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.340] [PanelServer] Hello from MKP|side=right rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.340] [PanelServer] Hello from Sentry rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.340] [PanelServer] Hello from CTP|side=left rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.340] [PanelServer] Hello from FCP|type=speed rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.341] [PanelServer] Hello from FCP|type=alt rect 460x102 (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.341] [PanelServer] Hello from WasmInstrument|wasm_module=systems.wasm&wasm_gauge=a220 rect 10x10 (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+[19:49:43.341] [PanelServer] Hello from CTP|side=right rect (none) (coui://html_UI/Pages/VCockpit/Core/VCockpit.html)
+
+Separately: the A220 profile opts in DisplayUnits|config=Default. This livery's DisplayUnits
+document helloes as DisplayUnits|config=N324DU.

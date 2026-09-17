@@ -147,17 +147,26 @@ The page inverts both: exerciser pixel → pop-out pixel → strip the bars → 
 drawn instrument size. The window is resizable in the sim; the transform is recomputed from
 the capture size every frame, so resizing the pop-out needs nothing.
 
-**OPEN: where the instrument's aspect ratio comes from.** Step 1 cannot be inverted without
-it, and the capture does not carry it. The bars cannot be detected reliably: a display's own
-background is black too.
+**The instrument's aspect ratio comes from FSC.** Step 1 cannot be inverted without it, and
+the capture does not carry it. The bars cannot be detected: a display's own background is
+black too. Each panel's hello carries its rect, and FSC passes it on (b9a03a4):
 
-- FSC already receives each panel's rect in its hello (`rect`, 7410x1110 here) and only logs
-  it. Sending the rects to panel-channel clients makes the mapping automatic. A small change
-  in FSC.
-- The pop-out's initial size approximates the aspect (6.90 against the true 6.68), but that
-  is 3% off and wrong once the window is resized.
-- Reading `panel.cfg` from the aircraft package needs the package path and is per-aircraft
-  parsing.
+    exerciser  -> FSC   {"t":"watch"}
+    FSC -> exerciser    {"t":"config",...}  {"t":"state",...}
+                        {"t":"panels","panels":[{"key":"DisplayUnits|config=N324DU","rect":[7410,1110]},
+                                                {"key":"CTP|side=left","rect":null}, ...]}
+
+`panels` is re-sent when a hello adds a key or changes a rect, and when a panel disconnects.
+Panels never send `watch` and never receive `panels`.
+
+Rejected: the pop-out's initial size (6.90 against the true 6.68, and wrong once resized),
+and reading `panel.cfg` (needs the package path, and per-aircraft parsing).
+
+**OPEN: most hellos have no rect** (p03). hook.js measures once, when the Hook is built and
+before most instruments are laid out; 9 of 14 A220 panels, CTP and MKP included, reported
+none, and a reconnect re-sends the same hello. The fix is in the bridge package: measure when
+the hello is sent, and hello again when a rect first appears. Until then a panel with a null
+rect has no automatic mapping.
 
 ### View
 

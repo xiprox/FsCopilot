@@ -36,6 +36,29 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-17 — The A220's DisplayUnits key carries the livery, and the profile names only Default
+    Question:  none open; found by the exerciser's p03 while listing live panel keys
+    Stage:     6
+    Expected:  That the A220 exposes one DisplayUnits document, keyed
+               DisplayUnits|config=Default, as 12-pre-pr-review R16 checked.
+    Found:     On livery N324DU the document helloes as DisplayUnits|config=N324DU. Both
+               the served profile (fscopilot-profiles d3d7689) and the branch copy opt in
+               DisplayUnits|config=Default only.
+
+               By reading, not yet flown: on this livery the key matches nothing, so the
+               panel stays in events mode and never captures. And the Coordinator still
+               derives the identifier DisplayUnits from the profile key and drops every
+               DisplayUnits Interact in both directions (R16's prefix exclusion). So
+               DisplayUnits would sync by neither path on any livery that is not Default.
+    Changed:   Nothing yet. R16's check covered one livery. Needs deciding: keys that can
+               ignore a query parameter, per-livery entries in the profile, or matching on
+               the identifier where the profile says so. Then a flight on a non-Default
+               livery to confirm the read.
+    Affects:   12-pre-pr-review R16
+    Evidence:  record/exerciser/results/p03-panel-watch-2026-09-17.txt
+
+---
+
 ## 2026-09-12 — Q12 is survivable and it is not a two-pilot special case
     Question:  Q12, still open, but bounded at both ends
     Stage:     6

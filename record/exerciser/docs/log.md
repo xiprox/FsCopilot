@@ -9,6 +9,30 @@ design sections an entry amends.
 
 ---
 
+## 2026-09-17 — FSC sends panel rects to a watcher, and most cockpit hellos have none
+
+    Question:  where the pointer page gets the instrument's aspect ratio (01-design OPEN)
+    Expected:  That FSC could pass on the rect each hello already carries, and that a
+               hello without one would be a rare boot-order case.
+    Found:     The first holds. b9a03a4 on ahead-pointer-forwarding: a client sends
+               {t:"watch"} and gets config, state and {t:"panels"}, every helloed key with
+               its rect, re-sent when the list changes. Seven protocol checks pass against
+               fake panels, including that panels which never watch never receive it.
+
+               The second is false. With the A220 loaded for about 26 minutes, its
+               cockpit panels connected and 9 of 14 hellos had no rect, CTP and MKP among
+               them. DisplayUnits (7410x1110) and three FCPs had one; WasmInstrument
+               reported 10x10. hook.js measures once, in the Hook constructor, before
+               those instruments are laid out, and channel.js re-sends that hello
+               unchanged on every reconnect. So null is the normal case for most
+               instruments, and it does not heal while the document lives.
+    Changed:   The rect source is decided and built. The pointer page cannot rely on it
+               yet: the fix is on the panel side (measure when the hello is sent, and
+               hello again once a rect first appears), which is a bridge package change
+               and not yet agreed.
+    Affects:   01-design "Mapping"
+    Evidence:  results/p03-panel-watch-2026-09-17.txt, probes/p03-panel-watch/
+
 ## 2026-09-17 — A pop-out capture maps to rect fractions by contain-fit, within 6.5 px
 
     Question:  can the exerciser show a live image of a panel and turn a click on it into
