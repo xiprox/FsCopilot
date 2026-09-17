@@ -36,6 +36,44 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-17 — A peer's press drove the real A220 ND, opted in by identifier alone
+    Question:  closes the entry below; first cockpit replay from a peer rather than an echo
+    Stage:     6
+    Expected:  That identifier matching would let the livery-keyed panel sync, and that
+               proving it needed a second machine or a pilot clicking.
+    Found:     Neither. A peer process joined FS Copilot through the public rendezvous and
+               sent one press at rect fraction (0.2158, 0.0327) - the ND's PLAN button -
+               keyed DisplayUnits|config=N324DU, which no profile entry names. The
+               profile's bare DisplayUnits matched it, and the display switched to plan
+               mode: PLAN lit, north-up ring, a CTR button appeared. 27914 pixels of that
+               display changed and the panel counted replayed 2 -> 3, missed 0.
+
+               Two things made it work that are worth keeping.
+
+               Panels reload from disk through the inspector: Page.reload on the panel
+               document picked up a changed hook.js with no sim restart, which the page
+               id changing underneath is the only sign of. Every earlier panel change in
+               this record paid for a restart it did not need.
+
+               A panel's pointer mode outlives the app. The first attempt pressed nine
+               seconds before the panel had reconnected to the freshly started app, and
+               the app logged "No panel for DisplayUnits|config=N324DU; event dropped".
+               window.fscPointer was set the whole time, from the previous app - which is
+               the fail-open design working, and makes it useless as a readiness signal.
+               The app's hello line is the one to wait for.
+
+               An aimless press is not a failed one: an earlier press landed on inert
+               background between two buttons, counted as replayed with missed 0 and
+               changed nothing. missed only counts an elementFromPoint that finds nothing.
+    Changed:   The livery-key finding below is closed by 0432519. The bench scenario
+               identifier-opt-in covers the same ground headless and has not been run yet
+               - the simulator was open, and the bench needs it closed.
+    Affects:   12-pre-pr-review R16
+    Evidence:  results/identifier-opt-in-before-2026-09-17.png,
+               results/identifier-opt-in-after-2026-09-17.png
+
+---
+
 ## 2026-09-17 — The A220's DisplayUnits key carries the livery, and the profile names only Default
     Question:  none open; found by the exerciser's p03 while listing live panel keys
     Stage:     6
