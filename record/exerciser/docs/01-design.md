@@ -4,7 +4,8 @@
                 page turns a click on a picture into a click in the simulator.
     Depends on: log.md (p01, p02); pointer-forwarding/docs/11-fsc-implementation-plan.md
     Decides:    peer not dev mode; shell and pages; window capture; contain-fit mapping
-    Status:     Started 2026-09-17. Sections marked OPEN are waiting on a decision.
+    Status:     Built 2026-09-17 (adf1c60, 5599643 on ahead-pointer-forwarding).
+                Sections marked OPEN are waiting on a decision.
 
 ## What it is for
 
@@ -75,8 +76,10 @@ twice (p01):
 | upstream `p2p.fscopilot.com` | 72 ms | ~145 ms |
 | `fscrelay.ihsan.dev` | 116 ms | ~230 ms |
 
-The default for one machine is a local relay started by the exerciser. FSC has to be
-pointed at it too, which today takes `--relay localhost`.
+The picker defaults to `p2p.fscopilot.com`, which is what an unmodified PR build uses. A
+local relay is the fast option and has to be started by hand
+(`dotnet run --project FsCopilot.Discovery -r win-x64 --no-self-contained`), with FSC given
+`--relay localhost` to match.
 
 The relay protocol has to match FSC's build. `ahead` speaks v2 to `fscrelay.ihsan.dev`;
 the PR branch speaks v1 to `p2p.fscopilot.com`, and a v2 relay refuses it. Built from the
@@ -93,13 +96,10 @@ fine for testing and visible in a recording.
 exerciser registers FSC's own types, in FSC's order: SetMaster, Update, Interact, Physics,
 Surfaces, PointerEvent, PointerAck. Copies in another assembly can never match.
 
-**OPEN: how to reach the three private ones** (Coordinator.Update, Coordinator.InteractCodec,
-MasterSwitch.SetMaster):
-
-- Reflection, as p01 did. No change to FSC. A rename in FSC fails at startup with a clear
-  error, not silently.
-- `internal` plus `InternalsVisibleTo("FsCopilot.Exerciser")`. A small visible change to FSC,
-  and the compiler catches a rename.
+Three of them are nested and were private (Coordinator.Update, Coordinator.InteractCodec,
+MasterSwitch.SetMaster). They are now `internal`, with `InternalsVisibleTo` for this
+assembly, so the compiler catches a rename instead of a startup failing on reflection.
+Both changes ride in the exerciser's own commit and go with it if it is dropped.
 
 Either way the exerciser also receives FSC's variable and physics traffic and ignores it.
 
@@ -131,17 +131,18 @@ Matching by title is a shortcut, not the mechanism:
   differ only in the query string, and the title carries no query string.
 - Only one aircraft has been checked, so the title rule is unconfirmed elsewhere.
 
-So the page lists the sim's pop-out windows with a thumbnail each, preselects the one whose
-title matches, and asks when there is no match or more than one.
+So the window picker preselects a single title match and otherwise leaves the choice alone,
+and a pop-out whose title does not match the selected panel says so in the log.
 
 ### Capture
 
 Window capture by the OS. The Coherent inspector has no working snapshot (p02).
 
-PrintWindow works and needs no setup: 33 ms per frame for the main window, 63 ms for the
-7394x1071 A220 pop-out, because it re-renders the whole window every call. Windows.Graphics.
-Capture copies GPU frames at display rate and is what the page uses; PrintWindow stays as
-the fallback.
+PrintWindow is what the page uses, into a DIB section whose BGRA pixels go straight to a
+WriteableBitmap: 33 ms per frame for the main window, 63 ms for the 7394x1071 A220 pop-out,
+because it re-renders the whole window every call. The page grabs at 15 Hz. If a recording
+looks choppy, Windows.Graphics.Capture copies GPU frames at display rate instead, and
+Capture.Grab is the only thing that changes.
 
 Not yet measured: the simulator's frame rate while capturing.
 
@@ -229,5 +230,6 @@ sends a recording's events at their recorded gaps. The pointer-forwarding
 
 ## Where it ships
 
-**OPEN.** A project in the solution, `FsCopilot.Exerciser`, as the last commit of the PR so
-the maintainer can drop it; or kept on an `ahead-*` branch with a binary linked from the PR.
+A project in the solution, `FsCopilot.Exerciser`, in its own commit, so the PR can drop it
+by dropping that commit - and with it the `internal` and `InternalsVisibleTo` changes it
+needs. Whether the PR keeps it or links a built binary instead is the maintainer's call.
