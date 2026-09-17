@@ -1,0 +1,55 @@
+p02-popout-mapping, 2026-09-17
+MSFS 2024 1.8.16.0, Synaptic A220, instrument A22X-DISPLAYUNITS (key DisplayUnits|config=Default)
+Monitor: one, 5120x1440
+
+--- Coherent inspector, DisplayUnits document ------------------------------------------------
+
+dom {"inst":"A22X-DISPLAYUNITS","rect":[0,0,7410,1110],"win":[7410,1110],"dpr":1}
+Page.captureScreenshot   -32601 'Page.captureScreenshot' was not found
+Page.startScreencast     -32601 'Page.startScreencast' was not found
+Page.snapshotRect        -32000 Could not capture snapshot   (Viewport and Page, 0,0 200x100)
+Page.snapshotNode        -32000 Could not capture snapshot   (nodeId of vcockpit-panel)
+Page.enable              ok
+Page.getResourceTree     ok
+
+--- sim windows (EnumWindows, owner FlightSimulator2024) -------------------------------------
+
+5571230 'Microsoft Flight Simulator 2024 - 1.8.16.0' class AceApp client 2401x1360
+3083240 'DISPLAYUNITS' class AceApp client 7394x1071
+pop-out window rect: -1134,110 to 6276,1220 (partly off the monitor), not minimised
+
+--- capture.ps1 ------------------------------------------------------------------------------
+
+placed in rect 0,0,7410,1110
+removed
+pop-out client 7394x1071
+magenta(0.02,0.05): centroid px (269.5,52.5) -> fraction (0.0365,0.0495)  box 38x38  n=1444
+green(0.10,0.20): centroid px (840.5,213.5) -> fraction (0.1137,0.1998)  box 38x38  n=1444
+red(0.50,0.50): centroid px (3696.5,535.0) -> fraction (0.5000,0.5000)  box 38x39  n=1412
+blue(0.90,0.80): centroid px (6552.5,856.5) -> fraction (0.8863,0.8002)  box 38x38  n=1444
+yellow(0.98,0.95): centroid px (7122.5,1016.5) -> fraction (0.9633,0.9496)  box 38x38  n=1444
+
+Capture with markers: p02-popout-markers-2026-09-17.png (quarter size).
+
+--- reading ----------------------------------------------------------------------------------
+
+Contain-fit model: scale = 1071 / 1110 = 0.96486, drawn width = 7410 * s = 7149.6,
+horizontal offset = (7394 - 7149.6) / 2 = 122.2.
+
+marker    measured x   predicted x   residual
+magenta      269.5        265.2        +4.3
+green        840.5        837.2        +3.3
+red         3696.5       3697.0        -0.5
+blue        6552.5       6556.9        -4.4
+yellow      7122.5       7128.8        -6.3
+
+Vertical residuals are under 1.1 px. A free two-point fit on x gives a horizontal scale of
+0.96337, 0.15% under the vertical one; that is the whole residual. Largest error 6.3 pop-out
+px = 6.5 instrument px.
+
+--- PrintWindow timing (PW_CLIENTONLY | PW_RENDERFULLCONTENT) ------------------------------
+
+main window 2401x1360, n=60: median 33.5 ms, p90 34.7 ms, max 35.7 ms
+pop-out     7394x1071, n=40: median 62.6 ms, p90 69.2 ms
+Timing is the PrintWindow call alone, into a reused bitmap; no encode, no copy out.
+Not measured: the simulator's own frame rate while capturing.

@@ -1,0 +1,74 @@
+p01-peer-join, 2026-09-17
+FSC: ahead-pointer-forwarding at 1ba64cc, Debug build, default relay host (p2p.fscopilot.com)
+Probe: probes/p01-peer-join, same build referenced as a project
+
+--- run 1 (keys set once, 4 s early) --------------------------------------------------------
+
+FSC FSCPN9SD panel port 9020
+  0.13 PROBE observer connected to PanelServer :9020
+  0.15 PROBE observer <- {"t":"config","pointer":["DisplayUnits|config=Default"]}
+  0.15 PROBE observer <- {"t":"state","sync":"none","role":"master"}
+  0.38 PROBE EXRCC988 joining FSCPN9SD via p2p.fscopilot.com
+19:21:34.104 [DBG] [Peer2Peer] DIR EXRCC988 -> FSCPN9SD
+  1.15 PROBE observer <- {"t":"config","pointer":[]}
+PANEL <- {"t":"config","pointer":[]}
+19:21:36.167 [DBG] [Relay] CON RELAY -> 51.250.94.202:3600
+19:21:38.251 [DBG] [Relay] CON FSCPN9SD
+  4.55 PROBE connect result: Success
+  4.55 PROBE peers: [FSCPN9SD Relay connected=True ping=0]
+  4.55 PROBE LIVE
+  4.57 PROBE observer <- {"t":"state","sync":"live","role":"master"}
+  7.57 PROBE -> PointerEvent press key=DisplayUnits|config=Default seq=1
+  8.26 PROBE <- PointerAck session=8034534922465023114 seq=1
+ 37.57 PROBE FAIL: nothing came back
+
+The empty config at 1.15 s is FSC loading the aircraft profile: the simulator had just started
+and loaded indiafoxtecho_f35b, which has no profile. FSC acknowledged the press and dropped it
+at the inbound filter, as designed, so the fake panel saw nothing and sent nothing back.
+
+--- run 2 (keys put back whenever a config empties them) ------------------------------------
+
+  1.11 PROBE peers: []
+19:23:03.014 [DBG] [Relay] CON RELAY -> 51.250.94.202:3600
+19:23:05.040 [DBG] [Relay] CON FSCP0BXB
+  4.23 PROBE connect result: Success
+  4.24 PROBE observer <- {"t":"state","sync":"live","role":"master"}
+  4.24 PROBE peers: [FSCP0BXB Relay connected=True]
+  4.24 PROBE LIVE
+19:23:05.177 [DBG] [Peer2Peer] DIR EXRC591F -> FSCP0BXB
+  7.25 PROBE -> PointerEvent press key=DisplayUnits|config=Default seq=1
+PANEL <- {"t":"pointer","msg":{"v":5,"k":"press","key":"DisplayUnits|config=Default","button":0,"gap":0,"nx":0.25,"ny":0.5,"ux":0.25,"uy":0.5,"hold":120}}
+  7.68 PROBE <- PointerAck session=5234312281536707993 seq=1
+PANEL -> capture press
+  8.05 PROBE <- PointerEvent Press key=DisplayUnits|config=Default seq=1 down=(0.75,0.2) up=(0.75,0.2) hold=60 path=0
+  8.05 PROBE PASS: received a capture from FSC
+ 33.12 PROBE observer <- {"t":"config","pointer":["DisplayUnits|config=Default"]}
+PANEL <- {"t":"config","pointer":["DisplayUnits|config=Default"]}
+ 53.06 PROBE peers: []
+19:23:53.958 [DBG] [Relay] DIS * (LEFT_ALL)
+probe exit 0
+
+The config at 33.12 s is FSC loading Synaptic_A220 in the running simulator, whose profile
+carries the same key.
+
+FSC's app log for run 2, transport and profile lines:
+
+[19:22:58.043] [SimConnect] Loaded aircraft: indiafoxtecho_f35b
+[19:22:58.045] [Definitions] Failed to load indiafoxtecho_f35b.yaml configuration
+[19:22:58.200] [Relay] CON RELAY -> 51.250.94.202:3600
+[19:23:00.657] [Bench] Pointer keys: DisplayUnits|config=Default
+[19:23:05.040] [Relay] CON EXRC591F
+[19:23:05.162] [Peer2Peer] DIR FSCP0BXB -> EXRC591F
+[19:23:05.274] [Peer2Peer] REJ EXRC591F NOT_FOUND
+[19:23:33.867] [SimConnect] Loaded aircraft: Synaptic_A220
+[19:23:53.973] [Pointer] Peer left; sync ended
+[19:23:53.973] [Relay] DIS EXRC591F (PEER_LEFT)
+[19:23:54.189] [Relay] DIS * (LEFT_ALL)
+
+The link stayed Relay for the whole 45 s the probe held it; the direct attempt was rejected
+NOT_FOUND and never retried. Relay ping as reported by the peer list: 113-180 ms.
+
+--- ICMP to the candidate relays, same machine, 5 pings each --------------------------------
+
+51.250.94.202 (p2p.fscopilot.com relay)     avg 71.8 ms, min 70, max 74
+167.99.157.219 (fscrelay.ihsan.dev)         avg 115.6 ms, min 115, max 117
