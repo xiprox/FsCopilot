@@ -949,6 +949,7 @@ it leaves the feature intact — verified by building at commit 7. It carries:
 | `--relay`, `--peer-id` | Two instances on one machine need a rendezvous the harness can restart and ids it can name before either starts. Absent them the app behaves exactly as before |
 | `{t:"watch"}` and `{t:"panels"}` on the panel channel | A watcher is not a panel: it gets config and state as a panel does, plus every helloed key with its rect. Panels never watch |
 | The instrument rect, re-announced | An instrument not yet laid out measures as zero. Re-measured once a second until it answers; one hello per key is kept so a reconnect replays the latest rect. A pop-out draws the instrument fitted and centred, so mapping a click on a capture back to rect fractions takes the aspect ratio |
+| `RuntimeIdentifiers` on `FsCopilot.Discovery` | The rendezvous is pinned linux-x64 self-contained for the server, and that build cannot run on a developer machine at all — the host rejects it as self-contained with no hostpolicy it can load. This widens what restore resolves so building the exerciser produces a framework-dependent win-x64 rendezvous beside the linux one. The pin still decides what is built: a Release build of the project produces linux-x64 and nothing else. The only line this commit adds to a project that is not its own |
 
 `BenchControl` and the `--bench` port are **not** here. They serve the node testbed
 (`record/pointer-forwarding/testbed/`), which drives the app rather than playing a peer, and
