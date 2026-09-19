@@ -24,8 +24,15 @@
     <ItemGroup>
         <ProjectReference Include="..\FsCopilot\FsCopilot.csproj" />
         <!-- Built, not referenced: the exerciser starts the rendezvous as its own process, and
-             an Avalonia tool has no business carrying ASP.NET's assemblies. -->
-        <ProjectReference Include="..\FsCopilot.Discovery\FsCopilot.Discovery.csproj" ReferenceOutputAssembly="false" />
+             an Avalonia tool has no business carrying ASP.NET's assemblies.
+
+             Overridden to this machine, because the project is pinned linux-x64 self-contained
+             for the server it is deployed to. That output cannot run here at all - the host
+             refuses it as a self-contained app whose hostpolicy is a .so - so without this the
+             rendezvous is built and still unusable. -->
+        <ProjectReference Include="..\FsCopilot.Discovery\FsCopilot.Discovery.csproj"
+                          ReferenceOutputAssembly="false"
+                          AdditionalProperties="RuntimeIdentifier=win-x64;SelfContained=false" />
     </ItemGroup>
 
     <ItemGroup>

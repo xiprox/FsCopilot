@@ -177,8 +177,12 @@ public partial class MainWindow : Window
 
             if (!Local.TakesTestFlags())
             {
-                Problem(ConnectionProblem, "this app build takes no --relay or --peer-id: set its rendezvous yourself and paste its code");
-                Local.StartFsCopilot("", "");
+                // Started anyway, as the pilot would: the flags are the convenience, not the run.
+                // Its own failure outranks the note about the flags, or a build that never starts
+                // reads as a build that started without them.
+                var flagless = Local.StartFsCopilot("", "");
+                Problem(ConnectionProblem, flagless ??
+                    "this app build takes no --relay or --peer-id: set its rendezvous yourself and paste its code");
                 return;
             }
 

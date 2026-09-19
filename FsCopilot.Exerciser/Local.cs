@@ -22,24 +22,42 @@ public static class Local
 {
     private static Process? _relay;
 
-    /// <summary>The solution directory, from this assembly's own path:
-    /// FsCopilot.Exerciser/bin/Debug/net9.0/win-x64.</summary>
+    /// <summary>The solution directory: the nearest ancestor holding FsCopilot.sln. Found
+    /// rather than counted, because how deep this assembly sits under its project is not fixed -
+    /// Platforms>x64 adds a platform folder above the configuration, so this build lives at
+    /// bin/x64/Debug/net9.0/win-x64 and a build without it one level higher.</summary>
     private static string Solution
     {
         get
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            for (var i = 0; i < 5 && dir.Parent != null; i++) dir = dir.Parent;
-            return dir.FullName;
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "FsCopilot.sln"))) dir = dir.Parent;
+            return dir?.FullName ?? AppContext.BaseDirectory;
         }
     }
 
-    public static string FsCopilotExe =>
-        Path.Combine(Solution, "FsCopilot", "bin", "Debug", "net9.0", "win-x64", "FsCopilot.exe");
+    /// <summary>The newest <paramref name="file"/> anywhere under that project's bin tree, or
+    /// null. Searched for the same reason: the runtime identifier is in the path and differs per
+    /// project - FsCopilot is win-x64, FsCopilot.Discovery is pinned linux-x64 because that is
+    /// what the server runs - so spelling the path out gets it wrong for one of them.</summary>
+    private static string? Built(string project, string file)
+    {
+        var bin = Path.Combine(Solution, project, "bin");
+        if (!Directory.Exists(bin)) return null;
+        try
+        {
+            return Directory.EnumerateFiles(bin, file, SearchOption.AllDirectories)
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+        }
+        catch (Exception) { return null; }
+    }
 
-    /// <summary>The rendezvous, whose assembly is p2p_serv rather than its project name.</summary>
-    private static string DiscoveryExe =>
-        Path.Combine(Solution, "FsCopilot.Discovery", "bin", "Debug", "net9.0", "win-x64", "p2p_serv.exe");
+    /// <summary>Falls back to where a Debug build would put it, so a missing build is reported
+    /// as a path the pilot can go and look at rather than as nothing.</summary>
+    public static string FsCopilotExe =>
+        Built("FsCopilot", "FsCopilot.exe")
+        ?? Path.Combine(Solution, "FsCopilot", "bin", "Debug", "net9.0", "win-x64", "FsCopilot.exe");
 
     /// <summary>The rendezvous is up if this window started it, or if something else already
     /// holds its port - a leftover from a previous run, or one started in a terminal. Trying
@@ -68,21 +86,24 @@ public static class Local
             return null;
         }
 
-        // The project is pinned to linux-x64 self-contained, because that is what the
-        // server runs, so a Windows build produces assemblies and no apphost. The runtime
-        // will start the assembly directly.
-        var dll = Path.ChangeExtension(DiscoveryExe, ".dll");
+        // Building the exerciser builds a win-x64 rendezvous beside the linux one - see the
+        // ProjectReference. Prefer that apphost; fall back to the runtime only for an assembly
+        // that is framework-dependent, because a self-contained build for another platform
+        // cannot be started here at all.
+        var apphost = Built("FsCopilot.Discovery", "p2p_serv.exe");
+        var portable = Runnable(Built("FsCopilot.Discovery", "p2p_serv.dll"));
         string exe, arguments;
-        if (File.Exists(DiscoveryExe)) { exe = DiscoveryExe; arguments = ""; }
-        else if (File.Exists(dll)) { exe = "dotnet"; arguments = $"\"{dll}\""; }
-        else return $"no rendezvous built for Windows: expected {dll}";
+        if (apphost != null) { exe = apphost; arguments = ""; }
+        else if (portable != null) { exe = "dotnet"; arguments = $"\"{portable}\""; }
+        else return "no rendezvous for this machine: dotnet build FsCopilot.Discovery " +
+                    "-r win-x64 --self-contained false";
 
         var started = new TaskCompletionSource();
         var process = new Process
         {
             StartInfo = new ProcessStartInfo(exe, arguments)
             {
-                WorkingDirectory = Path.GetDirectoryName(dll)!,
+                WorkingDirectory = Path.GetDirectoryName(apphost ?? portable)!,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -116,6 +137,22 @@ public static class Local
         _relay = process;
         var up = await Task.WhenAny(started.Task, Task.Delay(20000)) == started.Task;
         return up ? null : "the rendezvous did not come up; the port may be taken";
+    }
+
+    /// <summary>The assembly back, if the runtime here can start it: a runtimeconfig naming
+    /// includedFrameworks is a self-contained build, and self-contained means built for one
+    /// platform's host. The linux-x64 output fails with "hostpolicy.dll not found", which reads
+    /// as a broken install rather than as the wrong platform.</summary>
+    private static string? Runnable(string? dll)
+    {
+        if (dll == null) return null;
+        try
+        {
+            var config = Path.ChangeExtension(dll, ".runtimeconfig.json");
+            return File.Exists(config) && File.ReadAllText(config).Contains("includedFrameworks")
+                ? null : dll;
+        }
+        catch (Exception) { return null; }
     }
 
     /// <summary>What is worth reading from the rendezvous. Its own format is
@@ -184,21 +221,37 @@ public static class Local
         }
     }
 
-    /// <summary>Whether this FS Copilot build takes the flags above. They arrived with the
-    /// test-only bench control, so a build cut for the pull request may not have them, and
-    /// passing them would leave the app on the wrong rendezvous with a code nobody knows.
-    /// The strings live in the managed assembly, not the little apphost beside it.</summary>
+    /// <summary>Whether this FS Copilot build takes the flags above. They are test-only, so a
+    /// build cut for the pull request may not have them, and passing them would leave the app on
+    /// the wrong rendezvous with a code nobody knows. The strings live in the managed assembly,
+    /// not the little apphost beside it.</summary>
     public static bool TakesTestFlags()
     {
         try
         {
             var dll = Path.ChangeExtension(FsCopilotExe, ".dll");
-            var text = File.ReadAllText(File.Exists(dll) ? dll : FsCopilotExe, System.Text.Encoding.Unicode);
-            return text.Contains("--peer-id") && text.Contains("--relay");
+            var image = File.ReadAllBytes(File.Exists(dll) ? dll : FsCopilotExe);
+            return HoldsLiteral(image, "--peer-id") && HoldsLiteral(image, "--relay");
         }
         catch (Exception)
         {
             return false;
         }
+    }
+
+    /// <summary>Searches the assembly image for a string literal, as raw UTF-16 bytes. Reading
+    /// the file as Unicode text instead would decode from byte zero in pairs, and the literal
+    /// heap packs its entries behind a length prefix rather than aligning them - so half of all
+    /// literals start on an odd offset and never appear in the decoded text at all.</summary>
+    private static bool HoldsLiteral(byte[] image, string literal)
+    {
+        var needle = Encoding.Unicode.GetBytes(literal);
+        for (var i = 0; i + needle.Length <= image.Length; i++)
+        {
+            var j = 0;
+            while (j < needle.Length && image[i + j] == needle[j]) j++;
+            if (j == needle.Length) return true;
+        }
+        return false;
     }
 }
