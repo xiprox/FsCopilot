@@ -36,6 +36,45 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-19 — The exerciser leaves the tree, and takes four compile-time couplings with it
+    Question:  none - a decision taken while folding work into the PR branch
+    Stage:     6
+    Expected:  That holding the harness in the solution was the cost of the schema hash:
+               Codecs.Schema hashes each packet type's assembly-qualified name, a peer
+               registering its own copies is refused, and three of the types are nested
+               and private - so the application had to hand them over.
+    Found:     It did not. Reflection reaches a private nested type, and RegisterPacket
+               <TPacket, TCodec> is generic, so MakeGenericMethod does at five call sites
+               what InternalsVisibleTo and three private-to-internal widenings were for.
+               The same types out of the same assembly, so the same hash. The relay builds
+               for the developer machine with one dotnet build -r win-x64
+               --self-contained false, which needs nothing from the project file either.
+
+               So the harness moved to its own repository. It points itself at an FS
+               Copilot checkout and copies the built output into fsc/ and relay/, rather
+               than reaching into a checkout's bin at run time - a bin directory is shared
+               by every branch that ever built in it, and picking the newest file out of
+               one means driving whatever was compiled last. That failure is silent,
+               because a stale build is a working build, and it cost two sessions today
+               before it was named.
+
+               Three things could not move, because they are the running application's own
+               surface: --relay, --peer-id, and the panel channel's watch verb. Those stay,
+               and --relay is not a test hook at all - it is what points the app at a
+               self-hosted relay.
+
+               One trap worth writing down, found by pressing the button: a process cannot
+               replace the assemblies it has loaded. An in-process sync deleted 349 of 355
+               files, reached the mapped FsCopilot.dll, threw out of an async void handler
+               and killed the window. The copy belongs in a script that runs after the
+               process exits, and it stages then swaps rather than deleting first.
+    Changed:   13-pr-prep §17 is the hooks rather than the harness, 26 files to 4. §11
+               records where the harness went. §5's counts are unchanged - it was never in
+               those 17 files.
+    Affects:   13-pr-prep
+    Evidence:  none - the harness joins a synced build and the relay accepts the schema,
+               exerciser log 2026-09-19
+
 ## 2026-09-19 — Two of the PR's three bug fixes are not needed, and the branch is eight commits
     Question:  none - decisions taken while folding work into the PR branch, recorded so
                13-pr-prep's history is not read as an oversight

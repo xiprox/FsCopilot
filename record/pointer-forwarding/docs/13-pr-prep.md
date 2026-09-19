@@ -6,8 +6,9 @@
     Decides:    nothing — it collects what was already decided so it can be found
 
 Reviewed against `main..ahead-pointer-forwarding` at `833ea67`. Re-checked against the cut
-branch `main..pointer-forwarding` at `5a6b2d1` on 2026-09-19; §5, §11, §16 and §17 record what
-was moved across and what was left behind.
+branch `main..pointer-forwarding` at `8348c90` on 2026-09-19; §5, §11, §16 and §17 record what
+was moved across and what was left behind. The exerciser left the tree that same day and now
+lives in its own repository — see §17.
 
 Section 0 is the whole feature in one place. 1–3 are what the thing *is* in detail. 4 is why it is
 that. 5–6 are what changed. 7–9 are how it behaves. 10–13 are what it does not do. 14–17 are what
@@ -241,8 +242,9 @@ existing binary packet channel (direct or relay), with two new packet types.
 | app→panel | `bye` | — | Deliberate shutdown. Distinguishes quit from crash. |
 
 A client that is not a panel sends `watch` instead of a hello and receives `panels` — every
-helloed key with its rect — alongside the config and state a panel gets. Only the exerciser
-does this, and both messages arrive with it (§17); panels never watch.
+helloed key with its rect — alongside the config and state a panel gets. It is there for a
+harness driving the app from outside (§17); panels never watch, and no gesture is ever routed
+to a watcher.
 
 One socket per **document**, shared by every hook in it; a document with three instruments sends
 three hellos on one socket. Routing is by key, so one inbound gesture can land on several sockets
@@ -467,14 +469,14 @@ Verification was done offline with scratch harnesses (§14) instead.
 
 The two standalone bug fixes that used to open the sequence are no longer in it (§11), so the
 first three commits are now the smallest coherent takes: the failed-join fix, the peer-list
-correction, and the departure/outage split. The exerciser is last and droppable (§17).
+correction, and the departure/outage split. The last commit is the hooks a harness needs, and
+is droppable on its own (§17).
 
 ---
 
 ## 5 · Changes to existing code
 
 17 files, 5 new. Of the 12 modified, 1 is a bug fix, 6 are behaviour changes, 5 are plumbing.
-The exerciser adds 20 more files on top of that, in a commit meant to be dropped — §17.
 
 ### 5.1 Bug fixes — pre-existing, stand alone
 
@@ -775,7 +777,8 @@ Every one of these was designed to fail open. This table is the answer to "what 
 | Wheel and double-click | Wheel is a first-party MSFS cockpit control and is not injected into large instrument panels; double-click is not used on these panels. Decided 2026-08-30 from cockpit experience. |
 | Re-enabling `IgnoreUnmatchedProperties()` | Would fix the forward-compat hazard for profile keys. A separate argument, and a separate risk. Flagged in the PR as worth doing. |
 | The A220 profile | Belongs in `fscopilot-profiles`, which carries `pointer: [DisplayUnits]` and keeps `DisplayUnits\|config=Default` beneath it for builds that match whole keys. The branch copy was a stale snapshot and is gone. |
-| A test project | §4.11. The exerciser is a harness, not a test suite, and ships droppable — §17. |
+| A test project | §4.11. |
+| The exerciser itself | A harness, not a test suite, and not part of what the app ships. Its own repository, pointed at a checkout of this one. What the app still offers it is §17. |
 | `VCockpit.js` multi-instrument fix | Tested and judged unnecessary, 2026-09-19, so it is not in the branch. It was §17 commit 1 and is described in this file's history. |
 | Inbound `ignore` filter on `Interact` | Same call. In practice both peers run the same build and the same profiles, so an interaction the sender's outbound filter already drops can never arrive to be filtered here. |
 | `--dev` echo loopback, `BenchControl` | Bench wiring for the node testbed. Panel `stats` carried over; the rest did not. |
@@ -847,7 +850,8 @@ Do not assert anything in the PR that is not in this table.
 | Silent replay overlay blocks without painting | In the sim: `fscOverlay('replayingQuiet')` then the visible one, both measured | `results/p13-overlay-silence-in-sim-2026-09-18.txt` |
 | An identifier entry opts in a panel whose key carries a query | Bench scenario, both directions, plus narrowing back to an exact key | `testbed/scenarios/identifier-opt-in.mjs`, `results/identifier-opt-in-{before,after}-2026-09-17.png` |
 | 17 identifiers cover more than one instrument | Scan of 165 HTML gauges across 19 installed aircraft | `record/exerciser/results/p04-panel-identifiers-2026-09-17.txt` |
-| The cut branch builds and parses at every commit | `dotnet build` and `node --check` at the tip and with the exerciser commit dropped | 2026-09-19 |
+| The cut branch builds and parses at every commit | `dotnet build` and `node --check` at the tip and with the last commit dropped | 2026-09-19 |
+| A harness outside the tree still joins, with the app opened up no further | The exerciser, built against a synced copy, registering the private packet types by reflection: relay accepted the connection, so the schema hash matched | exerciser log, 2026-09-19 |
 
 **Not verified — do not claim:** trimmed-publish survival, outage paths against a real peer
 (history resend, degraded lock, sync timeout), Q04 rect agreement across machines, the origin
@@ -871,7 +875,7 @@ rejection, and R08 reordering (believed absent on this side, never observed eith
 | Why one packet type with a discriminator? | Two types are two streams with independent scheduling — a drag could overtake a press. | §4.5 |
 | Why is `Flags` there if it's unused? | The schema hash makes adding a field later a break for every user; flag bits aren't. | §3.3 |
 | Why can `pointer:` take a key as well as an identifier? | An identifier is the default; the full key narrows to one panel where an aircraft reuses an identifier. | §4.10 |
-| What is `FsCopilot.Exerciser`? | A test harness that plays the other pilot on one machine. Last commit, self-contained, drop it and the feature is intact. | §17 |
+| Why does the app take `--peer-id`, and answer `watch`? | A harness joins as an ordinary peer to exercise outage and rejoin paths by hand. It lives outside this repository and asks nothing at compile time; these three are the only surface it cannot supply itself. | §17 |
 | Why no tests? | No test project exists to extend, and nothing load-bearing is unit-testable without the sim. | §4.11 |
 | Why is the peer list behaviour changing? | A handshake that may still fail was being shown, counted and announced as a peer. | §5.2 |
 | Are you preferring relay over direct now? | No. The merge affects the peer *list*, not routing, and direct still wins whenever it is connected. `SendAll` writes to both transports as before. | §5.2 |
@@ -884,14 +888,15 @@ rejection, and R08 reordering (believed absent on this side, never observed eith
 **Done:**
 
 - [x] **Reshape the branch.** Cut fresh from `main` as `pointer-forwarding`, 2026-09-13; the two
-      later folds and the exerciser landed 2026-09-19. Shape in §17.
+      later folds landed 2026-09-19, and the exerciser left for its own repository the same day.
+      Shape in §17.
 - [x] **Remove `Definitions/synaptic_a220.yaml`.** Salvaged against
       `results/a220-profile-salvage-2026-09-12.txt`; the profile lives in `fscopilot-profiles`,
       which now carries the bare `DisplayUnits` identifier and keeps `DisplayUnits|config=Default`
       for builds that match whole keys.
 - [x] **R12 step two** — `http://`/`https://` origins refused, not just logged.
 - [x] `node --check` over every file under `PackageSources/HTML_UI`, and `dotnet build`, both at
-      the tip and with the exerciser commit dropped.
+      the tip and with the last commit dropped.
 
 **Verification owed:**
 
@@ -904,8 +909,8 @@ rejection, and R08 reordering (believed absent on this side, never observed eith
 - [ ] Whether to mention the pre-PR review (17 findings, 16 fixed) at all. It signals rigour and
       also signals "this had 17 bugs recently". My read: leave it out; the fixes are in the code.
 - [ ] Whether to nudge on `IgnoreUnmatchedProperties()`. It is real and it is scope creep.
-- [ ] Whether to offer the exerciser at all, or cut the last commit before pushing. It is the only
-      commit that puts test-only surface on production code paths (§17).
+- [ ] Whether to mention the harness in the PR text at all, or let the last commit speak. Naming
+      it explains `--peer-id` and `watch`; not naming it keeps the PR about the feature.
 
 ---
 
@@ -923,7 +928,7 @@ passes over `PackageSources/HTML_UI` at each.
 | 5 | Add opt-in pointer sync alongside the element-name path | `Pointer.cs`, `pointer.js`, `overlay.js`, `hook.js` mode gating, `pointer:` in `Definitions.cs`, `PointerFilter`, panel `stats` |
 | 6 | Prevent pointer panels diverging while sync is not live | The sync state machine in `Coordinator`, and the overlay policy it drives |
 | 7 | Add an acknowledged pointer event history so a returning peer catches up | `PointerAck`, history, resend on recovery |
-| 8 | Add the exerciser: a test harness that plays the other pilot | `FsCopilot.Exerciser`, and everything it needs from `FsCopilot` — see below |
+| 8 | Open the app to a harness that drives it from outside | `--relay`, `--peer-id`, the panel channel's `watch` verb, the re-announced rect — see below |
 
 Where the earlier plan had six commits, this has eight and a different split. What moved:
 
@@ -937,20 +942,36 @@ Where the earlier plan had six commits, this has eight and a different split. Wh
 - **Two later changes were folded into commit 5** rather than appended, so a reviewer reads one
   design instead of a design being revised mid-branch: opting in by identifier (§4.10) and the
   silent replay interlock (§7.2).
+- **Commit 8 shrank from the harness to its hooks**, 26 files to 4, when the harness moved to
+  its own repository.
 
-### The exerciser commit
+### The last commit
 
-Last on purpose, and the only one that puts test-only surface on production code paths. Dropping
-it leaves the feature intact — verified by building at commit 7. It carries:
+It is the surface the application deliberately offers something driving it from outside, and it
+is last so it can be dropped on its own. Dropping it leaves the feature intact — verified by
+building at commit 7.
 
-| Change | Why the exerciser needs it |
+| Hook | Why it cannot come from outside |
 | --- | --- |
-| `InternalsVisibleTo`, three nested types widened to `internal` | `Codecs.Schema` hashes each packet type's assembly-qualified name, so a peer outside this assembly has to register these very types, not its own copies |
-| `--relay`, `--peer-id` | Two instances on one machine need a rendezvous the harness can restart and ids it can name before either starts. Absent them the app behaves exactly as before |
-| `{t:"watch"}` and `{t:"panels"}` on the panel channel | A watcher is not a panel: it gets config and state as a panel does, plus every helloed key with its rect. Panels never watch |
-| The instrument rect, re-announced | An instrument not yet laid out measures as zero. Re-measured once a second until it answers; one hello per key is kept so a reconnect replays the latest rect. A pop-out draws the instrument fitted and centred, so mapping a click on a capture back to rect fractions takes the aspect ratio |
-| `RuntimeIdentifiers` on `FsCopilot.Discovery` | The rendezvous is pinned linux-x64 self-contained for the server, and that build cannot run on a developer machine at all — the host rejects it as self-contained with no hostpolicy it can load. This widens what restore resolves so building the exerciser produces a framework-dependent win-x64 rendezvous beside the linux one. The pin still decides what is built: a Release build of the project produces linux-x64 and nothing else. The only line this commit adds to a project that is not its own |
+| `--relay <host>` | Two instances on one machine have to meet somewhere, and the harness needs one it can restart. Not test-only in any case: it is what points the app at a self-hosted relay instead of `p2p.fscopilot.com`. |
+| `--peer-id <id>` | Lets the harness name the session code before the app starts, so it can join without anyone copying anything. Without it, the code is read off a window and pasted. |
+| `{t:"watch"}` on the panel channel | Answers "what is there to press": every helloed key with the rect the panel measured, re-sent when that list changes. Panels never watch, and no gesture is ever routed to a watcher. |
+| The instrument rect, re-announced | An instrument not laid out when its hook runs measures as zero, so it is re-measured until it answers. A pop-out draws the instrument fitted and centred, so mapping a click on a capture back to rect fractions takes the aspect ratio. |
 
-`BenchControl` and the `--bench` port are **not** here. They serve the node testbed
-(`record/pointer-forwarding/testbed/`), which drives the app rather than playing a peer, and
-nothing upstream would want them.
+### What the harness does not ask for
+
+It was a project in this tree until 2026-09-19, and holding it cost the application three things
+that are now gone: `InternalsVisibleTo`, three nested packet types widened from private to
+internal, and a `RuntimeIdentifiers` line on `FsCopilot.Discovery` so the solution could build a
+relay that runs on Windows.
+
+None of it was needed. `Codecs.Schema` hashes each packet type's assembly-qualified name, so a
+peer has to register the application's own types rather than copies of them — but reflection
+reaches a private nested type perfectly well, and `RegisterPacket<TPacket, TCodec>` is generic,
+so five call sites of `MakeGenericMethod` do what the visibility change was for. The harness
+builds the relay for its own machine with one `dotnet build -r win-x64 --self-contained false`,
+which needs nothing from the project file.
+
+If a reviewer asks why the application takes `--peer-id` and answers `watch` with no harness in
+sight, that is the answer: the harness is in its own repository, points itself at a checkout of
+this one, and copies the built output it needs.
