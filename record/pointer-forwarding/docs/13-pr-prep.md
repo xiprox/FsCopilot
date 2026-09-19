@@ -5,7 +5,9 @@
     Depends on: 11-fsc-implementation-plan, 12-pre-pr-review
     Decides:    nothing — it collects what was already decided so it can be found
 
-Reviewed against `main..ahead-pointer-forwarding` at `833ea67`.
+Reviewed against `main..ahead-pointer-forwarding` at `833ea67`. Re-checked against the cut
+branch `main..pointer-forwarding` at `5a6b2d1` on 2026-09-19; §5, §11, §16 and §17 record what
+was moved across and what was left behind.
 
 Section 0 is the whole feature in one place. 1–3 are what the thing *is* in detail. 4 is why it is
 that. 5–6 are what changed. 7–9 are how it behaves. 10–13 are what it does not do. 14–17 are what
@@ -41,7 +43,8 @@ Not carried, by decision: wheel, double-click, keyboard. §11.
 
 ### 0.3 How it turns on and off
 
-- **Off by default, everywhere.** An instrument is in events mode unless the profile names its key.
+- **Off by default, everywhere.** An instrument is in events mode unless the profile names its
+  identifier, or its full key.
 - **Runtime switchable.** A profile load broadcasts a new `config`; instruments enter or leave
   pointer mode without a panel reload.
 - **No app, no change.** If `config` never arrives, the instrument stays in events mode forever
@@ -231,11 +234,15 @@ existing binary packet channel (direct or relay), with two new packet types.
 | --- | --- | --- | --- |
 | panel→app | `hello` | `name` (key), `url`, optional `rect` | Identifies one instrument on this socket. Re-sent on every reconnect. `rect` is the Q04 instrumentation. |
 | app→panel | `config` | `pointer: [keys]` | The opt-in list. Sent on every hello *and* broadcast on profile load. |
-| app→panel | `state` | `session`, `role` | Drives the overlay. Sent on change **and every 2 s**. |
+| app→panel | `state` | `sync`, `role` | Drives the overlay. Sent on change **and every 2 s**. |
 | panel→app | `pointer` | `msg: {key,k,btn,hold,gap,down,up,path}` | A captured gesture. |
 | app→panel | `pointer` | same shape | A peer's gesture to replay. |
 | panel→app | `stats` | `link`, `key`, `pointer` counters | Every 60 s. Diagnostics. |
 | app→panel | `bye` | — | Deliberate shutdown. Distinguishes quit from crash. |
+
+A client that is not a panel sends `watch` instead of a hello and receives `panels` — every
+helloed key with its rect — alongside the config and state a panel gets. Only the exerciser
+does this, and both messages arrive with it (§17); panels never watch.
 
 One socket per **document**, shared by every hook in it; a document with three instruments sends
 three hellos on one socket. Routing is by key, so one inbound gesture can land on several sockets
@@ -418,13 +425,28 @@ timeout loses nothing.**
 handover, last-writer-wins). The lock policy *reads* that state and never writes it, so a
 mid-outage role flip behaves exactly as it does today. Documented, not fixed.
 
-### 4.10 Profile key shape: full keys
+### 4.10 Profile key shape: identifier by default, full key to narrow
 
-**Chosen:** `pointer:` takes `identifier|query`; `ignore:` keeps bare identifiers.
+**Chosen:** a `pointer:` entry without a `|` names an instrument identifier and takes every panel
+carrying it. An entry with one names a single panel exactly. `ignore:` is unchanged.
 
-**Why they differ:** the A220 reuses `DisplayUnits` across instruments that differ only by
-querystring, so a bare identifier cannot address one of them. `ignore:` never needed that
-precision.
+**Reversed on 2026-09-17.** This section previously read "full keys", on the reasoning that the
+A220 reuses `DisplayUnits` across instruments differing only by querystring, so a bare identifier
+cannot address one of them. That much is true, and full keys still do not follow, because the
+query is not the profile author's to predict: the A220 declares its DisplayUnits as
+`?config=[config]`, so the panel helloes as `config=N324DU` on one livery and `config=Default` on
+another. A profile naming either matched that livery and nothing else — and the identifier derived
+from the key still dropped every `DisplayUnits` interaction from the element-name path, so the
+display synced by neither route.
+
+**Exact entries still earn their keep** on the same aircraft: two CTPs, two MKPs and four FCPs
+share an identifier apiece, and a profile may want one of them. Of 165 HTML gauges across 19
+installed aircraft, 17 identifiers cover more than one instrument
+(`record/exerciser/results/p04-panel-identifiers-2026-09-17.txt`).
+
+**Both sides filter the same way**, or a panel would capture gestures the app then drops — which
+reads as an instrument ignoring the pilot. **Routing is unchanged:** a panel opted in by identifier
+still sends and receives under its full key, so the left CTP reaches the left CTP.
 
 **The bridge:** `PointerFilter` derives an `Instruments` set (the prefix before `|`) because
 `Interact` carries the bare identifier, and the double-actuation guard has to match on that.
@@ -442,49 +464,31 @@ Verification was done offline with scratch harnesses (§14) instead.
 **Chosen:** a single PR structured as clean sequential commits.
 
 **Reasoning:** the maintainer is inactive, so a series has a high chance of stalling half-landed.
-The two standalone bug fixes are first in the sequence and can be taken alone if he wants only
-those.
+
+The two standalone bug fixes that used to open the sequence are no longer in it (§11), so the
+first three commits are now the smallest coherent takes: the failed-join fix, the peer-list
+correction, and the departure/outage split. The exerciser is last and droppable (§17).
 
 ---
 
 ## 5 · Changes to existing code
 
-18 files, 6 new. Of the 12 modified, 3 are bug fixes, 5 are behaviour changes, 4 are plumbing.
+17 files, 5 new. Of the 12 modified, 1 is a bug fix, 6 are behaviour changes, 5 are plumbing.
+The exerciser adds 20 more files on top of that, in a commit meant to be dropped — §17.
 
 ### 5.1 Bug fixes — pre-existing, stand alone
 
-**`VCockpit.js`: instruments dropped on multi-instrument documents**
-
-- *Was:* `var templateToLoad = null` — a single slot. `VCockpitPanel` assigns to it for each
-  instrument that arrives before the FS Copilot scripts finish loading. On a document with more
-  than one instrument, every assignment but the last is overwritten, and only the last instrument
-  gets a `Hook`.
-- *Now:* `var templatesToLoad = []`, pushed to, drained in order once the scripts load, each
-  construction wrapped in try/catch so one failure does not abandon the rest.
-- *Blast radius:* every multi-instrument panel on every aircraft. This is the slow path only
-  (scripts not yet loaded); the fast path already handled each instrument.
-- *Exposes a second pre-existing issue:* with all instruments now getting Hooks, a document can
-  construct duplicate `HtmlEvents` capture. Not fixed here — stated in the PR as a known
-  consequence rather than silently changed.
-
-**`Coordinator`: the profile `ignore` list only filtered outbound**
-
-- *Was:* `_sim.Interactions.Where(i => !_ignore.Contains(...))` on the outbound side; the inbound
-  `_net.Stream<Interact>()` had no filter at all.
-- *Now:* filtered in both directions.
-- *Why it matters today, independent of this feature:* FS Copilot's replayed `MouseEvent`s carry
-  `clientX/Y = 0`. On a WASM gauge that latches a press at the origin. `ignore: [WasmInstrument]`
-  in a profile is the existing mitigation — and it was only half-working, because a peer could
-  still actuate the instrument this side's profile said to leave alone.
+Two of the three that were here are no longer in the branch. Both were tested and judged
+unnecessary rather than deferred; the reasoning is in §11, and the text describing them is in the
+history of this file if either is ever wanted back.
 
 **`MainViewModel`: a failed join left the joiner a slave**
 
 - *Was:* `Join()` demotes to slave before the connect attempt. Nothing restored the role if the
   attempt failed.
 - *Now:* `if (result != ConnectionResult.Success) masterSwitch.TakeControl();`
-- *Why it surfaced here:* the session state machine reads the master/slave role, so a joiner
-  stuck as a slave with no peer would sit under a lock with no way out. The bug predates this
-  feature.
+- *Why it surfaced here:* the sync state machine reads the master/slave role, so a joiner stuck
+  as a slave with no peer would sit under a lock with no way out. The bug predates this feature.
 
 ### 5.2 Behaviour changes — review these carefully
 
@@ -547,7 +551,7 @@ those.
 **`MainViewModel.Leave` now ends the pointer session**
 
 - *Was:* `net.Disconnect(); masterSwitch.TakeControl();`
-- *Now:* also `coordinator.EndSession()`.
+- *Now:* also `coordinator.EndSync()`.
 - *Why:* leaving on purpose is not an outage. Without this the slave's panels would lock for five
   minutes after the user deliberately left.
 
@@ -563,7 +567,7 @@ those.
 | File | Change |
 | --- | --- |
 | `Definitions.cs` | `pointer:` key mirroring `ignore:` exactly — `Config` → `DefinitionNode` → `Collect` → `string[] Pointer`. Include-tree merge comes free. |
-| `Program.cs` | `PanelServer` singleton in both dev and non-dev branches. In dev it gets `EnableDevEcho()` and is fed the profile's pointer list directly, since dev has no `Coordinator`. |
+| `Program.cs` | `PanelServer` singleton in both dev and non-dev branches. The `--dev` echo loopback was left behind with the rest of the bench wiring (§11); panel `stats` carried over and is the diagnostic the PR ships. |
 | `MainViewModel.cs` | `ViewErrors.PanelChannel` for the all-ports-taken case. |
 | `hook.js` | Mode decision. Hello on construction; `config` switches modes at runtime; `state` and `pointer` route to the document's `Pointer`. Both the emit path and the inbound dispatch are gated on `_pointerMode`. |
 | `VCockpit.js` | Three new files in the Include chain (`channel.js`, `overlay.js`, `pointer.js`), inside the existing FSC-delimited blocks. |
@@ -618,7 +622,7 @@ Threading details a reviewer may ask about:
 
 | Member | Notes |
 | --- | --- |
-| `EndSession()` | Public. Called by `Leave` and by the degraded timeout. Drops history and acks, resets link to `None`, broadcasts `none`. |
+| `EndSync()` | Public. Called by `Leave` and by the degraded timeout. Drops history and acks, resets link to `None`, broadcasts `none`. |
 | `OnLink(Link)` | The state machine. `Live` → resend history *only if recovering*; `Connecting` → start the outage clock if there was a peer; `None` → end session if the peer left, else `Degraded`. |
 | `SendPointer(e)` | Appends to `_history` **only if `_hadPeer`**. Nothing is held with no session: a first contact must not receive the local pilot's solo input (R04). |
 | `OnAck(ack)` | Records per-acker high-water marks, drops history below the *minimum* across all ackers. |
@@ -630,7 +634,7 @@ Threading details a reviewer may ask about:
 
 ## 7 · State machines
 
-### 7.1 Session (app side, `Coordinator`)
+### 7.1 Sync state (app side, `Coordinator`)
 
 Link is derived from `net.Peers` + `net.Connecting`:
 `Live` if any peer is `Connected`; `Connecting` if a join is in flight or peers exist but none
@@ -641,29 +645,37 @@ connected; else `None`.
 | none | link → connecting | connecting | — |
 | none/connecting | link → live (first) | live | — (no resend: nothing to replay and nobody it would be right for) |
 | live | link → connecting | connecting | start 5 min outage clock |
-| live | link → none, peer left | none | `EndSession` — drop history |
+| live | link → none, peer left | none | `EndSync` — drop history |
 | live | link → none, peer lost | degraded | start 5 min outage clock |
 | degraded/connecting | link → live | live | **resend unacked history in `Seq` order** |
-| degraded | 5 min elapsed | none | `EndSession`, log desync warning |
-| any | user presses Leave | none | `EndSession` |
+| degraded | 5 min elapsed | none | `EndSync`, log desync warning |
+| any | user presses Leave | none | `EndSync` |
 
 `_peerLeft` is set by `net.PeerLeft` and cleared by any tick showing a live link — so a third
 peer leaving a three-way session does not turn the next real outage into a session end.
 
 ### 7.2 Overlay (panel side)
 
-| Session | Master | Slave |
+| Sync | Master | Slave |
 | --- | --- | --- |
 | none (solo, or left) | clear | clear |
 | connecting | **blue — CONNECTING** | **blue — CONNECTING** |
 | live | clear | clear |
 | degraded | clear (must keep flying) | **amber — SYNC DEGRADED** |
 | app link lost (any prior state) | **red — SYNC BROKEN**, non-blocking | same |
-| replaying a queued gesture | **teal — REPLAYING** | same |
+| replaying, under 12 s | **blocks, draws nothing** | same |
+| replaying, past 12 s | **teal — REPLAYING** | same |
 
-Colours and copy are in `Overlay.STATES`. Three block; `lost` does not (`pointer-events: none`),
+Colours and copy are in `Overlay.STATES`. Four block; `lost` does not (`pointer-events: none`),
 because when the app is gone nobody authoritative is alive to lift a lock. The red warning
 retracts itself after 10 s rather than standing forever.
+
+**Blocking and painting are separate.** A state carrying `silent: true` puts the same fixed node
+over the same rect stopping the same clicks, with no veil, no card and no fade-in.
+`replayingQuiet` is that state, and it is what almost every replay uses: applying a peer's input
+is the panel working, and a veil over every held press and every drag would cover the instrument
+at the moment the pilot is watching it change. Policy swaps in the visible `replaying` only once
+the block has outlasted any one gesture — see `REPLAY_NOTICE_MS` in §8.
 
 **The hard rule: blocking requires a live app renewing the lock.** If `state` renewals stop for
 8 s, any blue/amber lock degrades to red — never to silence, never to a stuck block.
@@ -706,6 +718,7 @@ retracts itself after 10 s rather than standing forever.
 | `EDGE_TOLERANCE` | 0.02 | Rect fraction allowed outside [0,1] when only the point can be tested. |
 | `GAP_MAX_MS` | 1000 | Idle time between gestures is preserved up to this. |
 | `REPLAY_DEADMAN_MS` | 3000 | Past a gesture's expected end, release the queue rather than jamming everything behind it. |
+| `REPLAY_NOTICE_MS` | 12000 | How long the replay interlock blocks silently before it paints. One honest gesture has to fit underneath: a full `DRAG_MAX_POINTS` drag replays in about eight seconds, and one that then stalls is released by the deadman around eleven. Past that the block is a backlog, which nothing bounds, and a panel that will not answer owes the pilot a reason. |
 | `STATE_DEADMAN_MS` | 8000 | Four missed renewals. Past this the app is presumed gone. |
 | `LOST_LINGER_MS` | 10000 | How long the red warning stands before retracting. |
 | `MAX_QUEUE` | 200 | Bounded outbound queue. |
@@ -726,8 +739,8 @@ Every one of these was designed to fail open. This table is the answer to "what 
 | App quits deliberately | `bye` arrives first; panel clears without warning. | 750 ms grace, then dispose. |
 | Peer link drops | Slave locks amber; master clear. | Session `degraded`, history accumulates, 5 min clock. |
 | Peer returns within 5 min | Lock lifts, held history replays in order, gaps preserved. | `live`, `ResendHistory()`. |
-| Peer does not return | Lock lifts at 5 min; desync warning logged. | `EndSession`. |
-| Peer leaves on purpose | Lock never appears. | `EndSession` immediately. |
+| Peer does not return | Lock lifts at 5 min; desync warning logged. | `EndSync`. |
+| Peer leaves on purpose | Lock never appears. | `EndSync` immediately. |
 | Panel loads after the event | Event is dropped and counted — see §6.2. | — |
 | Replay stalls | 3 s deadman releases the queue, logs, increments `stalled`. | — |
 | Overlay stuck for any reason | `window.fscUnlock()` at a fixed global removes it. | — |
@@ -761,10 +774,13 @@ Every one of these was designed to fail open. This table is the answer to "what 
 | Keyboard sync | `keydown`/`keypress`/`keyup` were observed arriving at panel documents and trusted, so it is available. Deliberately a second pass. |
 | Wheel and double-click | Wheel is a first-party MSFS cockpit control and is not injected into large instrument panels; double-click is not used on these panels. Decided 2026-08-30 from cockpit experience. |
 | Re-enabling `IgnoreUnmatchedProperties()` | Would fix the forward-compat hazard for profile keys. A separate argument, and a separate risk. Flagged in the PR as worth doing. |
-| The A220 profile | Belongs in `fscopilot-profiles`, which already carries `pointer: [DisplayUnits\|config=Default]`. The branch copy is a stale snapshot nothing reads. |
-| A test project | §4.11. |
+| The A220 profile | Belongs in `fscopilot-profiles`, which carries `pointer: [DisplayUnits]` and keeps `DisplayUnits\|config=Default` beneath it for builds that match whole keys. The branch copy was a stale snapshot and is gone. |
+| A test project | §4.11. The exerciser is a harness, not a test suite, and ships droppable — §17. |
+| `VCockpit.js` multi-instrument fix | Tested and judged unnecessary, 2026-09-19, so it is not in the branch. It was §17 commit 1 and is described in this file's history. |
+| Inbound `ignore` filter on `Interact` | Same call. In practice both peers run the same build and the same profiles, so an interaction the sender's outbound filter already drops can never arrive to be filtered here. |
+| `--dev` echo loopback, `BenchControl` | Bench wiring for the node testbed. Panel `stats` carried over; the rest did not. |
 | Master handover when the master leaves | The remaining pilot should arguably become master. Deferred as a separate piece of work — this PR reads the role and never writes it. |
-| Fixing duplicate `HtmlEvents` on multi-instrument documents | Pre-existing, exposed by the `VCockpit.js` fix. Documented rather than silently changed. |
+| Fixing duplicate `HtmlEvents` on multi-instrument documents | Pre-existing, and reachable only through the `VCockpit.js` fix, which is no longer in the branch. Nothing here exposes it. |
 
 ---
 
@@ -828,8 +844,13 @@ Do not assert anything in the PR that is not in this table.
 | Every panel file parses | `node --check` at every commit | build log 2026-09-12 |
 | App builds clean at every commit | `dotnet build` | build log 2026-09-12 |
 
+| Silent replay overlay blocks without painting | In the sim: `fscOverlay('replayingQuiet')` then the visible one, both measured | `results/p13-overlay-silence-in-sim-2026-09-18.txt` |
+| An identifier entry opts in a panel whose key carries a query | Bench scenario, both directions, plus narrowing back to an exact key | `testbed/scenarios/identifier-opt-in.mjs`, `results/identifier-opt-in-{before,after}-2026-09-17.png` |
+| 17 identifiers cover more than one instrument | Scan of 165 HTML gauges across 19 installed aircraft | `record/exerciser/results/p04-panel-identifiers-2026-09-17.txt` |
+| The cut branch builds and parses at every commit | `dotnet build` and `node --check` at the tip and with the exerciser commit dropped | 2026-09-19 |
+
 **Not verified — do not claim:** trimmed-publish survival, outage paths against a real peer
-(history resend, degraded lock, session timeout), Q04 rect agreement across machines, the origin
+(history resend, degraded lock, sync timeout), Q04 rect agreement across machines, the origin
 rejection, and R08 reordering (believed absent on this side, never observed either way).
 
 ---
@@ -849,7 +870,8 @@ rejection, and R08 reordering (believed absent on this side, never observed eith
 | Is this tested with two machines? | Yes, once, live path only. Outage paths are untested. | §14 |
 | Why one packet type with a discriminator? | Two types are two streams with independent scheduling — a drag could overtake a press. | §4.5 |
 | Why is `Flags` there if it's unused? | The schema hash makes adding a field later a break for every user; flag bits aren't. | §3.3 |
-| Why does `pointer:` use different key syntax from `ignore:`? | The A220 reuses identifiers across instruments; a bare identifier can't address one. | §4.10 |
+| Why can `pointer:` take a key as well as an identifier? | An identifier is the default; the full key narrows to one panel where an aircraft reuses an identifier. | §4.10 |
+| What is `FsCopilot.Exerciser`? | A test harness that plays the other pilot on one machine. Last commit, self-contained, drop it and the feature is intact. | §17 |
 | Why no tests? | No test project exists to extend, and nothing load-bearing is unit-testable without the sim. | §4.11 |
 | Why is the peer list behaviour changing? | A handshake that may still fail was being shown, counted and announced as a peer. | §5.2 |
 | Are you preferring relay over direct now? | No. The merge affects the peer *list*, not routing, and direct still wins whenever it is connected. `SendAll` writes to both transports as before. | §5.2 |
@@ -859,23 +881,22 @@ rejection, and R08 reordering (believed absent on this side, never observed eith
 
 ## 16 · Pre-push checklist
 
-**Blockers:**
+**Done:**
 
-- [ ] **Reshape the branch.** 14 commits, four of which fix code introduced earlier on the same
-      branch (`12b8e4d` fixes `5a991a0`; `149b90d`…`833ea67` fix `30501dd`). A PR branch is cut
-      fresh from `main` with the work moved across as clean commits. See §17.
-- [ ] **Remove `Definitions/synaptic_a220.yaml`.** Salvage diff is written
-      (`results/a220-profile-salvage-2026-09-12.txt`) and is **not empty** — 20 variables the
-      branch copy names in a `get:` are absent from the profiles repo copy. Read that list, move
-      anything wanted into `fscopilot-profiles`, then `git rm`.
-- [ ] **R12 step two** — reject `http://`/`https://` origins. Waiting on one sim session to
-      confirm what Coherent actually sends in the `Origin` header. Currently logged at Debug only.
+- [x] **Reshape the branch.** Cut fresh from `main` as `pointer-forwarding`, 2026-09-13; the two
+      later folds and the exerciser landed 2026-09-19. Shape in §17.
+- [x] **Remove `Definitions/synaptic_a220.yaml`.** Salvaged against
+      `results/a220-profile-salvage-2026-09-12.txt`; the profile lives in `fscopilot-profiles`,
+      which now carries the bare `DisplayUnits` identifier and keeps `DisplayUnits|config=Default`
+      for builds that match whole keys.
+- [x] **R12 step two** — `http://`/`https://` origins refused, not just logged.
+- [x] `node --check` over every file under `PackageSources/HTML_UI`, and `dotnet build`, both at
+      the tip and with the exerciser commit dropped.
 
 **Verification owed:**
 
 - [ ] `dotnet publish -c Release` and run the trimmed single-file exe — confirm `HttpListener` and
       `AcceptWebSocketAsync` survive trimming.
-- [ ] `node --check` over every file under `PackageSources/HTML_UI` on the final reshaped branch.
 - [ ] Confirm the deployed upstream relay emits `PEER_LEFT` / `LEFT_ALL`, or soften the claim.
 
 **Decide before writing:**
@@ -883,22 +904,52 @@ rejection, and R08 reordering (believed absent on this side, never observed eith
 - [ ] Whether to mention the pre-PR review (17 findings, 16 fixed) at all. It signals rigour and
       also signals "this had 17 bugs recently". My read: leave it out; the fixes are in the code.
 - [ ] Whether to nudge on `IgnoreUnmatchedProperties()`. It is real and it is scope creep.
+- [ ] Whether to offer the exerciser at all, or cut the last commit before pushing. It is the only
+      commit that puts test-only surface on production code paths (§17).
 
 ---
 
-## 17 · Commit plan for the reshaped branch
+## 17 · The branch as cut
 
-Target shape. Each is independently buildable, and the first two are takeable alone.
+`pointer-forwarding`, cut fresh from `main` at `7b85a16`. Each commit builds, and `node --check`
+passes over `PackageSources/HTML_UI` at each.
 
 | # | Commit | Contents |
 | --- | --- | --- |
-| 1 | `VCockpit.js`: keep every instrument on multi-instrument panels | `VCockpit.js` pending-array fix only |
-| 2 | Apply the profile ignore list to inbound interactions too | `Coordinator` inbound filter; `ignore: [WasmInstrument]` entries if any belong here |
-| 3 | Add a direct panel-to-app WebSocket channel | `PanelServer.cs`, `channel.js`, `VCockpit.js` include chain, DI in `Program.cs`, `ViewErrors.PanelChannel`. Behaviour-neutral: panels stay in events mode |
-| 4 | Forward cockpit input by position, not element name | `Pointer.cs`, `pointer.js`, `overlay.js`, `hook.js` mode gating, `pointer:` in `Definitions.cs`, Coordinator wiring and filter |
-| 5 | Tell a live session from an outage, and a departure from a loss | `Peer.Connected`, `INetwork.Connecting`/`PeerLeft`, P2P/Relay/Hybrid changes, `MainViewModel` peer filtering and failed-join fix, session state machine, history/acks, overlay policy, `App.axaml.cs` goodbye |
-| 6 | Add pointer diagnostics | panel `stats`, `--dev` echo, per-key counters |
+| 1 | Restore the joiner's role when a join fails | `MainViewModel` only. §5.1 |
+| 2 | Stop counting a handshake as a connected peer | `Peer.Connected`, `P2PNetwork` poll, `HybridNetwork` merge, `MainViewModel` filtering. §5.2 |
+| 3 | Differentiate between a peer that left and a peer that was lost | `INetwork.PeerLeft`/`Connecting`, P2P payload, relay close codes, `DrainDisconnect`, `App.axaml.cs` goodbye. §5.2 |
+| 4 | Add a direct panel-to-app WebSocket channel | `PanelServer.cs`, `channel.js`, `VCockpit.js` include chain, DI in `Program.cs`, `ViewErrors.PanelChannel`. Behaviour-neutral: panels stay in events mode |
+| 5 | Add opt-in pointer sync alongside the element-name path | `Pointer.cs`, `pointer.js`, `overlay.js`, `hook.js` mode gating, `pointer:` in `Definitions.cs`, `PointerFilter`, panel `stats` |
+| 6 | Prevent pointer panels diverging while sync is not live | The sync state machine in `Coordinator`, and the overlay policy it drives |
+| 7 | Add an acknowledged pointer event history so a returning peer catches up | `PointerAck`, history, resend on recovery |
+| 8 | Add the exerciser: a test harness that plays the other pilot | `FsCopilot.Exerciser`, and everything it needs from `FsCopilot` — see below |
 
-Commit 5 is the big one and cannot reasonably be split further — the session machine, the peer
-semantics it reads, and the overlay policy it drives are one change. Say so in the PR rather than
-letting the reviewer wonder.
+Where the earlier plan had six commits, this has eight and a different split. What moved:
+
+- **The two standalone bug fixes that opened the old plan are gone** — tested and judged
+  unnecessary, 2026-09-19. §11.
+- **Old commit 5 is now 1–3, 6 and 7.** The peer semantics, the departure/outage split and the
+  sync machine turned out to separate cleanly after all, so the claim that it "cannot reasonably
+  be split further" no longer holds and should not be made in the PR.
+- **Old commit 6 dissolved.** Panel `stats` sits in commit 5 where the counters it reports are
+  defined; the `--dev` echo was left behind.
+- **Two later changes were folded into commit 5** rather than appended, so a reviewer reads one
+  design instead of a design being revised mid-branch: opting in by identifier (§4.10) and the
+  silent replay interlock (§7.2).
+
+### The exerciser commit
+
+Last on purpose, and the only one that puts test-only surface on production code paths. Dropping
+it leaves the feature intact — verified by building at commit 7. It carries:
+
+| Change | Why the exerciser needs it |
+| --- | --- |
+| `InternalsVisibleTo`, three nested types widened to `internal` | `Codecs.Schema` hashes each packet type's assembly-qualified name, so a peer outside this assembly has to register these very types, not its own copies |
+| `--relay`, `--peer-id` | Two instances on one machine need a rendezvous the harness can restart and ids it can name before either starts. Absent them the app behaves exactly as before |
+| `{t:"watch"}` and `{t:"panels"}` on the panel channel | A watcher is not a panel: it gets config and state as a panel does, plus every helloed key with its rect. Panels never watch |
+| The instrument rect, re-announced | An instrument not yet laid out measures as zero. Re-measured once a second until it answers; one hello per key is kept so a reconnect replays the latest rect. A pop-out draws the instrument fitted and centred, so mapping a click on a capture back to rect fractions takes the aspect ratio |
+
+`BenchControl` and the `--bench` port are **not** here. They serve the node testbed
+(`record/pointer-forwarding/testbed/`), which drives the app rather than playing a peer, and
+nothing upstream would want them.

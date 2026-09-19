@@ -36,6 +36,41 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
 
 ---
 
+## 2026-09-19 — Two of the PR's three bug fixes are not needed, and the branch is eight commits
+    Question:  none - decisions taken while folding work into the PR branch, recorded so
+               13-pr-prep's history is not read as an oversight
+    Stage:     6
+    Expected:  That the cut branch was 13-pr-prep §17's plan minus nothing, and that the
+               two standalone bug fixes at the front of it were free wins for the PR.
+    Found:     Neither fix is needed, and both were dropped after testing.
+
+               VCockpit.js multi-instrument: the single templateToLoad slot does drop
+               every instrument but the last on the slow path, but no aircraft reached
+               that path in testing, and the fix exposes a second pre-existing issue
+               (duplicate HtmlEvents capture) that would then have to be explained in
+               the PR. Not worth the surface.
+
+               Inbound ignore filter on Interact: the argument for it was a peer with a
+               different profile actuating an instrument this side said to leave alone.
+               In practice both peers run the same build and the same profiles, so an
+               interaction the sender's own outbound filter drops never reaches the wire
+               to be filtered here. The guard has no case to catch.
+
+               Separately: the cut branch had drifted from ahead-pointer-forwarding in
+               both directions. The PR branch carried a prose pass ahead never got (-153
+               lines of comment on the panel JS), and ahead carried five commits the PR
+               never got. Merging either way would have undone the other, so the two
+               folds below were applied by hand as hunks, not cherry-picks.
+    Changed:   13-pr-prep §5.1 loses two of three fixes, §11 gains them with the reasoning,
+               §17 is rewritten as the branch that exists: eight commits, not six. The old
+               §17 claim that commit 5 "cannot reasonably be split further" is withdrawn -
+               it split cleanly into four. Folded into commit 5 rather than appended:
+               opt-in by identifier (§4.10, reversed) and the silent replay interlock
+               (§7.2). The exerciser is commit 8, self-contained and droppable; building
+               at commit 7 confirms the feature stands without it.
+    Affects:   13-pr-prep
+    Evidence:  none - build and node --check at the tip and at commit 7, 2026-09-19
+
 ## 2026-09-17 — The replay interlock blocks silently; twelve seconds is where it speaks
     Question:  none - a decision taken while building, recorded so it is not re-derived
     Stage:     6
