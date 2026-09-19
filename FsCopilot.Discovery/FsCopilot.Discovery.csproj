@@ -10,10 +10,6 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
-    <!-- What restore resolves, not what is built: the pin above still decides that, and
-         deployment is unchanged. win-x64 is here so FsCopilot.Exerciser can build a
-         rendezvous that runs on the developer machine. Test-only. -->
-    <RuntimeIdentifiers>linux-x64;win-x64</RuntimeIdentifiers>
     <PublishReadyToRun>true</PublishReadyToRun>
     <Nullable>enable</Nullable>
     <PublishTrimmed>true</PublishTrimmed>

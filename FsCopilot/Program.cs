@@ -71,8 +71,10 @@ sealed class Program
     {
         var isDev = args.Any(a => string.Equals(a, "--dev", StringComparison.OrdinalIgnoreCase));
         // var isExperimental = args.Any(a => string.Equals(a, "--experimental", StringComparison.OrdinalIgnoreCase));
-        // Test-only, with BenchControl: the bench runs two instances on one machine and
-        // needs a rendezvous it can restart, and ids it can name before either starts.
+        // For a harness driving this build from outside - BenchControl, or the exerciser in
+        // its own repo: two instances on one machine need a relay the harness can restart,
+        // and ids it can name before either starts. --relay also points the app at a
+        // self-hosted relay, which is not a test concern.
         var host = Option(args, "--relay") ?? "p2p.fscopilot.com";
         var peerId = Option(args, "--peer-id") ?? Random.String(8);
         var name = Environment.UserName;

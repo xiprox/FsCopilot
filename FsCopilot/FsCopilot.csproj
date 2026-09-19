@@ -24,15 +24,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Test-only, with FsCopilot.Exerciser: Codecs.Schema hashes each packet type's
-             assembly-qualified name, so a peer outside this assembly has to register these
-             very types. Three of them are nested and internal. -->
-        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-            <_Parameter1>FsCopilot.Exerciser</_Parameter1>
-        </AssemblyAttribute>
-    </ItemGroup>
-
-    <ItemGroup>
         <AvaloniaResource Include="Assets\icon.svg"/>
         <AvaloniaResource Include="Assets\fscopilot.ico"/>
         <AvaloniaResource Include="Assets\hero.png"/>

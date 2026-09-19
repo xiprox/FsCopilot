@@ -12,7 +12,7 @@ using System.Text.Json;
 /// in return; the state is re-broadcast every 2 seconds so a panel can treat silence as
 /// "the app is gone" and fail open. A deliberate shutdown says goodbye first; see
 /// <see cref="Shutdown"/>.
-/// A client that is not a panel (the exerciser) sends {t:"watch"} instead of a hello. It gets
+/// A client that is not a panel sends {t:"watch"} instead of a hello. It gets
 /// the same config and state, plus {t:"panels"}: every helloed key with its rect, re-sent
 /// when that list changes. Panels never watch, so they never receive it.
 /// </summary>

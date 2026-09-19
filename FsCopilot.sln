@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FsCopilot", "FsCopilot\FsCo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FsCopilot.Discovery", "FsCopilot.Discovery\FsCopilot.Discovery.csproj", "{E036F019-CD27-4E49-A1B3-85111E5BF75E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FsCopilot.Exerciser", "FsCopilot.Exerciser\FsCopilot.Exerciser.csproj", "{B03254B2-3F46-4417-9BB4-6118D12C7E94}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,18 +42,6 @@ Global
 		{E036F019-CD27-4E49-A1B3-85111E5BF75E}.Release|x64.Deploy.0 = Release|Any CPU
 		{E036F019-CD27-4E49-A1B3-85111E5BF75E}.Release|x86.ActiveCfg = Release|Any CPU
 		{E036F019-CD27-4E49-A1B3-85111E5BF75E}.Release|x86.Build.0 = Release|Any CPU
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Debug|Any CPU.Build.0 = Debug|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Debug|x64.ActiveCfg = Debug|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Debug|x64.Build.0 = Debug|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Debug|x86.ActiveCfg = Debug|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Debug|x86.Build.0 = Debug|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Release|Any CPU.ActiveCfg = Release|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Release|Any CPU.Build.0 = Release|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Release|x64.ActiveCfg = Release|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Release|x64.Build.0 = Release|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Release|x86.ActiveCfg = Release|x64
-		{B03254B2-3F46-4417-9BB4-6118D12C7E94}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
