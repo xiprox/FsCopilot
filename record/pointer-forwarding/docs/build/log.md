@@ -68,9 +68,15 @@ doc naming this entry — see the working notes in [plan.md](plan.md).
                files, reached the mapped FsCopilot.dll, threw out of an async void handler
                and killed the window. The copy belongs in a script that runs after the
                process exits, and it stages then swaps rather than deleting first.
-    Changed:   13-pr-prep §17 is the hooks rather than the harness, 26 files to 4. §11
+    Changed:   13-pr-prep §17 is the hooks rather than the harness, 26 files to 2. §11
                records where the harness went. §5's counts are unchanged - it was never in
                those 17 files.
+               Later the same day: the two panel-side changes that came with it - the rect
+               re-measured until layout answers, and one hello kept per name - moved to
+               commit 4. They belong to the hello, which that commit defines, and nothing
+               reads the rect but a Debug log until the watch verb exists. Commit 8 is two
+               files and a subject line after that, which leaves the reason it exists to
+               the pull request text.
     Affects:   13-pr-prep
     Evidence:  none - the harness joins a synced build and the relay accepts the schema,
                exerciser log 2026-09-19

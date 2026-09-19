@@ -924,11 +924,11 @@ passes over `PackageSources/HTML_UI` at each.
 | 1 | Restore the joiner's role when a join fails | `MainViewModel` only. §5.1 |
 | 2 | Stop counting a handshake as a connected peer | `Peer.Connected`, `P2PNetwork` poll, `HybridNetwork` merge, `MainViewModel` filtering. §5.2 |
 | 3 | Differentiate between a peer that left and a peer that was lost | `INetwork.PeerLeft`/`Connecting`, P2P payload, relay close codes, `DrainDisconnect`, `App.axaml.cs` goodbye. §5.2 |
-| 4 | Add a direct panel-to-app WebSocket channel | `PanelServer.cs`, `channel.js`, `VCockpit.js` include chain, DI in `Program.cs`, `ViewErrors.PanelChannel`. Behaviour-neutral: panels stay in events mode |
+| 4 | Add a direct panel-to-app WebSocket channel | `PanelServer.cs`, `channel.js`, `VCockpit.js` include chain, DI in `Program.cs`, `ViewErrors.PanelChannel`, and the instrument rect the hello carries. Behaviour-neutral: panels stay in events mode |
 | 5 | Add opt-in pointer sync alongside the element-name path | `Pointer.cs`, `pointer.js`, `overlay.js`, `hook.js` mode gating, `pointer:` in `Definitions.cs`, `PointerFilter`, panel `stats` |
 | 6 | Prevent pointer panels diverging while sync is not live | The sync state machine in `Coordinator`, and the overlay policy it drives |
 | 7 | Add an acknowledged pointer event history so a returning peer catches up | `PointerAck`, history, resend on recovery |
-| 8 | Open the app to a harness that drives it from outside | `--relay`, `--peer-id`, the panel channel's `watch` verb, the re-announced rect — see below |
+| 8 | Open the app to a harness that drives it from outside | `Program.cs` and `PanelServer.cs` only: `--relay`, `--peer-id`, the panel channel's `watch` verb. Subject line, no body — see below |
 
 Where the earlier plan had six commits, this has eight and a different split. What moved:
 
@@ -942,21 +942,25 @@ Where the earlier plan had six commits, this has eight and a different split. Wh
 - **Two later changes were folded into commit 5** rather than appended, so a reviewer reads one
   design instead of a design being revised mid-branch: opting in by identifier (§4.10) and the
   silent replay interlock (§7.2).
-- **Commit 8 shrank from the harness to its hooks**, 26 files to 4, when the harness moved to
-  its own repository.
+- **Commit 8 shrank from the harness to its hooks**, 26 files to 2, when the harness moved to
+  its own repository. The rect being re-announced went with it at first and then to commit 4,
+  where the hello that carries it is defined: it fixes a measurement the channel already
+  sends, and until commit 8 nothing reads it but a Debug log.
 
 ### The last commit
 
-It is the surface the application deliberately offers something driving it from outside, and it
-is last so it can be dropped on its own. Dropping it leaves the feature intact — verified by
-building at commit 7.
+Two files, and a subject line with no body. It is the surface the application deliberately
+offers something driving it from outside, and it is last so it can be dropped on its own —
+verified by building at commit 7.
+
+Nothing in the branch explains why the application takes `--peer-id` or answers `watch`, which
+is a question §15 says a reviewer will ask. That answer has to be in the pull request text.
 
 | Hook | Why it cannot come from outside |
 | --- | --- |
 | `--relay <host>` | Two instances on one machine have to meet somewhere, and the harness needs one it can restart. Not test-only in any case: it is what points the app at a self-hosted relay instead of `p2p.fscopilot.com`. |
 | `--peer-id <id>` | Lets the harness name the session code before the app starts, so it can join without anyone copying anything. Without it, the code is read off a window and pasted. |
 | `{t:"watch"}` on the panel channel | Answers "what is there to press": every helloed key with the rect the panel measured, re-sent when that list changes. Panels never watch, and no gesture is ever routed to a watcher. |
-| The instrument rect, re-announced | An instrument not laid out when its hook runs measures as zero, so it is re-measured until it answers. A pop-out draws the instrument fitted and centred, so mapping a click on a capture back to rect fractions takes the aspect ratio. |
 
 ### What the harness does not ask for
 
