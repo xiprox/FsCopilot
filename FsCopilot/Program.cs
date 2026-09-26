@@ -27,8 +27,10 @@ sealed class Program
             .InformationalVersion
             .Split('+')[0] ?? "unknown";
 
+        // DIAGNOSTIC BUILD: Verbose from a plain double-click, and the level on every line.
+        // The PR logs Debug unless --dev or --debug is given.
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug()
+            .MinimumLevel.Verbose()
             .WriteTo.Console()
             .WriteTo.File(
                 path: "log",
@@ -37,14 +39,18 @@ sealed class Program
                 shared: true,
                 retainedFileCountLimit: null,
                 fileSizeLimitBytes: null,
-                outputTemplate: "[{Timestamp:HH:mm:ss.fff}] {Message:lj}{NewLine}{Exception}",
-                restrictedToMinimumLevel: isDev || isDebug ? LogEventLevel.Verbose : LogEventLevel.Debug
+                outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}",
+                restrictedToMinimumLevel: LogEventLevel.Verbose
             )
             .CreateLogger();
 
         try
         {
             Log.Information("[Application] Loaded {Version} version", version);
+            Log.Information("[Diag] DIAGNOSTIC BUILD {Info}; started {Utc:O} UTC, local offset {Offset}, machine {Machine}, user {User}, OS {Os}, args [{Args}]",
+                Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+                DateTime.UtcNow, TimeZoneInfo.Local.GetUtcOffset(DateTime.Now), Environment.MachineName,
+                Environment.UserName, Environment.OSVersion, string.Join(" ", args));
             BuildAvaloniaApp(args).StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
@@ -76,6 +82,7 @@ sealed class Program
         var host = Option(args, "--relay") ?? "p2p.fscopilot.com";
         var peerId = Option(args, "--peer-id") ?? Random.String(8);
         var name = Environment.UserName;
+        Log.Information("[Diag] Peer id {PeerId}, relay host {Host}, dev={Dev}", peerId, host, isDev);
 
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()

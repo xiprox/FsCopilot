@@ -11,6 +11,8 @@ class Hook {
         if (!window.fscChannel) window.fscChannel = new Channel();
         const channel = window.fscChannel;
         this.key = Channel.keyFor(instrument);
+        this._log('Hook created: id=' + id + ' hookId=' + hookId + ' interactive=' + !!instrument.isInteractive +
+            ' url=' + (instrument.getAttribute('url') || instrument.getAttribute('Url') || '(none)'));
         this._announce(instrument, channel);
 
         this._pointerMode = false;
@@ -22,7 +24,16 @@ class Hook {
             } else if (msg.t === 'state') {
                 if (this._pointerOwner && window.fscPointer) window.fscPointer.updateState(msg.sync, msg.role);
             } else if (msg.t === 'pointer') {
-                if (this._pointerOwner && window.fscPointer && msg.msg) window.fscPointer.replay(msg.msg);
+                const m = msg.msg;
+                if (this._pointerOwner && window.fscPointer && m) {
+                    const took = window.fscPointer.replay(m, msg.seq);
+                    if (!took) this._log('Replay refused seq=' + msg.seq + ' key=' + (m && m.key));
+                } else if (m && m.key === this.key) {
+                    // Routed here by key, but this document never went into pointer mode.
+                    this._log('Pointer message seq=' + msg.seq + ' for ' + m.key + ' IGNORED: owner=' + this._pointerOwner +
+                        ' pointerMode=' + this._pointerMode + ' fscPointer=' +
+                        (window.fscPointer ? window.fscPointer.key : 'none'));
+                }
             }
         });
         channel.addEventListener('close', (info) => {
@@ -39,13 +50,18 @@ class Hook {
                     report.pointer = window.fscPointer.stats();
                 }
                 channel.send(report);
-            }, 60000);
+            }, Hook.STATS_MS);
         }
 
         const interact = instrument.onInteractionEvent;
         instrument.onInteractionEvent = (_args) => {
             interact.call(instrument, _args);
             if (SimVar.GetSimVarValue('L:FSC_HOOK', 'number') != hookId) return;
+            // A replayed click that fires an H: event the profile also syncs would actuate twice.
+            if (window.fscPointer) {
+                this._log('H event ' + _args[0] + ' in a pointer-mode document (replaying=' +
+                    !!window.fscPointer._busy + ', queued=' + window.fscPointer._queue.length + ')');
+            }
             bus.send({type: 'hevent', name: _args[0]});
         }
 
@@ -53,16 +69,25 @@ class Hook {
 
         const events = new HtmlEvents();
         events.addEventListener('emit', ev => {
-            if (this._pointerMode) return;
+            if (this._pointerMode) {
+                this._log('Events-mode emit suppressed by pointer mode: ' + ev.type + ' id=' + ev.id +
+                    (ev.value != null ? ' value=' + ev.value : ''));
+                return;
+            }
             bus.send({type: 'interact', instrument: id, event: ev.type, id: ev.id, value: ev.value});
         });
         bus.addEventListener('message', msg => {
-            if (this._pointerMode) return;
             if (msg.type !== 'interact') return;
             if (id !== msg.instrument) return;
+            if (this._pointerMode) {
+                this._log('Inbound Interact ignored by pointer mode: ' + msg.event + ' id=' + msg.id);
+                return;
+            }
             events.dispatch(msg.event, msg.id, msg.value);
         });
     }
+
+    _log(text) { window.fscLog('Hook ' + this.key, text); }
 
     /* An instrument not laid out yet measures as zero, so retry until it answers. */
     _announce(instrument, channel) {
@@ -83,22 +108,28 @@ class Hook {
             const late = measure();
             if (late) {
                 channel.hello(this.key, {rect: late});
-                console.log('[FsCopilot] [Hook] ' + this.key + ' measured late: ' +
-                    late[0] + 'x' + late[1] + ' after ' + (tries + 1) + 's');
+                this._log('Measured late: ' + late[0] + 'x' + late[1] + ' after ' + (tries + 1) + 's');
             }
-            if (late || ++tries >= 60) clearInterval(timer);
+            if (late || ++tries >= 60) {
+                if (!late) this._log('Still no rect after 60s; giving up on measuring');
+                clearInterval(timer);
+            }
         }, 1000);
     }
 
     /* The app filters the same way, or a panel captures gestures the app then drops. */
     _configure(pointerKeys, instrument, channel) {
         const id = this.key.split('|')[0];
-        const want = pointerKeys.indexOf(this.key) >= 0 || pointerKeys.indexOf(id) >= 0;
+        const byKey = pointerKeys.indexOf(this.key) >= 0;
+        const byId = pointerKeys.indexOf(id) >= 0;
+        const want = byKey || byId;
+        this._log('Config [' + pointerKeys.join(', ') + ']: want=' + want +
+            (want ? ' (matched by ' + (byKey ? 'key' : 'identifier ' + id) + ')' : '') +
+            ' pointerMode=' + this._pointerMode + ' owner=' + this._pointerOwner);
         if (want && !this._pointerMode) {
             if (window.fscPointer && window.fscPointer.key !== this.key) {
                 // One pointer instrument per document: the first to opt in wins.
-                console.warn('[FsCopilot] [Hook] Pointer already owned by ' + window.fscPointer.key +
-                    '; ' + this.key + ' stays in events mode');
+                this._log('Pointer already owned by ' + window.fscPointer.key + '; this one stays in events mode');
                 return;
             }
             if (!window.fscPointer) {
@@ -107,7 +138,7 @@ class Hook {
                 this._pointerOwner = true;
             }
             this._pointerMode = true;
-            console.log('[FsCopilot] [Hook] Pointer mode on for ' + this.key);
+            this._log('Pointer mode ON');
         } else if (!want && this._pointerMode) {
             this._pointerMode = false;
             if (this._pointerOwner && window.fscPointer) {
@@ -115,7 +146,9 @@ class Hook {
                 window.fscPointer = null;
                 this._pointerOwner = false;
             }
-            console.log('[FsCopilot] [Hook] Pointer mode off for ' + this.key + '; events mode restored');
+            this._log('Pointer mode OFF; events mode restored');
         }
     }
 }
+
+Hook.STATS_MS = 10000;  // DIAGNOSTIC BUILD: 60000 in the PR

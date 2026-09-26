@@ -50,6 +50,7 @@ public class Coordinator : IDisposable
         RandomNumberGenerator.Fill(sessionBytes);
         var sessionId = BitConverter.ToUInt64(sessionBytes);
         _sessionId = sessionId;
+        Log.Information("[Pointer] Our pointer session is {Session:x16}", sessionId);
 
         net.RegisterPacket<Update, Update.Codec>();
         net.RegisterPacket<Interact, InteractCodec>();
@@ -85,11 +86,27 @@ public class Coordinator : IDisposable
         // they arrive in capture order. Filtered on receive too, because a panel connects
         // before it learns its mode.
         _d.Add(panels.Events
-            .Where(e => _pointer.Contains(e.Key))
+            .Where(e =>
+            {
+                if (_pointer.Contains(e.Key)) return true;
+                Log.Warning("[Pointer] Local {Kind} for {Key} DROPPED: the loaded profile does not opt it in (pointer=[{Entries}])",
+                    e.Kind, e.Key, _pointer.Describe());
+                return false;
+            })
             .Subscribe(e => SendPointer(e with { Session = _sessionId, Seq = NextSeq() })));
         _d.Add(_net.Stream<PointerEvent>()
+            .Do(e => Log.Debug("[Pointer] RX {Kind} seq {Seq} session {Session:x16} for {Key}: {Detail}",
+                e.Kind, e.Seq, e.Session, e.Key, Detail(e)))
             .Where(e => Fresh(e.Session, e.Seq))
-            .Where(e => _pointer.Contains(e.Key))
+            .Where(e =>
+            {
+                if (_pointer.Contains(e.Key)) return true;
+                Log.Warning("[Pointer] RX seq {Seq} for {Key} DROPPED: the loaded profile does not opt it in (pointer=[{Entries}])",
+                    e.Seq, e.Key, _pointer.Describe());
+                return false;
+            })
+            .Do(e => Log.Debug("[Pointer] RX seq {Seq} accepted; routing to panels (sync {Sync}, master {Master})",
+                e.Seq, _syncState, _masterSwitch.IsMaster))
             .Subscribe(panels.Send));
         _d.Add(_net.Stream<PointerAck>().Subscribe(OnAck));
         _d.Add(Observable.Interval(AckInterval).Subscribe(_ => SendAcks()));
@@ -97,14 +114,27 @@ public class Coordinator : IDisposable
         // live: a peer is connected. connecting: a join or handshake is in flight.
         // A dropped live link becomes degraded until the peer returns or the timeout ends it.
         _d.Add(Observable.CombineLatest(net.Peers, net.Connecting,
+                (peers, joining) => string.Join(", ", peers.Select(p => $"{p.PeerId}/{p.Name}/{p.Transport}/{(p.Connected ? "connected" : "not connected")}")) +
+                    $" | joining={joining}")
+            .DistinctUntilChanged()
+            .Subscribe(snapshot => Log.Debug("[Pointer] Peers: {Snapshot}", snapshot)));
+        _d.Add(Observable.CombineLatest(net.Peers, net.Connecting,
                 (peers, joining) => peers.Any(p => p.Connected) ? Link.Live
                     : joining || peers.Count > 0 ? Link.Connecting
                     : Link.None)
             .Subscribe(OnLink));
-        _d.Add(net.PeerLeft.Subscribe(_ => { lock (_stateLock) _peerLeft = true; }));
+        _d.Add(net.PeerLeft.Subscribe(peer =>
+        {
+            Log.Debug("[Pointer] PeerLeft {Peer}", peer);
+            lock (_stateLock) _peerLeft = true;
+        }));
         _d.Add(masterSwitch.Master
             .DistinctUntilChanged()
-            .Subscribe(_ => { lock (_stateLock) _panels.SetSync(_syncState, _masterSwitch.IsMaster); }));
+            .Subscribe(isMaster =>
+            {
+                Log.Debug("[Pointer] Master switch: this side is now {Role}", isMaster ? "master" : "slave");
+                lock (_stateLock) _panels.SetSync(_syncState, _masterSwitch.IsMaster);
+            }));
     }
 
     public void Dispose()
@@ -121,6 +151,8 @@ public class Coordinator : IDisposable
         foreach (var def in definitions) AddLink(def);
         foreach (var i in definitions.Ignore) _ignore.Add(i);
         _pointer = new PointerFilter(definitions.Pointer);
+        Log.Information("[Pointer] Profile {Name} loaded: pointer=[{Entries}], ignore=[{Ignore}]",
+            definitions.Name, _pointer.Describe(), string.Join(", ", definitions.Ignore));
         _panels.Configure(definitions.Pointer);
     }
 
@@ -128,6 +160,8 @@ public class Coordinator : IDisposable
     {
         lock (_stateLock)
         {
+            Log.Debug("[Pointer] EndSync: dropping {History} history entries and {Acks} acker(s); sync {Sync} -> none",
+                _history.Count, _acks.Count, _syncState);
             _degradedTimer?.Dispose();
             _degradedTimer = null;
             _hadPeer = false;
@@ -149,6 +183,8 @@ public class Coordinator : IDisposable
         {
             if (link == Link.Live) _peerLeft = false;
             if (link == _link) return;
+            Log.Debug("[Pointer] Link {Old} -> {New} (hadPeer {HadPeer}, peerLeft {PeerLeft}, sync {Sync}, history {History})",
+                _link, link, _hadPeer, _peerLeft, _syncState, _history.Count);
             _link = link;
             switch (link)
             {
@@ -194,6 +230,7 @@ public class Coordinator : IDisposable
     private void StartDegradedTimer()
     {
         if (_degradedTimer != null) return;
+        Log.Debug("[Pointer] Degraded timer started: sync ends in {Timeout} unless the peer returns", DegradedTimeout);
         _degradedTimer = Observable.Timer(DegradedTimeout).Subscribe(_ =>
         {
             Log.Warning("[Pointer] Peer did not return within {Timeout}; sync ended, panels may be desynced", DegradedTimeout);
@@ -205,21 +242,38 @@ public class Coordinator : IDisposable
 
     private void SendPointer(PointerEvent e)
     {
+        int history;
         lock (_stateLock)
         {
             // Not before first contact: a new peer must not receive solo input.
             if (_hadPeer)
             {
                 _history.Add(e);
-                if (_history.Count > HistoryCap) _history.RemoveAt(0);
+                if (_history.Count > HistoryCap)
+                {
+                    Log.Warning("[Pointer] History over {Cap}; seq {Seq} evicted unacknowledged", HistoryCap, _history[0].Seq);
+                    _history.RemoveAt(0);
+                }
             }
+            history = _history.Count;
         }
+        Log.Debug("[Pointer] TX {Kind} seq {Seq} for {Key}: {Detail} (link {Link}, sync {Sync}, hadPeer {HadPeer}, history {History}, master {Master})",
+            e.Kind, e.Seq, e.Key, Detail(e), _link, _syncState, _hadPeer, history, _masterSwitch.IsMaster);
         _net.SendAll(e);
     }
 
+    private static string Detail(PointerEvent e) => e.Kind == PointerKind.Drag
+        ? $"{e.Path.Length} points over {e.Path.Sum(p => p.DtMs)}ms from {e.DownX:0.####},{e.DownY:0.####} to {e.UpX:0.####},{e.UpY:0.####} gap {e.GapMs} button {e.Button}"
+        : $"at {e.DownX:0.####},{e.DownY:0.####} up {e.UpX:0.####},{e.UpY:0.####} hold {e.HoldMs} gap {e.GapMs} button {e.Button}";
+
     private void OnAck(PointerAck ack)
     {
-        if (ack.Session != _sessionId) return;
+        if (ack.Session != _sessionId)
+        {
+            Log.Debug("[Pointer] Ack from {From:x16} for session {Session:x16} up to {Seq} ignored: not ours ({Ours:x16})",
+                ack.From, ack.Session, ack.Seq, _sessionId);
+            return;
+        }
         lock (_stateLock)
         {
             _acks[ack.From] = _acks.TryGetValue(ack.From, out var prev) ? Math.Max(prev, ack.Seq) : ack.Seq;
@@ -227,13 +281,23 @@ public class Coordinator : IDisposable
             var n = 0;
             while (n < _history.Count && _history[n].Seq <= floor) n++;
             if (n > 0) _history.RemoveRange(0, n);
+            Log.Debug("[Pointer] Ack from {From:x16} up to seq {Seq}; floor {Floor} over {Ackers} acker(s); trimmed {Trimmed}, {Left} left in history",
+                ack.From, ack.Seq, floor, _acks.Count, n, _history.Count);
         }
     }
 
     /// <summary>Only while live: an ack sent into a dropped link would be lost.</summary>
     private void SendAcks()
     {
-        if (_syncState != SyncState.Live) return;
+        if (_syncState != SyncState.Live)
+        {
+            lock (_lastSeq)
+            {
+                var pending = _lastSeq.Count(kv => !_acked.TryGetValue(kv.Key, out var a) || a != kv.Value);
+                if (pending > 0) Log.Debug("[Pointer] Acks held: sync is {Sync}, {Pending} session(s) waiting", _syncState, pending);
+            }
+            return;
+        }
         List<PointerAck> due = [];
         lock (_lastSeq)
         {
@@ -244,13 +308,18 @@ public class Coordinator : IDisposable
                 due.Add(new PointerAck(session, seq, _sessionId));
             }
         }
-        foreach (var ack in due) _net.SendAll(ack);
+        foreach (var ack in due)
+        {
+            Log.Debug("[Pointer] Ack TX: session {Session:x16} up to seq {Seq}", ack.Session, ack.Seq);
+            _net.SendAll(ack);
+        }
     }
 
     private void ResendHistory()
     {
         PointerEvent[] entries;
         lock (_stateLock) entries = _history.OrderBy(e => e.Seq).ToArray();
+        Log.Debug("[Pointer] Resending history on recovery: seq [{Seqs}]", string.Join(", ", entries.Select(e => e.Seq)));
         foreach (var e in entries) _net.SendAll(e);
         if (entries.Length > 0) Log.Debug("[Pointer] Re-sent {Count} unacknowledged events after reconnect", entries.Length);
     }
@@ -261,9 +330,19 @@ public class Coordinator : IDisposable
         {
             if (_lastSeq.TryGetValue(session, out var last))
             {
-                if (seq <= last) return false; // already applied; history re-sends overlap by design
+                if (seq <= last)
+                {
+                    Log.Debug("[Pointer] RX seq {Seq} from {Session:x16} is a duplicate (last applied {Last}); dropped", seq, session, last);
+                    return false; // already applied; history re-sends overlap by design
+                }
                 if (seq > last + 1)
-                    Log.Warning("[Pointer] {Lost} events from the peer never arrived - panels may be desynced", seq - last - 1);
+                    Log.Warning("[Pointer] {Lost} events from the peer never arrived (seq {From}..{To}) - panels may be desynced",
+                        seq - last - 1, last + 1, seq - 1);
+            }
+            else
+            {
+                Log.Debug("[Pointer] RX first event from session {Session:x16}: seq {Seq}{Note}", session, seq,
+                    seq > 1 ? $" - {seq - 1} earlier event(s) from it were never seen here" : "");
             }
             _lastSeq[session] = seq;
             return true;
@@ -294,6 +373,9 @@ public class Coordinator : IDisposable
         }
 
         public bool Contains(string key) => _identifiers.Contains(Identifier(key)) || _keys.Contains(key);
+
+        public string Describe() => string.Join(", ",
+            _identifiers.Select(i => i + " (identifier)").Concat(_keys.Select(k => k + " (key)")));
 
         private static string Identifier(string key)
         {

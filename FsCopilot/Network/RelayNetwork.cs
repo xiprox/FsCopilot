@@ -221,14 +221,27 @@ public sealed class RelayNetwork : INetwork, IDisposable
     {
         try
         {
-            if (_peers.Count == 0) return;
+            var pointer = typeof(TPacket).Name.StartsWith("Pointer");
+            if (_peers.Count == 0)
+            {
+                if (pointer) Log.Debug("[Relay] TX {Type} skipped: no relay peers", typeof(TPacket).Name);
+                return;
+            }
             var peer = _relayPeer;
-            if (peer is null || peer.ConnectionState != ConnectionState.Connected) return;
+            if (peer is null || peer.ConnectionState != ConnectionState.Connected)
+            {
+                if (pointer) Log.Warning("[Relay] TX {Type} NOT SENT: {Count} relay peer(s) but the relay link is {State}",
+                    typeof(TPacket).Name, _peers.Count, peer?.ConnectionState.ToString() ?? "absent");
+                return;
+            }
 
             var data = _codecs.Encode(packet);
             if (data.Length == 0) return;
 
             var method = unreliable ? DeliveryMethod.Sequenced : DeliveryMethod.ReliableOrdered;
+            // DIAGNOSTIC BUILD
+            if (pointer) Log.Debug("[Relay] TX {Type} {Bytes} B {Method} to [{Peers}]",
+                typeof(TPacket).Name, data.Length, method, string.Join(", ", _peers.Keys));
             peer.Send(data, DataChannel, method);
         }
         catch (Exception e)
@@ -395,8 +408,15 @@ public sealed class RelayNetwork : INetwork, IDisposable
         else if (channel == DataChannel)
         {
             var obj = _codecs.Decode(reader);
-            if (obj is null) return;
+            if (obj is null)
+            {
+                Log.Warning("[Relay] RX on the data channel failed to decode; dropped");
+                return;
+            }
 
+            // DIAGNOSTIC BUILD
+            if (obj.GetType().Name.StartsWith("Pointer"))
+                Log.Debug("[Relay] RX {Type} via {Method}", obj.GetType().Name, method);
             if (!_streams.TryGetValue(obj.GetType(), out var subjObj)) return;
 
             var onNextMethod = subjObj.GetType().GetMethod("OnNext");

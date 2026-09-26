@@ -77,6 +77,8 @@ public sealed class PanelServer : IDisposable
     public void Configure(IReadOnlyCollection<string> pointerKeys)
     {
         _pointerKeys = pointerKeys.ToArray();
+        Log.Debug("[PanelServer] Configure pointer=[{Keys}], broadcasting to {Count} socket(s)",
+            string.Join(", ", _pointerKeys), _sockets.Count);
         Broadcast(ConfigJson());
         // A panel entering pointer mode stays locked until it hears a state.
         Broadcast(StateJson());
@@ -85,14 +87,19 @@ public sealed class PanelServer : IDisposable
     public void SetSync(string sync, bool isMaster)
     {
         if (_syncState == sync && _isMaster == isMaster) return;
+        Log.Debug("[PanelServer] Sync {OldSync}/{OldRole} -> {Sync}/{Role}, broadcasting to {Count} socket(s)",
+            _syncState, _isMaster ? "master" : "slave", sync, isMaster ? "master" : "slave", _sockets.Count);
         _syncState = sync;
         _isMaster = isMaster;
         Broadcast(StateJson());
     }
 
-    public void Send(PointerEvent e) => Route(e.Key, Json(w =>
+    public void Send(PointerEvent e) => Route(e.Key, e.Seq, Json(w =>
     {
         w.WriteString("t", "pointer");
+        // DIAGNOSTIC BUILD: the seq rides along so a panel's log line matches the app's.
+        w.WriteNumber("seq", e.Seq);
+        w.WriteString("session", e.Session.ToString("x16"));
         w.WriteStartObject("msg");
         w.WriteNumber("v", 5);
         w.WriteString("k", e.Kind == PointerKind.Drag ? "drag" : "press");
@@ -126,22 +133,33 @@ public sealed class PanelServer : IDisposable
         w.WriteEndObject();
     }));
 
-    private void Route(string key, string text)
+    private void Route(string key, uint seq, string text)
     {
-        var delivered = false;
+        var delivered = new List<int>();
         foreach (var socket in _sockets.Keys)
         {
             if (!socket.HasName(key)) continue;
             Send(socket, text);
-            delivered = true;
+            delivered.Add(socket.Id);
         }
-        if (delivered) return;
+        if (delivered.Count > 0)
+        {
+            Log.Debug("[PanelServer] Routed seq {Seq} for {Key} to socket(s) #{Sockets}{Warning}",
+                seq, key, string.Join(", #", delivered),
+                delivered.Count > 1 ? " - MORE THAN ONE SOCKET HOLDS THIS KEY" : "");
+            return;
+        }
 
         // Dropped, not held: a panel that connects later was reloaded and starts from its
         // default state, so replaying earlier gestures into it would press the wrong things.
         var total = Interlocked.Increment(ref _undelivered);
-        Log.Debug("[PanelServer] No panel for {Key}; event dropped ({Total} undelivered so far)", key, total);
+        Log.Warning("[PanelServer] No panel for {Key}; seq {Seq} DROPPED ({Total} undelivered so far). Connected keys: [{Known}]",
+            key, seq, total, KnownKeys());
     }
+
+    private string KnownKeys() => string.Join("; ", _sockets.Keys
+        .Where(s => s.HasAnyName())
+        .Select(s => $"#{s.Id} {s.NamesSnapshot()}"));
 
     /// <summary>
     /// Says goodbye to every panel before closing, so a panel can tell a quit from a crash.
@@ -241,15 +259,15 @@ public sealed class PanelServer : IDisposable
 
                 var socket = new PanelSocket(wsCtx.WebSocket);
                 _sockets.TryAdd(socket, 0);
-                Log.Debug("[PanelServer] Panel connected, origin {Origin} ({Count} total)",
-                    string.IsNullOrEmpty(origin) ? "(none)" : origin, _sockets.Count);
+                Log.Debug("[PanelServer] Panel #{Id} connected from {Remote}, origin {Origin} ({Count} total)",
+                    socket.Id, ctx.Request.RemoteEndPoint, string.IsNullOrEmpty(origin) ? "(none)" : origin, _sockets.Count);
                 try { await ReceiveLoop(socket, ct); }
                 finally
                 {
                     _sockets.TryRemove(socket, out _);
                     socket.Close();
-                    Log.Debug("[PanelServer] Panel disconnected {Names} ({Count} left)",
-                        socket.NamesSnapshot(), _sockets.Count);
+                    Log.Debug("[PanelServer] Panel #{Id} disconnected {Names} ({Count} left)",
+                        socket.Id, socket.NamesSnapshot(), _sockets.Count);
                     if (socket.HasAnyName()) BroadcastPanels();
                 }
             }, ct);
@@ -264,16 +282,27 @@ public sealed class PanelServer : IDisposable
         {
             WebSocketReceiveResult result;
             try { result = await socket.Ws.ReceiveAsync(buffer, ct); }
-            catch (Exception) { return; }
+            catch (Exception e)
+            {
+                if (!ct.IsCancellationRequested)
+                    Log.Debug("[PanelServer] Panel #{Id} receive failed: {Error}", socket.Id, e.Message);
+                return;
+            }
 
             if (result.MessageType == WebSocketMessageType.Close)
             {
+                Log.Debug("[PanelServer] Panel #{Id} sent close ({Status} {Description})",
+                    socket.Id, result.CloseStatus, result.CloseStatusDescription);
                 try { await socket.Ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None); }
                 catch (Exception) { /* peer is gone either way */ }
                 return;
             }
             message.Write(buffer, 0, result.Count);
-            if (message.Length > 256 * 1024) return; // no legitimate panel message is this big
+            if (message.Length > 256 * 1024)
+            {
+                Log.Warning("[PanelServer] Panel #{Id} sent a message over 256 KB; closing it", socket.Id);
+                return; // no legitimate panel message is this big
+            }
             if (!result.EndOfMessage) continue;
 
             var text = Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length);
@@ -288,7 +317,7 @@ public sealed class PanelServer : IDisposable
         try { json = JsonDocument.Parse(text).RootElement; }
         catch (Exception e)
         {
-            Log.Debug("[PanelServer] Invalid JSON from panel: {Error}", e.Message);
+            Log.Debug("[PanelServer] Invalid JSON from panel #{Id}: {Error}", socket.Id, e.Message);
             return;
         }
 
@@ -299,8 +328,13 @@ public sealed class PanelServer : IDisposable
                 if (name.Length == 0) return;
                 var rect = RectOf(json);
                 var changed = socket.SetName(name, rect);
-                Log.Debug("[PanelServer] Hello from {Name} rect {Rect} ({Url})",
-                    name, rect == null ? "(none)" : $"{rect[0]}x{rect[1]}", json.String("url"));
+                Log.Debug("[PanelServer] Hello on #{Id} from {Name} rect {Rect} ({Url}){Changed}",
+                    socket.Id, name, rect == null ? "(none)" : $"{rect[0]}x{rect[1]}", json.String("url"),
+                    changed ? "" : " (unchanged)");
+                var elsewhere = _sockets.Keys.Where(s => s != socket && s.HasName(name)).Select(s => s.Id).ToArray();
+                if (elsewhere.Length > 0)
+                    Log.Warning("[PanelServer] Key {Name} is also held by socket(s) #{Others}; routing will reach all of them",
+                        name, string.Join(", #", elsewhere));
                 // Config and state, so a panel that loads after the profile still learns its mode.
                 Send(socket, ConfigJson());
                 Send(socket, StateJson());
@@ -315,10 +349,18 @@ public sealed class PanelServer : IDisposable
                 Send(socket, PanelsJson());
                 break;
             case "pointer":
-                HandlePointer(json);
+                HandlePointer(socket, json);
                 break;
             case "stats":
-                Log.Debug("[PanelServer] Panel stats: {Stats}", text);
+                Log.Debug("[PanelServer] Panel stats #{Id}: {Stats}", socket.Id, text);
+                break;
+            case "log":
+                Log.Debug("[Panel #{Id}] [{Src}] {Msg} (panel clock {At})",
+                    socket.Id, json.String("src"), json.String("msg"), json.Double("at").ToString("F0"));
+                break;
+            default:
+                Log.Debug("[PanelServer] Unknown message from #{Id}: {Text}", socket.Id,
+                    text.Length > 200 ? text[..200] : text);
                 break;
         }
     }
@@ -331,19 +373,33 @@ public sealed class PanelServer : IDisposable
             ? [(int)Math.Round(r[0].GetDouble()), (int)Math.Round(r[1].GetDouble())]
             : null;
 
-    private void HandlePointer(JsonElement json)
+    private void HandlePointer(PanelSocket socket, JsonElement json)
     {
-        if (!json.TryGetProperty("msg", out var msg)) return;
+        if (!json.TryGetProperty("msg", out var msg))
+        {
+            Log.Warning("[PanelServer] Pointer message from #{Id} without msg; dropped", socket.Id);
+            return;
+        }
         var key = msg.String("key");
-        if (key.Length == 0) return;
+        var cid = msg.Double("cid");
+        if (key.Length == 0)
+        {
+            Log.Warning("[PanelServer] Pointer message cid {Cid} from #{Id} without key; dropped", cid, socket.Id);
+            return;
+        }
         var button = (byte)msg.Double("button");
         var gap = (ushort)Math.Clamp(msg.Double("gap"), 0, 1000);
+        if (!socket.HasName(key))
+            Log.Warning("[PanelServer] Pointer cid {Cid} for {Key} came from #{Id}, which never helloed that key (it has [{Names}])",
+                cid, key, socket.Id, socket.NamesSnapshot());
 
         switch (msg.String("k"))
         {
             case "press":
                 var nx = (float)msg.Double("nx");
                 var ny = (float)msg.Double("ny");
+                Log.Debug("[PanelServer] Local press cid {Cid} from #{Id} {Key}: at {X},{Y} up {UX},{UY} hold {Hold} gap {Gap} button {Button}",
+                    cid, socket.Id, key, nx, ny, msg.Double("ux", nx), msg.Double("uy", ny), msg.Double("hold"), gap, button);
                 _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Press, button,
                     (ushort)Math.Clamp(msg.Double("hold"), 0, 1500), gap,
                     nx, ny, (float)msg.Double("ux", nx), (float)msg.Double("uy", ny), PointerEvent.NoPath));
@@ -361,11 +417,22 @@ public sealed class PanelServer : IDisposable
                     prev = at;
                     points.Add(new PointerEvent.Point((ushort)dt, (float)p[1].GetDouble(), (float)p[2].GetDouble()));
                 }
-                if (points.Count < 2) return;
+                if (points.Count < 2)
+                {
+                    Log.Warning("[PanelServer] Local drag cid {Cid} from #{Id} {Key} has {Count} usable point(s); dropped",
+                        cid, socket.Id, key, points.Count);
+                    return;
+                }
                 var first = points[0];
                 var last = points[^1];
+                Log.Debug("[PanelServer] Local drag cid {Cid} from #{Id} {Key}: {Count} points over {Ms}ms from {X0},{Y0} to {X1},{Y1} gap {Gap} button {Button}",
+                    cid, socket.Id, key, points.Count, prev, first.X, first.Y, last.X, last.Y, gap, button);
                 _events.OnNext(new PointerEvent(key, 0, 0, 0, PointerKind.Drag, button, 0, gap,
                     first.X, first.Y, last.X, last.Y, points.ToArray()));
+                break;
+            default:
+                Log.Warning("[PanelServer] Pointer cid {Cid} from #{Id} has unknown kind {Kind}; dropped",
+                    cid, socket.Id, msg.String("k"));
                 break;
         }
     }
@@ -439,12 +506,17 @@ public sealed class PanelServer : IDisposable
         await socket.SendLock.WaitAsync();
         try
         {
-            if (socket.Ws.State != WebSocketState.Open) return;
+            if (socket.Ws.State != WebSocketState.Open)
+            {
+                if (text.StartsWith("{\"t\":\"pointer\""))
+                    Log.Warning("[PanelServer] Pointer message to #{Id} not sent: socket is {State}", socket.Id, socket.Ws.State);
+                return;
+            }
             await socket.Ws.SendAsync(bytes, WebSocketMessageType.Text, true, _cts.Token);
         }
         catch (Exception e)
         {
-            Log.Debug("[PanelServer] Send failed: {Error}", e.Message);
+            Log.Debug("[PanelServer] Send to #{Id} failed: {Error}", socket.Id, e.Message);
         }
         finally
         {
@@ -466,6 +538,8 @@ public sealed class PanelServer : IDisposable
 
     internal sealed class PanelSocket(WebSocket ws)
     {
+        private static int _nextId;
+        public int Id { get; } = Interlocked.Increment(ref _nextId);
         public WebSocket Ws { get; } = ws;
         public SemaphoreSlim SendLock { get; } = new(1, 1);
 

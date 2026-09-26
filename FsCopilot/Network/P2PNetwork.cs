@@ -281,7 +281,15 @@ public sealed class P2PNetwork : INetwork, IDisposable
             return;
         }
 
-        if (!_streams.TryGetValue(packet.GetType(), out var subjObj)) return;
+        // DIAGNOSTIC BUILD
+        if (packet.GetType().Name.StartsWith("Pointer"))
+            Log.Debug("[Peer2Peer] RX {Type} from {Endpoint} via {Method}", packet.GetType().Name, peer, method);
+        if (!_streams.TryGetValue(packet.GetType(), out var subjObj))
+        {
+            if (packet.GetType().Name.StartsWith("Pointer"))
+                Log.Warning("[Peer2Peer] RX {Type} has no subscriber; dropped", packet.GetType().Name);
+            return;
+        }
         var onNextMethod = subjObj.GetType().GetMethod("OnNext");
         onNextMethod!.Invoke(subjObj, [packet]);
     }
@@ -399,8 +407,17 @@ public sealed class P2PNetwork : INetwork, IDisposable
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {
         var data = _codecs.Encode(packet);
-        if (data.Length == 0) return;
+        if (data.Length == 0)
+        {
+            if (typeof(TPacket).Name.StartsWith("Pointer"))
+                Log.Warning("[Peer2Peer] TX {Type} encoded to 0 bytes; not sent", typeof(TPacket).Name);
+            return;
+        }
         var method = unreliable ? DeliveryMethod.Sequenced : DeliveryMethod.ReliableOrdered;
+        // DIAGNOSTIC BUILD
+        if (typeof(TPacket).Name.StartsWith("Pointer"))
+            Log.Debug("[Peer2Peer] TX {Type} {Bytes} B {Method} to {Count} connected peer(s)",
+                typeof(TPacket).Name, data.Length, method, _net.ConnectedPeersCount);
         _net.SendToAll(data, method);
     }
 

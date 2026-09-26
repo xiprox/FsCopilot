@@ -38,6 +38,10 @@ class Pointer {
         this._lastState = 0;
         this._syncState = 'none';
         this._role = 'master';
+        this._lastWant = undefined;   // DIAGNOSTIC: last overlay decision, logged on change
+        this._cid = 0;                // DIAGNOSTIC: capture counter, sent as msg.cid
+        this._rid = 0;                // DIAGNOSTIC: replay counter
+        this._lastRect = '';
 
         this._listen(document, 'mousedown', (ev) => this._onDown(ev));
         this._listen(document, 'mousemove', (ev) => this._onMove(ev));
@@ -47,12 +51,14 @@ class Pointer {
         this._watchdog = setInterval(() => {
             if (this._debugHold || this._overlayMuted) return;
             if (this._lastState && Date.now() - this._lastState > Pointer.STATE_DEADMAN_MS) {
+                if (!this._warned) this._log('Watchdog: no state renewal for ' + (Date.now() - this._lastState) + 'ms');
                 this._showLost();
             }
         }, 2000);
 
         // A fixed global, so it works even if every other handle is lost.
         window.fscUnlock = () => {
+            this._log('fscUnlock() called: overlay muted');
             this._overlayMuted = true;
             this._debugHold = false;
             this._clearLostTimer();
@@ -62,6 +68,7 @@ class Pointer {
 
         // Debug: fscOverlay('connecting'|'degraded'|'replaying'|'lost'|'clear') holds a state.
         window.fscOverlay = (state) => {
+            this._log('fscOverlay(' + state + ') called');
             if (state === 'clear') {
                 this._debugHold = false;
                 this._overlay.remove();
@@ -76,8 +83,22 @@ class Pointer {
         this.updateState('connecting', 'master');
 
         const r = this._rect();
-        console.log('[FsCopilot] [Pointer] Active on ' + this.key +
-            ' rect=' + Math.round(r.width) + 'x' + Math.round(r.height));
+        this._log('Active: rect=' + this._rectText(r) + ' viewport=' + window.innerWidth + 'x' + window.innerHeight +
+            ' dpr=' + window.devicePixelRatio + ' instrument=' + window.fscDescribe(instrument));
+    }
+
+    _log(text) { window.fscLog('Pointer ' + this.key, text); }
+
+    _rectText(r) {
+        return Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.left) + ',' + Math.round(r.top);
+    }
+
+    /* Logged whenever it differs from the last one seen, since a rect change moves every replay. */
+    _noteRect(r, where) {
+        const t = this._rectText(r);
+        if (t === this._lastRect) return;
+        this._log('Rect ' + (this._lastRect || '(none)') + ' -> ' + t + ' (seen at ' + where + ')');
+        this._lastRect = t;
     }
 
     onCapture(fn) { this._captureFns.push(fn); }
@@ -91,6 +112,7 @@ class Pointer {
     }
 
     stop() {
+        this._log('stop(): removing listeners, dropping ' + this._queue.length + ' queued replay(s), busy=' + this._busy);
         for (let i = 0; i < this._listeners.length; i++) {
             const l = this._listeners[i];
             l[0].removeEventListener(l[1], l[2], true);
@@ -110,6 +132,10 @@ class Pointer {
     /* Sync state -> overlay --------------------------------------------------- */
 
     updateState(sync, role) {
+        if (sync !== this._syncState || role !== this._role) {
+            this._log('Sync ' + this._syncState + '/' + this._role + ' -> ' + sync + '/' + role +
+                (this._debugHold ? ' (debug hold active)' : '') + (this._overlayMuted ? ' (overlay muted)' : ''));
+        }
         this._syncState = sync;
         this._role = role;
         this._lastState = Date.now();
@@ -133,6 +159,12 @@ class Pointer {
         else if (fresh && this._syncState === 'degraded' && this._role === 'slave') want = 'degraded';
         else if (fresh && (this._busy || this._queue.length)) want = this._replayOverlay();
 
+        if (want !== this._lastWant) {
+            this._log('Overlay ' + (this._lastWant || 'none') + ' -> ' + (want || 'none') +
+                ' (sync=' + this._syncState + ' role=' + this._role + ' fresh=' + fresh +
+                ' busy=' + this._busy + ' queued=' + this._queue.length + ')');
+            this._lastWant = want;
+        }
         if (want) this._overlay.apply(want);
         else this._overlay.remove();
         if (want !== 'replayingQuiet' && want !== 'replaying') this._endReplayNotice();
@@ -161,11 +193,13 @@ class Pointer {
 
     /* The app says goodbye before a deliberate quit, so only an unannounced close warns. */
     linkClosed(deliberate) {
+        if (!this._warned) this._log('Link closed, deliberate=' + deliberate + ' (overlay showing ' + this._overlay.showing() + ')');
         this._lastState = 0;
         if (this._overlayMuted || this._debugHold) return;
         if (deliberate) {
             this._clearLostTimer();
             this._overlay.remove();
+            this._lastWant = null;
             return;
         }
         this._showLost();
@@ -175,11 +209,17 @@ class Pointer {
     _showLost() {
         if (this._warned) return;
         this._warned = true;
+        this._log('Overlay -> lost (red, non-blocking) for ' + Pointer.LOST_LINGER_MS + 'ms');
+        this._lastWant = 'lost';
         this._overlay.apply('lost');
         this._lostTimer = setTimeout(() => {
             this._lostTimer = null;
             // A state that arrived meanwhile may have replaced it.
-            if (this._overlay.showing() === 'lost') this._overlay.remove();
+            if (this._overlay.showing() === 'lost') {
+                this._log('Lost overlay retracted after ' + Pointer.LOST_LINGER_MS + 'ms');
+                this._overlay.remove();
+                this._lastWant = null;
+            }
         }, Pointer.LOST_LINGER_MS);
     }
 
@@ -198,8 +238,20 @@ class Pointer {
 
     _emit(msg) {
         this._stats.captured++;
+        msg.cid = ++this._cid;
+        if (msg.k === 'drag') {
+            const p = msg.path;
+            const last = p[p.length - 1];
+            this._log('CAPTURE cid=' + msg.cid + ' drag button=' + msg.button + ' gap=' + msg.gap + ' points=' + p.length +
+                ' dur=' + last[0] + 'ms from ' + p[0][1] + ',' + p[0][2] + ' to ' + last[1] + ',' + last[2] +
+                ' (sync=' + this._syncState + ' role=' + this._role + ' overlay=' + this._overlay.showing() + ')');
+        } else {
+            this._log('CAPTURE cid=' + msg.cid + ' press button=' + msg.button + ' at ' + msg.nx + ',' + msg.ny +
+                ' up ' + msg.ux + ',' + msg.uy + ' hold=' + msg.hold + ' gap=' + msg.gap +
+                ' (sync=' + this._syncState + ' role=' + this._role + ' overlay=' + this._overlay.showing() + ')');
+        }
         for (let i = 0; i < this._captureFns.length; i++) {
-            try { this._captureFns[i](msg); } catch (e) { /* a bad consumer must not break capture */ }
+            try { this._captureFns[i](msg); } catch (e) { this._log('Capture consumer threw: ' + e); }
         }
     }
 
@@ -232,22 +284,43 @@ class Pointer {
         const lock = this._overlay.element();
         if (t && lock && (t === lock || (typeof lock.contains === 'function' && lock.contains(t)))) {
             this._stats.locked++;
+            this._log('Input ' + ev.type + ' at ' + n.nx + ',' + n.ny + ' BLOCKED by the ' + this._overlay.showing() +
+                ' overlay (sync=' + this._syncState + ' role=' + this._role + ' busy=' + this._busy +
+                ' queued=' + this._queue.length + ')');
             return false;
         }
         let inside;
+        let how;
         if (t && t.nodeType === 1 && typeof this._instrument.contains === 'function') {
             inside = this._instrument.contains(t);
+            how = 'target';
         } else {
             const tol = Pointer.EDGE_TOLERANCE;
             inside = n.nx >= -tol && n.nx <= 1 + tol && n.ny >= -tol && n.ny <= 1 + tol;
+            how = 'point';
         }
-        if (!inside) this._stats.outside++;
+        if (!inside) {
+            this._stats.outside++;
+            this._log('Input ' + ev.type + ' at ' + n.nx + ',' + n.ny + ' OUTSIDE the instrument (by ' + how +
+                ', target ' + window.fscDescribe(t) + '); not captured');
+        }
         return inside;
     }
 
     _onDown(ev) {
-        if (this._isOurs(ev)) { this._stats.echo++; return; }
+        if (this._isOurs(ev)) {
+            this._stats.echo++;
+            this._log('Echo mousedown ignored (selfEmit=' + (ev.selfEmit === true) + ' isTrusted=' + ev.isTrusted +
+                ' target ' + window.fscDescribe(ev.target) + ')');
+            return;
+        }
+        const r = this._rect();
+        this._noteRect(r, 'mousedown');
         const n = this._normalise(ev);
+        this._log('Raw mousedown button=' + ev.button + ' client=' + ev.clientX + ',' + ev.clientY +
+            ' n=' + (n ? n.nx + ',' + n.ny : 'none (rect ' + this._rectText(r) + ')') +
+            ' target ' + window.fscDescribe(ev.target) + ' defaultPrevented=' + ev.defaultPrevented +
+            (this._pendingDown ? ' (replaces an unfinished down)' : ''));
         if (!n) return;
         if (!this._inside(ev, n)) return;
         this._pendingDown = {
@@ -282,8 +355,18 @@ class Pointer {
     }
 
     _onUp(ev) {
-        if (this._isOurs(ev)) { this._stats.echo++; return; }
+        if (this._isOurs(ev)) {
+            this._stats.echo++;
+            this._log('Echo mouseup ignored (selfEmit=' + (ev.selfEmit === true) + ' isTrusted=' + ev.isTrusted +
+                ' target ' + window.fscDescribe(ev.target) + ')');
+            return;
+        }
         const n = this._normalise(ev);
+        const d0 = this._pendingDown;
+        this._log('Raw mouseup button=' + ev.button + ' client=' + ev.clientX + ',' + ev.clientY +
+            ' n=' + (n ? n.nx + ',' + n.ny : 'none') + ' target ' + window.fscDescribe(ev.target) +
+            (d0 ? ' held=' + (Date.now() - d0.at) + 'ms travelled=' + d0.travelled + 'px points=' + d0.path.length
+                : ' (no pending down)'));
         if (!n) return;
 
         // An up without a matching down counts as a press at the up position.
@@ -342,16 +425,43 @@ class Pointer {
             detail: 1
         });
         ev.selfEmit = true;
-        return target.dispatchEvent(ev);
+        const ok = target.dispatchEvent(ev);
+        if (type !== 'mousemove') {
+            this._log('  fire ' + type + ' at ' + x + ',' + y + ' on ' + window.fscDescribe(target) +
+                (ok ? '' : ' (handler called preventDefault)'));
+        }
+        return ok;
     }
 
-    replay(msg) {
+    replay(msg, seq) {
         if (!msg) return false;
-        if (msg.key && msg.key !== this.key) return false;
-        if (msg.k !== 'press' && msg.k !== 'drag') return false;
+        if (msg.key && msg.key !== this.key) {
+            this._log('REPLAY seq=' + seq + ' REJECTED: message key ' + msg.key + ' is not this pointer (' + this.key + ')');
+            return false;
+        }
+        if (msg.k !== 'press' && msg.k !== 'drag') {
+            this._log('REPLAY seq=' + seq + ' REJECTED: unknown kind ' + msg.k);
+            return false;
+        }
+        msg._rid = ++this._rid;
+        msg._seq = seq;
+        msg._rxAt = Date.now();
+        this._log('REPLAY rid=' + msg._rid + ' seq=' + seq + ' queued: ' + this._describeMsg(msg) +
+            ' (busy=' + this._busy + ', ahead of it=' + this._queue.length + ')');
         this._queue.push(msg);
         this._pump();
         return true;
+    }
+
+    _describeMsg(m) {
+        if (m.k === 'drag') {
+            const p = m.path || [];
+            const last = p.length ? p[p.length - 1] : null;
+            return 'drag button=' + m.button + ' gap=' + m.gap + ' points=' + p.length +
+                (last ? ' dur=' + last[0] + 'ms from ' + p[0][1] + ',' + p[0][2] + ' to ' + last[1] + ',' + last[2] : '');
+        }
+        return 'press button=' + m.button + ' at ' + m.nx + ',' + m.ny + ' up ' + m.ux + ',' + m.uy +
+            ' hold=' + m.hold + ' gap=' + m.gap;
     }
 
     /* Re-entrant: a gesture that finishes synchronously calls back in from the loop. */
@@ -363,6 +473,7 @@ class Pointer {
                 const msg = this._queue.shift();
                 const wait = this._remainingGap(msg);
                 if (wait > 0) {
+                    this._log('REPLAY rid=' + msg._rid + ' waits ' + wait + 'ms to keep the sender\'s gap of ' + msg.gap + 'ms');
                     // Busy during the wait, so the replaying overlay stays up.
                     this._busy = true;
                     const go = this._once(() => {
@@ -393,13 +504,25 @@ class Pointer {
 
     _run(msg) {
         this._busy = true;
+        const startedAt = Date.now();
+        this._log('REPLAY rid=' + msg._rid + ' seq=' + msg._seq + ' starts ' + (startedAt - msg._rxAt) + 'ms after arrival' +
+            ' (sync=' + this._syncState + ' role=' + this._role + ')');
         const done = this._once(() => {
             this._disarm();
             this._busy = false;
             this._lastReplayEnd = Date.now();
+            this._log('REPLAY rid=' + msg._rid + ' done in ' + (this._lastReplayEnd - startedAt) + 'ms; ' +
+                this._queue.length + ' left in the queue');
             this._pump();
         });
-        const expect = msg.k === 'drag' ? this._replayDrag(msg, done) : this._replayPress(msg, done);
+        let expect;
+        try {
+            expect = msg.k === 'drag' ? this._replayDrag(msg, done) : this._replayPress(msg, done);
+        } catch (e) {
+            // Unchanged behaviour: a throw here propagated before too. Logged, then rethrown.
+            this._log('REPLAY rid=' + msg._rid + ' THREW: ' + e + (e && e.stack ? ' ' + String(e.stack).substring(0, 300) : ''));
+            throw e;
+        }
         if (expect < 0) { done(); return; }   // nothing to hit: nothing to wait for
         if (!this._busy) return;              // finished synchronously
         this._arm(expect + Pointer.REPLAY_DEADMAN_MS, done);
@@ -411,7 +534,8 @@ class Pointer {
         this._disarm();
         this._deadman = setTimeout(() => {
             this._deadman = null;
-            console.warn('[FsCopilot] [Pointer] Replay did not complete - releasing the queue');
+            this._log('STALL: a replay did not complete within ' + ms + 'ms - releasing the queue (' +
+                this._queue.length + ' waiting)');
             this._stats.stalled++;
             release();
         }, ms);
@@ -435,7 +559,12 @@ class Pointer {
     /* Returns the gesture's duration, or -1 if nothing was under the point. */
     _replayPress(msg, done) {
         const r = this._rect();
-        if (!r.width || !r.height) { this._stats.missed++; return -1; }
+        this._noteRect(r, 'replay');
+        if (!r.width || !r.height) {
+            this._stats.missed++;
+            this._log('REPLAY rid=' + msg._rid + ' MISSED: instrument rect is ' + this._rectText(r));
+            return -1;
+        }
 
         const x = Math.round(r.left + msg.nx * r.width);
         const y = Math.round(r.top + msg.ny * r.height);
@@ -445,12 +574,25 @@ class Pointer {
         const y2 = Math.round(r.top + uy * r.height);
 
         const target = this._overlay.hitTest(x, y);
-        if (!target) { this._stats.missed++; return -1; }
+        if (!target) {
+            this._stats.missed++;
+            this._log('REPLAY rid=' + msg._rid + ' MISSED: nothing at ' + x + ',' + y + ' (rect ' + this._rectText(r) + ')');
+            return -1;
+        }
+        const inside = typeof this._instrument.contains === 'function' ? this._instrument.contains(target) : '?';
+        this._log('REPLAY rid=' + msg._rid + ' press at ' + x + ',' + y + ' (rect ' + this._rectText(r) + ') hits ' +
+            window.fscDescribe(target) + (inside === false ? ' - NOT INSIDE THE INSTRUMENT' : '') +
+            '; hold ' + (msg.hold || 0) + 'ms');
 
         this._fire(target, 'mousedown', x, y, 1, msg.button);
 
         const finish = () => {
-            const upTarget = this._overlay.hitTest(x2, y2) || target;
+            const upHit = this._overlay.hitTest(x2, y2);
+            const upTarget = upHit || target;
+            if (upTarget !== target) {
+                this._log('REPLAY rid=' + msg._rid + ' up target differs from down: ' + window.fscDescribe(upTarget) +
+                    (upHit ? '' : ' (nothing at up point; reused the down target)'));
+            }
             this._fire(upTarget, 'mouseup', x2, y2, 0, msg.button);
             this._fire(upTarget, 'click', x2, y2, 0, msg.button);
             this._stats.replayed++;
@@ -466,10 +608,19 @@ class Pointer {
     /* No click at the end: a pan that ends on another element must not also select it. */
     _replayDrag(msg, done) {
         const pts = msg.path;
-        if (!pts || pts.length < 2) { this._stats.missed++; return -1; }
+        if (!pts || pts.length < 2) {
+            this._stats.missed++;
+            this._log('REPLAY rid=' + msg._rid + ' MISSED: drag path has ' + (pts ? pts.length : 'no') + ' point(s)');
+            return -1;
+        }
 
         const r = this._rect();
-        if (!r.width || !r.height) { this._stats.missed++; return -1; }
+        this._noteRect(r, 'replay');
+        if (!r.width || !r.height) {
+            this._stats.missed++;
+            this._log('REPLAY rid=' + msg._rid + ' MISSED: instrument rect is ' + this._rectText(r));
+            return -1;
+        }
 
         const px = (i) => ({
             x: Math.round(r.left + pts[i][1] * r.width),
@@ -478,7 +629,14 @@ class Pointer {
 
         const first = px(0);
         const start = this._overlay.hitTest(first.x, first.y);
-        if (!start) { this._stats.missed++; return -1; }
+        if (!start) {
+            this._stats.missed++;
+            this._log('REPLAY rid=' + msg._rid + ' MISSED: nothing at drag start ' + first.x + ',' + first.y);
+            return -1;
+        }
+        this._log('REPLAY rid=' + msg._rid + ' drag of ' + pts.length + ' points starts at ' + first.x + ',' + first.y +
+            ' (rect ' + this._rectText(r) + ') on ' + window.fscDescribe(start));
+        let lastTarget = start;
 
         this._fire(start, 'mousedown', first.x, first.y, 1, msg.button);
 
@@ -496,6 +654,11 @@ class Pointer {
                 setTimeout(() => {
                     const p = px(index);
                     const target = this._overlay.hitTest(p.x, p.y) || start;
+                    if (target !== lastTarget) {
+                        this._log('REPLAY rid=' + msg._rid + ' drag point ' + index + ' at ' + p.x + ',' + p.y +
+                            ' moves onto ' + window.fscDescribe(target));
+                        lastTarget = target;
+                    }
                     if (isLast) {
                         this._fire(target, 'mouseup', p.x, p.y, 0, msg.button);
                         this._stats.replayed++;
