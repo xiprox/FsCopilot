@@ -43,6 +43,8 @@ public sealed class P2PNetwork : INetwork, IDisposable
 
     public IObservable<string> PeerLeft => _peerLeft;
 
+    public bool HasConnectedPeers => _net.ConnectedPeersCount > 0;
+
     public P2PNetwork(string host, string peerId, string name, bool autoConnect = true)
     {
         _host = host;

@@ -91,10 +91,11 @@ public sealed class HybridNetwork : INetwork, IDisposable
 
     public void SendAll<TPacket>(TPacket packet, bool unreliable = false) where TPacket : notnull
     {
-        // Assumption: peers won't be connected via both transports simultaneously.
-        // If that can happen, you'd need per-peer routing (not possible with current INetwork API).
+        // A peer can be connected via both transports at once: the direct punch can finish after
+        // the relay fallback has. Sending on both then delivers every packet twice, so skip the
+        // relay while a direct peer is up. Per-peer routing is not possible with the INetwork API.
         _p2p.SendAll(packet, unreliable);
-        _relay.SendAll(packet, unreliable);
+        if (!_p2p.HasConnectedPeers) _relay.SendAll(packet, unreliable);
     }
 
     public void RegisterPacket<TPacket, TCodec>()
