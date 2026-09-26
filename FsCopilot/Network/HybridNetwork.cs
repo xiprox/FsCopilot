@@ -18,6 +18,11 @@ public sealed class HybridNetwork : INetwork, IDisposable
     private int _connecting;
     private readonly BehaviorSubject<int> _connectingCount = new(0);
 
+    // DIAGNOSTIC BUILD: each transport's latest peer list, to name who a skipped relay send misses.
+    private volatile ICollection<Peer> _p2pPeers = [];
+    private volatile ICollection<Peer> _relayPeers = [];
+    private long _lastMissWarn;
+
     public IObservable<ICollection<Peer>> Peers { get; }
 
     public IObservable<bool> Connecting => _connectingCount.Select(n => n > 0).DistinctUntilChanged();
@@ -40,6 +45,8 @@ public sealed class HybridNetwork : INetwork, IDisposable
             .RefCount();
         
         Stream<PeerTags>().Subscribe(OnPeerTags, _cts.Token);
+        _p2p.Peers.Subscribe(p => _p2pPeers = p, _cts.Token);
+        _relay.Peers.Subscribe(p => _relayPeers = p, _cts.Token);
     }
 
     public void Dispose()
@@ -96,6 +103,26 @@ public sealed class HybridNetwork : INetwork, IDisposable
         // relay while a direct peer is up. Per-peer routing is not possible with the INetwork API.
         _p2p.SendAll(packet, unreliable);
         if (!_p2p.HasConnectedPeers) _relay.SendAll(packet, unreliable);
+        else LogRelaySkipped<TPacket>();
+    }
+
+    /// <summary>DIAGNOSTIC BUILD. With three or more pilots, one can be direct while another is
+    /// reachable only through the relay: skipping the relay then sends that one nothing.</summary>
+    private void LogRelaySkipped<TPacket>()
+    {
+        var direct = _p2pPeers.Where(p => p.Connected).Select(p => p.PeerId).ToHashSet(StringComparer.Ordinal);
+        var missed = _relayPeers.Where(p => p.Connected && !direct.Contains(p.PeerId)).Select(p => p.PeerId).ToArray();
+        var pointer = typeof(TPacket).Name.StartsWith("Pointer");
+        if (pointer)
+            Log.Debug("[Hybrid] TX {Type}: relay skipped, direct peer(s) up: [{Direct}]",
+                typeof(TPacket).Name, string.Join(", ", direct));
+        if (missed.Length == 0) return;
+        // Every packet type goes through here, physics at 20 Hz, so only pointer packets warn every time.
+        var now = Environment.TickCount64;
+        if (!pointer && now - Interlocked.Read(ref _lastMissWarn) < 5000) return;
+        Interlocked.Exchange(ref _lastMissWarn, now);
+        Log.Warning("[Hybrid] TX {Type}: relay skipped, but [{Missed}] are reachable only through the relay and will not get it",
+            typeof(TPacket).Name, string.Join(", ", missed));
     }
 
     public void RegisterPacket<TPacket, TCodec>()
