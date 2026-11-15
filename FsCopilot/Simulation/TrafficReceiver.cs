@@ -30,6 +30,7 @@ public sealed class TrafficReceiver : IDisposable
         public uint SimId;
         public bool Requested, Fallback, Failed;
         public long FailedAt, LastStateAt;
+        public ushort? InitialSpawnLights; // set at spawn to calculate Delta from Master v.1.3.1
         public readonly TrafficInterpolator Interp = new();
         public Appearance? LastAppearance;
         public int LastEngines = -1;
@@ -310,31 +311,120 @@ public sealed class TrafficReceiver : IDisposable
         Log.Debug("[Traffic] + {Index} {Title}{Fallback}", live.Index, live.Identity.Title, live.Fallback ? " (fallback)" : "");
     }
 
-    private void Dress(SimConnect sim, Live live, in TrafficState s)
-    {
-        if (!live.Identity.IsAircraft) return;   // vehicles reject every datum here
-        var ap = new Appearance
-        {
-            GearHandle = s.GearPct / 100.0, FlapsIndex = s.FlapsIndex,
-            LightStrobe = s.Lights & 1, LightLanding = s.Lights >> 1 & 1, LightTaxi = s.Lights >> 2 & 1,
-            LightBeacon = s.Lights >> 3 & 1, LightNav = s.Lights >> 4 & 1
-        };
-        if (live.LastAppearance is not { } last || !last.Equals(ap))
-        {
-            live.LastAppearance = ap;
-            var id = live.SimId;
-            _sim.Call(sim, $"Appearance {live.Index}", x => x.SetDataOnSimObject(TrafficDef.Appearance, id, SIMCONNECT_DATA_SET_FLAG.DEFAULT, ap));
-        }
-        if (s.EngineCount == 0 || s.EngineMask == live.LastEngines) return;
-        live.LastEngines = s.EngineMask;
-        for (var i = 1; i <= Math.Min(4, s.EngineCount); i++)
-        {
-            var def = (TrafficDef)((uint)TrafficDef.Eng1 + i - 1);
-            var state = new EngineState { Combustion = s.EngineMask >> (i - 1) & 1 };
-            var id = live.SimId;
-            _sim.Call(sim, $"Engine{i} {live.Index}", x => x.SetDataOnSimObject(def, id, SIMCONNECT_DATA_SET_FLAG.DEFAULT, state));
-        }
-    }
+    private void Dress(SimConnect sim, Live live, in TrafficState s)  // Reworked logic in v1.3.1
+	{
+		if (!live.Identity.IsAircraft) return;
+
+		// 1. Capture the exact initial state of the very first spawn frame
+		if (live.InitialSpawnLights is null)
+		{
+			live.InitialSpawnLights = s.Lights;
+		}
+
+		// 2. Basic automatic rules (Baseline based on the physical state of the aircraft)
+		int autoNav     = 1;                                 // Nav and tail lights always on
+		
+		// BEACON: Active if at least one engine is running (EngineMask > 0) OR if the aircraft is moving. 
+		// This prevents the beacon from turning off when the aircraft is stopped at the holding point.
+		int autoBeacon  = (s.EngineMask > 0 || s.Gs >= 0.5) ? 1 : 0; 
+		
+		int autoTaxi    = (s.OnGround && s.Gs >= 2.0) ? 1 : 0; // Taxi active during taxiing
+
+		// 3. Extraction of current Master bits
+		int masterStrobe  = s.Lights & 1;
+		int masterLanding = (s.Lights >> 1) & 1;
+		int masterTaxi    = (s.Lights >> 2) & 1;
+		int masterBeacon  = (s.Lights >> 3) & 1;
+		int masterNav     = (s.Lights >> 4) & 1;
+
+		int initTaxi    = (live.InitialSpawnLights.Value >> 2) & 1;
+		int initBeacon  = (live.InitialSpawnLights.Value >> 3) & 1;
+		int initNav     = (live.InitialSpawnLights.Value >> 4) & 1;
+
+		// 4. Advanced Strobe and Landing anti-glitch logic for moving spawn (Taxi-Out)
+		int finalStrobe;
+		int finalLanding;
+
+		if (s.OnGround)
+		{
+			// SPAWN PROTECTION: If InitialSpawnLights is null (first frame) OR the aircraft is completely stopped
+			// at the parking area (< 3 knots), force the strobe and landing lights OFF to kill the initial injector glitch.
+			if (live.InitialSpawnLights is null || s.Gs < 3.0)
+			{
+				finalStrobe = 0;
+				finalLanding = 0;
+			}
+			else
+			{
+				// Check if the Master has ACTIVELY changed the light status compared to the spawn frame.
+				// If the current switch state is different from when the aircraft appeared, the pilot interacted with the controls.
+				bool masterForcedStrobe  = (masterStrobe != ((live.InitialSpawnLights.Value & 1)));
+				bool masterForcedLanding = (masterLanding != (((live.InitialSpawnLights.Value >> 1) & 1)));
+
+				// If flaps are at zero, we are in initial/final taxi -> everything off.
+				// If we are on the ground at low speed (< 30 knots) AND the pilot did not manually force the switch on the runway,
+				// then we are definitely on a taxiway (even if the spawn occurred while moving with glitched lights).
+				if (s.FlapsIndex == 0 || (s.Gs < 30.0 && !masterForcedStrobe))
+				{
+					finalStrobe = 0;
+				}
+				else
+				{
+					// We are on the runway: the aircraft is accelerating (Gs >= 30) or the Master gave the manual activation impulse (line-up)
+					finalStrobe = masterStrobe;
+				}
+
+				// Same bulletproof logic for landing lights
+				if (s.FlapsIndex == 0 || (s.Gs < 30.0 && !masterForcedLanding))
+				{
+					finalLanding = 0;
+				}
+				else
+				{
+					finalLanding = masterLanding;
+				}
+			}
+		}
+		else
+		{
+			// Airborne: the Slave directly follows the Master's state
+			finalStrobe = masterStrobe;
+			finalLanding = masterLanding;
+		}
+
+		// Standard management for other lights (Taxi, Beacon, Nav) with the new protected Beacon baseline
+		int finalTaxi    = (masterTaxi != initTaxi)       ? masterTaxi    : autoTaxi;
+		int finalBeacon  = (masterBeacon != initBeacon)   ? masterBeacon  : autoBeacon;
+		int finalNav     = (masterNav != initNav)         ? masterNav     : autoNav;
+
+		var ap = new Appearance
+		{
+			GearHandle = s.GearPct / 100.0,
+			FlapsIndex = s.FlapsIndex,
+			LightStrobe  = finalStrobe,
+			LightLanding = finalLanding,
+			LightTaxi    = finalTaxi,
+			LightBeacon  = finalBeacon,
+			LightNav     = finalNav 
+		};
+
+		if (live.LastAppearance is not { } last || !last.Equals(ap))
+		{
+			live.LastAppearance = ap;
+			var id = live.SimId;
+			_sim.Call(sim, $"Appearance {live.Index}", x => x.SetDataOnSimObject(TrafficDef.Appearance, id, SIMCONNECT_DATA_SET_FLAG.DEFAULT, ap));
+		}
+
+		if (s.EngineCount == 0 || s.EngineMask == live.LastEngines) return;
+		live.LastEngines = s.EngineMask;
+		for (var i = 1; i <= Math.Min(4, s.EngineCount); i++)
+		{
+			var def = (TrafficDef)((uint)TrafficDef.Eng1 + i - 1);
+			var state = new EngineState { Combustion = s.EngineMask >> (i - 1) & 1 };
+			var id = live.SimId;
+			_sim.Call(sim, $"Engine{i} {live.Index}", x => x.SetDataOnSimObject(def, id, SIMCONNECT_DATA_SET_FLAG.DEFAULT, state));
+		}
+	}
 
     /// <summary>
     /// Every sim frame: write each moving object's interpolated pose for this instant. The wall
